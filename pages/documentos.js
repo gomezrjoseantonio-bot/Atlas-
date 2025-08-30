@@ -1,106 +1,80 @@
 import { useState } from 'react';
+import { mockData } from '../data/mockData';
 
 export default function Page() {
   const [activeTab, setActiveTab] = useState('inbox');
   const [showQuickClose, setShowQuickClose] = useState(false);
   const [selectedInvoices, setSelectedInvoices] = useState([]);
+  const [selectedDocuments, setSelectedDocuments] = useState([]);
+  const [dragOver, setDragOver] = useState(false);
+  const [filterMonth, setFilterMonth] = useState('all');
+  const [filterProvider, setFilterProvider] = useState('all');
+  const [filterProperty, setFilterProperty] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
 
-  const mockInboxItems = [
-    {
-      id: 1,
-      date: '2024-01-15',
-      provider: 'Iberdrola',
-      file: 'factura_iberdrola_01.pdf',
-      status: 'read',
-      statusText: 'Leído'
-    },
-    {
-      id: 2,
-      date: '2024-01-12', 
-      provider: 'Reparaciones García',
-      file: 'presupuesto_fontaneria.jpg',
-      status: 'error',
-      statusText: 'Error lectura'
-    },
-    {
-      id: 3,
-      date: '2024-01-10',
-      provider: 'Comunidad Vecinos',
-      file: 'cuota_enero.pdf',
-      status: 'pending',
-      statusText: 'Listo para asignar'
+  const { documents, inboxEntries, missingInvoices, properties } = mockData;
+
+  const formatCurrency = (amount) => {
+    return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
+  };
+
+  const getStatusChipClass = (status) => {
+    switch (status) {
+      case 'Validada': return 'success';
+      case 'Pendiente': return 'warning';
+      case 'Error': return 'error';
+      case 'Listo para asignar': return 'warning';
+      case 'Leído': return 'success';
+      case 'Error lectura': return 'error';
+      case 'Pendiente de cargo': return 'warning';
+      default: return 'warning';
     }
-  ];
+  };
 
-  const mockInvoices = [
-    {
-      id: 1,
-      date: '2024-01-15',
-      provider: 'Iberdrola',
-      concept: 'Suministro eléctrico',
-      amount: 145.67,
-      category: 'Servicios',
-      property: 'C/ Mayor 12',
-      status: 'validated',
-      statusText: 'Validada'
-    },
-    {
-      id: 2,
-      date: '2024-01-12',
-      provider: 'Reparaciones García', 
-      concept: 'Reparación fontanería',
-      amount: 89.50,
-      category: 'Mantenimiento',
-      property: '',
-      status: 'pending',
-      statusText: 'Pendiente'
-    },
-    {
-      id: 3,
-      date: '2024-01-10',
-      provider: 'Comunidad Vecinos',
-      concept: 'Cuota mensual',
-      amount: 156.00,
-      category: 'Gastos comunes',
-      property: 'C/ Mayor 12',
-      status: 'expected',
-      statusText: 'Cargo previsto'
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    // Mock file upload
+    alert('Archivos subidos (simulado)');
+  };
+
+  const handleFileSelect = (e) => {
+    // Mock file selection
+    alert('Archivos seleccionados (simulado)');
+  };
+
+  const handleBulkAction = (action) => {
+    if (selectedDocuments.length === 0) {
+      alert('Selecciona al menos un documento');
+      return;
     }
-  ];
+    alert(`Acción "${action}" aplicada a ${selectedDocuments.length} documentos`);
+    setSelectedDocuments([]);
+  };
 
-  const mockMissingInvoices = [
-    {
-      id: 1,
-      provider: 'Gas Natural',
-      date: '2024-01-08',
-      amount: 67.50,
-      property: 'C/ Mayor 12'
-    },
-    {
-      id: 2,
-      provider: 'Seguro Hogar',
-      date: '2024-01-05',
-      amount: 89.20,
-      property: 'Avda. Constitución 45'
-    },
-    {
-      id: 3,
-      provider: 'Internet Fibra',
-      date: '2024-01-01',
-      amount: 45.99,
-      property: 'C/ Mayor 12'
-    }
-  ];
+  // Filter documents based on current filters
+  const filteredDocuments = documents.filter(doc => {
+    if (filterMonth !== 'all' && !doc.uploadDate.includes(`-${filterMonth}-`)) return false;
+    if (filterProvider !== 'all' && doc.provider !== filterProvider) return false;
+    if (filterProperty !== 'all' && doc.propertyId !== parseInt(filterProperty)) return false;
+    if (filterStatus !== 'all' && doc.status !== filterStatus) return false;
+    return true;
+  });
 
-  const getStatusChip = (status, text) => {
-    const statusMap = {
-      'validated': 'success',
-      'pending': 'warning', 
-      'error': 'error',
-      'expected': 'gray',
-      'read': 'success'
-    };
-    return <span className={`chip ${statusMap[status] || 'gray'}`}>{text}</span>;
+  // Calculate fiscal summary
+  const fiscalSummary = {
+    deductible: documents.filter(d => d.isDeductible && d.status === 'Validada').reduce((sum, d) => sum + d.amount, 0),
+    nonDeductible: documents.filter(d => !d.isDeductible).reduce((sum, d) => sum + d.amount, 0),
+    pending: documents.filter(d => d.status === 'Pendiente').reduce((sum, d) => sum + d.amount, 0)
   };
 
   return (<>
@@ -157,71 +131,361 @@ export default function Page() {
 
       {/* INBOX TAB */}
       {activeTab === 'inbox' && (
-        <div>
-          {/* Upload Section */}
-          <div className="card mb-4">
-            <h3 style={{margin: '0 0 16px 0'}}>Subida de documentos</h3>
+        <div className="space-y-4">
+          {/* Upload Zone */}
+          <div className="card">
+            <h3 style={{margin: '0 0 16px 0'}}>Subida de Documentos</h3>
+            
             <div 
-              className="upload-zone"
+              className={`upload-zone ${dragOver ? 'drag-over' : ''}`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
               style={{
-                border: '2px dashed var(--border)',
-                borderRadius: '8px',
+                border: `2px dashed ${dragOver ? 'var(--teal)' : 'var(--border)'}`,
+                borderRadius: '12px',
                 padding: '32px',
                 textAlign: 'center',
-                background: '#F9FAFB',
-                marginBottom: '16px'
+                background: dragOver ? '#F0FDFA' : '#F9FAFB',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
               }}
             >
-              <div style={{fontSize: '24px', marginBottom: '8px'}}>📁</div>
-              <div className="font-medium mb-2">Arrastra aquí tus facturas o suéltalas desde el correo</div>
+              <div style={{fontSize: '48px', marginBottom: '16px'}}>📁</div>
+              <div className="font-semibold mb-2">Arrastra aquí tus facturas o suéltalas desde el correo</div>
               <div className="text-sm text-gray mb-4">PDF, JPG, PNG, ZIP</div>
-              <div className="flex gap-2 justify-center">
-                <button className="btn btn-primary">Seleccionar archivos</button>
-                <button className="btn btn-secondary">Procesar con OCR</button>
-                <button className="btn btn-secondary">Limpiar</button>
-              </div>
+              <input 
+                type="file" 
+                multiple 
+                accept=".pdf,.jpg,.jpeg,.png,.zip"
+                onChange={handleFileSelect}
+                style={{display: 'none'}}
+                id="file-input"
+              />
+              <label htmlFor="file-input" className="btn btn-primary">
+                Seleccionar archivos
+              </label>
             </div>
-            <div className="text-sm text-gray">
-              💡 El OCR es simulado en esta etapa
+
+            <div className="flex gap-2 mt-4">
+              <button 
+                className="btn btn-primary"
+                onClick={() => alert('OCR procesado (simulado)')}
+              >
+                Procesar con OCR
+              </button>
+              <button 
+                className="btn btn-secondary"
+                onClick={() => alert('Archivos limpiados')}
+              >
+                Limpiar
+              </button>
+              <div className="text-sm text-gray" style={{alignSelf: 'center', marginLeft: '16px'}}>
+                💡 El OCR es simulado en esta etapa
+              </div>
             </div>
           </div>
 
           {/* Inbox Entries */}
           <div className="card">
-            <h3 style={{margin: '0 0 16px 0'}}>Entradas recientes</h3>
-            {mockInboxItems.length > 0 ? (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Proveedor</th>
-                    <th>Archivo</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mockInboxItems.map(item => (
-                    <tr key={item.id}>
-                      <td>{item.date}</td>
-                      <td>{item.provider}</td>
-                      <td className="text-sm">{item.file}</td>
-                      <td>{getStatusChip(item.status, item.statusText)}</td>
-                      <td>
-                        <div className="flex gap-1">
-                          <button className="btn btn-secondary btn-sm">Ver</button>
-                          <button className="btn btn-primary btn-sm">Enviar a Facturas</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <h3 style={{margin: '0 0 16px 0'}}>Lista de Entradas</h3>
+            
+            {inboxEntries.length === 0 ? (
+              <div style={{textAlign: 'center', padding: '48px 0', color: 'var(--gray)'}}>
+                <div style={{fontSize: '48px', marginBottom: '16px'}}>📋</div>
+                <div>Arrastra aquí tus facturas o suéltalas desde el correo.</div>
+              </div>
             ) : (
-              <div style={{textAlign: 'center', padding: '32px', color: 'var(--gray)'}}>
-                Arrastra aquí tus facturas o suéltalas desde el correo.
+              <div className="table-responsive">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Fecha email/subida</th>
+                      <th>Proveedor</th>
+                      <th>Archivo</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inboxEntries.map(entry => (
+                      <tr key={entry.id}>
+                        <td>{new Date(entry.uploadDate).toLocaleDateString('es-ES')}</td>
+                        <td>
+                          <div className="font-semibold">{entry.provider}</div>
+                        </td>
+                        <td>
+                          <div>{entry.fileName}</div>
+                          <div className="text-sm text-gray">{entry.fileSize}</div>
+                        </td>
+                        <td>
+                          <span className={`chip ${getStatusChipClass(entry.status)}`}>
+                            {entry.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="flex gap-2">
+                            <button className="btn btn-secondary btn-sm">Ver</button>
+                            {entry.status === 'Leído' && (
+                              <button 
+                                className="btn btn-primary btn-sm"
+                                onClick={() => alert('Documento enviado a tabla de Facturas')}
+                              >
+                                Enviar a Facturas
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* FACTURAS TAB */}
+      {activeTab === 'invoices' && (
+        <div className="space-y-4">
+          {/* Filters */}
+          <div className="card">
+            <div className="grid-4 gap-4">
+              <div>
+                <label className="text-sm font-medium">Mes</label>
+                <select 
+                  className="form-control"
+                  value={filterMonth}
+                  onChange={(e) => setFilterMonth(e.target.value)}
+                >
+                  <option value="all">Todos los meses</option>
+                  <option value="01">Enero</option>
+                  <option value="02">Febrero</option>
+                  <option value="03">Marzo</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Proveedor</label>
+                <select 
+                  className="form-control"
+                  value={filterProvider}
+                  onChange={(e) => setFilterProvider(e.target.value)}
+                >
+                  <option value="all">Todos los proveedores</option>
+                  {[...new Set(documents.map(d => d.provider))].map(provider => (
+                    <option key={provider} value={provider}>{provider}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Inmueble</label>
+                <select 
+                  className="form-control"
+                  value={filterProperty}
+                  onChange={(e) => setFilterProperty(e.target.value)}
+                >
+                  <option value="all">Todos los inmuebles</option>
+                  {properties.map(property => (
+                    <option key={property.id} value={property.id}>{property.address}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Estado</label>
+                <select 
+                  className="form-control"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                >
+                  <option value="all">Todos los estados</option>
+                  <option value="Validada">Validada</option>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Error">Error</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Bulk Actions Bar */}
+          {selectedDocuments.length > 0 && (
+            <div className="card" style={{background: '#EFF6FF'}}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-semibold">{selectedDocuments.length} documentos seleccionados</span>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleBulkAction('Asignar inmueble')}
+                  >
+                    Asignar inmueble
+                  </button>
+                  <button 
+                    className="btn btn-success btn-sm"
+                    onClick={() => handleBulkAction('Marcar validada')}
+                  >
+                    Marcar validada
+                  </button>
+                  <button 
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleBulkAction('Pedir duplicado')}
+                  >
+                    Pedir duplicado
+                  </button>
+                  <button 
+                    className="btn btn-error btn-sm"
+                    onClick={() => handleBulkAction('Borrar')}
+                  >
+                    Borrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Facturas Table */}
+          <div className="card">
+            <h3 style={{margin: '0 0 16px 0'}}>Tabla de Facturas</h3>
+            
+            {filteredDocuments.length === 0 ? (
+              <div style={{textAlign: 'center', padding: '48px 0', color: 'var(--gray)'}}>
+                <div style={{fontSize: '48px', marginBottom: '16px'}}>📄</div>
+                <div>Todavía no hay facturas. Sube o reenvía desde tu correo.</div>
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>
+                        <input 
+                          type="checkbox"
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedDocuments(filteredDocuments.map(d => d.id));
+                            } else {
+                              setSelectedDocuments([]);
+                            }
+                          }}
+                        />
+                      </th>
+                      <th>Fecha</th>
+                      <th>Proveedor</th>
+                      <th>Concepto</th>
+                      <th style={{textAlign: 'right'}}>Importe</th>
+                      <th>Categoría</th>
+                      <th>Inmueble</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredDocuments.map(doc => (
+                      <tr key={doc.id}>
+                        <td>
+                          <input 
+                            type="checkbox"
+                            checked={selectedDocuments.includes(doc.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDocuments([...selectedDocuments, doc.id]);
+                              } else {
+                                setSelectedDocuments(selectedDocuments.filter(id => id !== doc.id));
+                              }
+                            }}
+                          />
+                        </td>
+                        <td>{doc.uploadDate}</td>
+                        <td className="font-semibold">{doc.provider}</td>
+                        <td>{doc.concept}</td>
+                        <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
+                          {formatCurrency(doc.amount)}
+                        </td>
+                        <td>
+                          <select 
+                            className="form-control"
+                            value={doc.category}
+                            onChange={() => alert('Categoría actualizada (simulado)')}
+                          >
+                            <option value="Seguros">Seguros</option>
+                            <option value="Mantenimiento">Mantenimiento</option>
+                            <option value="Suministros">Suministros</option>
+                            <option value="Servicios">Servicios</option>
+                          </select>
+                        </td>
+                        <td>
+                          <select 
+                            className="form-control"
+                            value={doc.propertyId || ''}
+                            onChange={() => alert('Inmueble asignado (simulado)')}
+                          >
+                            <option value="">Sin asignar</option>
+                            {properties.map(property => (
+                              <option key={property.id} value={property.id}>
+                                {property.address}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td>
+                          <span className={`chip ${getStatusChipClass(doc.status)}`}>
+                            {doc.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="flex gap-1">
+                            <button className="btn btn-secondary btn-sm">Ver</button>
+                            <button className="btn btn-secondary btn-sm">Editar</button>
+                            <button className="btn btn-error btn-sm">Borrar</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Fiscal Summary */}
+          <div className="card">
+            <h3 style={{margin: '0 0 16px 0'}}>Resumen Fiscal</h3>
+            <div className="grid-3 gap-4 mb-4">
+              <div>
+                <div className="text-sm text-gray">Gastos deducibles</div>
+                <div className="font-semibold" style={{fontSize: '20px', color: 'var(--success)'}}>
+                  {formatCurrency(fiscalSummary.deductible)}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray">No deducibles</div>
+                <div className="font-semibold" style={{fontSize: '20px', color: 'var(--gray)'}}>
+                  {formatCurrency(fiscalSummary.nonDeductible)}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray">Pendientes</div>
+                <div className="font-semibold" style={{fontSize: '20px', color: 'var(--warning)'}}>
+                  {formatCurrency(fiscalSummary.pending)}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <button 
+                className="btn btn-primary"
+                onClick={() => alert('Disponible en Próximo Hito')}
+              >
+                Exportar PDF (informe fiscal)
+              </button>
+              <button 
+                className="btn btn-secondary"
+                onClick={() => alert('Disponible en Próximo Hito')}
+              >
+                Exportar Excel (deducibles)
+              </button>
+            </div>
           </div>
         </div>
       )}

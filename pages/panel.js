@@ -1,7 +1,22 @@
 import { useState } from 'react';
+import { mockData, getTotalPortfolioValue, getTotalMonthlyRent, getOccupancyRate } from '../data/mockData';
 
 export default function Page() {
   const [personalMode, setPersonalMode] = useState(false);
+
+  const { missingInvoices, personalFinances, accounts } = mockData;
+
+  const formatCurrency = (amount) => {
+    return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
+  };
+
+  // Calculate consolidated KPIs when PERSONAL is ON
+  const totalAccountBalance = accounts.reduce((sum, acc) => sum + acc.balanceToday, 0);
+  const totalPatrimony = getTotalPortfolioValue() + totalAccountBalance;
+  const monthlyPropertyIncome = getTotalMonthlyRent();
+  const monthlyPersonalIncome = personalFinances.monthlyNetSalary;
+  const totalMonthlyIncome = monthlyPropertyIncome + (personalMode ? monthlyPersonalIncome : 0);
+  const totalMonthlyExpenses = 445 + (personalMode ? personalFinances.monthlyExpenses : 0); // Mock property expenses
 
   return (<>
     <header className="header">
@@ -51,15 +66,15 @@ export default function Page() {
           <div className="grid-3 gap-4">
             <div>
               <div className="text-sm" style={{opacity: 0.8}}>Patrimonio Total</div>
-              <div className="font-semibold" style={{fontSize: '20px'}}>€847.250</div>
+              <div className="font-semibold" style={{fontSize: '20px'}}>{formatCurrency(totalPatrimony)}</div>
             </div>
             <div>
               <div className="text-sm" style={{opacity: 0.8}}>Ingresos Mes</div>
-              <div className="font-semibold" style={{fontSize: '20px'}}>€12.840</div>
+              <div className="font-semibold" style={{fontSize: '20px'}}>{formatCurrency(totalMonthlyIncome)}</div>
             </div>
             <div>
               <div className="text-sm" style={{opacity: 0.8}}>Gastos Mes</div>
-              <div className="font-semibold" style={{fontSize: '20px'}}>€8.650</div>
+              <div className="font-semibold" style={{fontSize: '20px'}}>{formatCurrency(totalMonthlyExpenses)}</div>
             </div>
           </div>
         </div>
@@ -69,10 +84,20 @@ export default function Page() {
       <div className="card mb-4" style={{borderColor: 'var(--warning)', background: '#FFFBEB'}}>
         <div className="flex items-center justify-between">
           <div>
-            <span className="font-medium" style={{color: 'var(--warning)'}}>3 gastos sin factura</span>
+            <span className="font-medium" style={{color: 'var(--warning)'}}>{missingInvoices.length} gastos sin factura</span>
             <span className="text-gray"> · Recupera deducciones (5 min)</span>
           </div>
           <a href="/documentos" className="btn btn-primary btn-sm">Resolver</a>
+        </div>
+      </div>
+
+      {/* KPI Mini - Deductible perdido */}
+      <div className="card mb-4" style={{borderColor: 'var(--error)', background: '#FEF2F2'}}>
+        <div>
+          <span className="font-medium" style={{color: 'var(--error)'}}>Deducible perdido ahora mismo: </span>
+          <span className="font-semibold" style={{color: 'var(--error)'}}>
+            {formatCurrency(missingInvoices.reduce((sum, inv) => sum + inv.amount, 0))}
+          </span>
         </div>
       </div>
 
@@ -87,118 +112,44 @@ export default function Page() {
           <div className="grid gap-4">
             <div>
               <div className="text-sm text-gray">Inmuebles en cartera</div>
-              <div className="font-semibold" style={{fontSize: '18px'}}>12 propiedades</div>
+              <div className="font-semibold" style={{fontSize: '18px'}}>{mockData.properties.length} propiedades</div>
             </div>
             <div>
               <div className="text-sm text-gray">Ocupación media</div>
-              <div className="font-semibold" style={{fontSize: '18px'}}>94.2%</div>
+              <div className="font-semibold" style={{fontSize: '18px'}}>{getOccupancyRate().toFixed(1)}%</div>
             </div>
             <div>
               <div className="text-sm text-gray">Rentabilidad bruta</div>
               <div className="font-semibold" style={{fontSize: '18px'}}>6.8%</div>
             </div>
           </div>
-          <div className="mt-4">
-            <a href="/inmuebles" className="btn btn-secondary btn-sm">Ver detalles</a>
-          </div>
         </div>
 
-        {/* PERSONAL Section - Only when enabled */}
-        {personalMode ? (
+        {personalMode && (
           <div className="card">
             <div className="flex items-center justify-between mb-4">
-              <h3 style={{margin: 0, color: 'var(--navy)'}}>PERSONAL</h3>
-              <span className="chip warning">Pendiente</span>
+              <h3 style={{margin: 0, color: 'var(--teal)'}}>PERSONAL · Finanzas</h3>
+              <span className="chip success">OK</span>
             </div>
             <div className="grid gap-4">
               <div>
-                <div className="text-sm text-gray">Saldo cuentas</div>
-                <div className="font-semibold" style={{fontSize: '18px'}}>€24.650</div>
+                <div className="text-sm text-gray">Nómina neta mensual</div>
+                <div className="font-semibold" style={{fontSize: '18px'}}>{formatCurrency(personalFinances.monthlyNetSalary)}</div>
               </div>
               <div>
-                <div className="text-sm text-gray">Gastos mes</div>
-                <div className="font-semibold" style={{fontSize: '18px'}}>€3.240</div>
+                <div className="text-sm text-gray">Gastos personales</div>
+                <div className="font-semibold" style={{fontSize: '18px'}}>{formatCurrency(personalFinances.monthlyExpenses)}</div>
               </div>
               <div>
-                <div className="text-sm text-gray">Deducciones</div>
-                <div className="font-semibold" style={{fontSize: '18px'}}>€890</div>
+                <div className="text-sm text-gray">Ahorro mensual</div>
+                <div className="font-semibold" style={{fontSize: '18px'}}>
+                  {formatCurrency(personalFinances.monthlyNetSalary - personalFinances.monthlyExpenses)}
+                </div>
               </div>
-            </div>
-            <div className="mt-4">
-              <a href="/tesoreria" className="btn btn-secondary btn-sm">Ver cuentas</a>
-            </div>
-          </div>
-        ) : (
-          <div className="card" style={{background: '#F9FAFB', border: '1px dashed var(--border)'}}>
-            <div className="text-center p-4">
-              <div className="text-gray mb-2">Activa PERSONAL para ver finanzas consolidadas</div>
-              <button 
-                onClick={() => setPersonalMode(true)}
-                className="btn btn-primary btn-sm"
-              >
-                Activar PERSONAL
-              </button>
             </div>
           </div>
         )}
       </div>
-
-      {/* Quick Actions */}
-      <div className="mt-4">
-        <h3 style={{color: 'var(--navy)', fontSize: '16px', marginBottom: '16px'}}>Acciones rápidas</h3>
-        <div className="flex gap-2">
-          <a href="/documentos" className="btn btn-secondary">📄 Subir factura</a>
-          <a href="/inmuebles" className="btn btn-secondary">🏠 Nuevo inmueble</a>
-          <a href="/tesoreria" className="btn btn-secondary">💳 Revisar cuentas</a>
-        </div>
-      </div>
     </main>
-
-    <style jsx>{`
-      .toggle {
-        position: relative;
-        display: inline-block;
-        width: 44px;
-        height: 24px;
-      }
-      
-      .toggle input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-      }
-      
-      .slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: #E5E7EB;
-        transition: 0.2s;
-        border-radius: 24px;
-      }
-      
-      .slider:before {
-        position: absolute;
-        content: "";
-        height: 18px;
-        width: 18px;
-        left: 3px;
-        bottom: 3px;
-        background-color: white;
-        transition: 0.2s;
-        border-radius: 50%;
-      }
-      
-      input:checked + .slider {
-        background-color: var(--teal);
-      }
-      
-      input:checked + .slider:before {
-        transform: translateX(20px);
-      }
-    `}</style>
   </>);
 }

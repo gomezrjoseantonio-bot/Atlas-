@@ -1,7 +1,11 @@
 import { useState } from 'react';
+import { mockData } from '../data/mockData';
 
 export default function Page() {
-  const [activeSection, setActiveSection] = useState('perfil');
+  const [activeSection, setActiveSection] = useState('bancos');
+  const [personalToggle, setPersonalToggle] = useState(true);
+
+  const { accounts, users } = mockData;
 
   return (<>
     <header className="header">
@@ -34,59 +38,328 @@ export default function Page() {
       {/* Section Navigation */}
       <div className="flex gap-1 mb-4">
         <button 
-          onClick={() => setActiveSection('perfil')}
-          className={`btn ${activeSection === 'perfil' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+          onClick={() => setActiveSection('bancos')}
+          className={`btn ${activeSection === 'bancos' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
         >
-          👤 Perfil
+          🏦 Bancos & Cuentas
         </button>
         <button 
-          onClick={() => setActiveSection('inmuebles')}
-          className={`btn ${activeSection === 'inmuebles' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+          onClick={() => setActiveSection('plan')}
+          className={`btn ${activeSection === 'plan' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
         >
-          🏠 Inmuebles
+          💳 Plan & Facturación
         </button>
         <button 
-          onClick={() => setActiveSection('fiscal')}
-          className={`btn ${activeSection === 'fiscal' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+          onClick={() => setActiveSection('usuarios')}
+          className={`btn ${activeSection === 'usuarios' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
         >
-          📊 Fiscal
+          👥 Usuarios & Roles
         </button>
         <button 
-          onClick={() => setActiveSection('avanzado')}
-          className={`btn ${activeSection === 'avanzado' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+          onClick={() => setActiveSection('preferencias')}
+          className={`btn ${activeSection === 'preferencias' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
         >
-          ⚙️ Avanzado
+          ⚙️ Preferencias & Datos
         </button>
       </div>
 
-      {/* PERFIL SECTION */}
-      {activeSection === 'perfil' && (
-        <div className="grid gap-4">
+      {/* Bancos & Cuentas */}
+      {activeSection === 'bancos' && (
+        <div className="space-y-4">
           <div className="card">
-            <h3 style={{margin: '0 0 16px 0'}}>Información Personal</h3>
-            <div className="grid gap-4">
+            <h3 style={{margin: '0 0 16px 0'}}>Cuentas Bancarias</h3>
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Banco</th>
+                    <th>Nombre de la cuenta</th>
+                    <th>IBAN</th>
+                    <th style={{textAlign: 'right'}}>Saldo actual</th>
+                    <th>Alias</th>
+                    <th>Ocultar en panel</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {accounts.map(account => (
+                    <tr key={account.id}>
+                      <td className="font-semibold">{account.bank}</td>
+                      <td>{account.name}</td>
+                      <td className="text-sm text-gray">{account.iban}</td>
+                      <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
+                        €{account.balanceToday.toLocaleString('es-ES', {minimumFractionDigits: 2})}
+                      </td>
+                      <td>
+                        <input 
+                          type="text" 
+                          className="form-control"
+                          defaultValue={account.name}
+                          style={{width: '120px'}}
+                        />
+                      </td>
+                      <td>
+                        <label className="toggle">
+                          <input 
+                            type="checkbox" 
+                            checked={account.hidden}
+                            onChange={() => alert('Toggle simulado')}
+                          />
+                          <span className="slider"></span>
+                        </label>
+                      </td>
+                      <td>
+                        <div className="flex gap-1">
+                          <button className="btn btn-secondary btn-sm">Editar</button>
+                          <button className="btn btn-error btn-sm">Eliminar</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button className="btn btn-primary mt-4">+ Conectar nueva cuenta</button>
+          </div>
+        </div>
+      )}
+
+      {/* Plan & Facturación */}
+      {activeSection === 'plan' && (
+        <div className="space-y-4">
+          <div className="card">
+            <h3 style={{margin: '0 0 16px 0'}}>Plan Actual</h3>
+            <div className="flex items-center justify-between p-4" style={{background: '#F0FDFA', borderRadius: '8px', border: '1px solid var(--teal)'}}>
               <div>
-                <label className="text-sm font-medium mb-1">Nombre completo</label>
-                <input type="text" className="input" defaultValue="José Antonio Gómez" style={{width: '100%'}} />
+                <div className="font-semibold" style={{fontSize: '18px'}}>Plan Free</div>
+                <div className="text-sm text-gray">Hasta 3 inmuebles · Funciones básicas</div>
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1">Email</label>
-                <input type="email" className="input" defaultValue="jose@example.com" style={{width: '100%'}} />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1">Teléfono</label>
-                <input type="tel" className="input" defaultValue="+34 600 123 456" style={{width: '100%'}} />
+              <div className="text-right">
+                <div className="font-semibold" style={{fontSize: '20px', color: 'var(--teal)'}}>€0/mes</div>
+                <button className="btn btn-primary btn-sm mt-2">Actualizar a Pro</button>
               </div>
             </div>
           </div>
 
           <div className="card">
-            <h3 style={{margin: '0 0 16px 0'}}>Preferencias</h3>
+            <h3 style={{margin: '0 0 16px 0'}}>Planes Disponibles</h3>
+            <div className="grid-2 gap-4">
+              <div className="card" style={{background: '#F9FAFB'}}>
+                <div className="font-semibold mb-2">Plan Pro</div>
+                <div className="font-semibold" style={{fontSize: '24px', color: 'var(--navy)'}}>€29/mes</div>
+                <div className="text-sm text-gray mb-4">Facturado anualmente</div>
+                <ul className="text-sm" style={{listStyle: 'none', padding: 0}}>
+                  <li style={{marginBottom: '8px'}}>✅ Inmuebles ilimitados</li>
+                  <li style={{marginBottom: '8px'}}>✅ Análisis avanzados</li>
+                  <li style={{marginBottom: '8px'}}>✅ Exportación fiscal</li>
+                  <li style={{marginBottom: '8px'}}>✅ Soporte prioritario</li>
+                </ul>
+                <button className="btn btn-primary">Seleccionar</button>
+              </div>
+              <div className="card" style={{background: '#F9FAFB'}}>
+                <div className="font-semibold mb-2">Plan Enterprise</div>
+                <div className="font-semibold" style={{fontSize: '24px', color: 'var(--navy)'}}>€99/mes</div>
+                <div className="text-sm text-gray mb-4">Facturado anualmente</div>
+                <ul className="text-sm" style={{listStyle: 'none', padding: 0}}>
+                  <li style={{marginBottom: '8px'}}>✅ Todo lo de Pro</li>
+                  <li style={{marginBottom: '8px'}}>✅ Multi-empresa</li>
+                  <li style={{marginBottom: '8px'}}>✅ API completa</li>
+                  <li style={{marginBottom: '8px'}}>✅ Gestión de equipos</li>
+                </ul>
+                <button className="btn btn-secondary">Contactar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Usuarios & Roles */}
+      {activeSection === 'usuarios' && (
+        <div className="space-y-4">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 style={{margin: 0}}>Usuarios del equipo</h3>
+              <button className="btn btn-primary">+ Invitar usuario</button>
+            </div>
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Usuario</th>
+                    <th>Email</th>
+                    <th>Rol</th>
+                    <th>Último acceso</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map(user => (
+                    <tr key={user.id}>
+                      <td className="font-semibold">{user.name}</td>
+                      <td>{user.email}</td>
+                      <td>
+                        <span className={`chip ${user.role === 'Administrador' ? 'success' : 'gray'}`}>
+                          {user.role}
+                        </span>
+                      </td>
+                      <td>{new Date(user.lastLogin).toLocaleDateString('es-ES')}</td>
+                      <td>
+                        <span className={`chip ${user.status === 'Activo' ? 'success' : 'error'}`}>
+                          {user.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex gap-1">
+                          <button className="btn btn-secondary btn-sm">Editar</button>
+                          {user.id !== 1 && (
+                            <button className="btn btn-error btn-sm">Eliminar</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="card">
+            <h3 style={{margin: '0 0 16px 0'}}>Roles y Permisos</h3>
+            <div className="grid-2 gap-4">
+              <div>
+                <div className="font-semibold mb-2">Administrador</div>
+                <div className="text-sm text-gray mb-3">Acceso completo a todas las funciones</div>
+                <div className="text-sm">
+                  ✅ Gestionar inmuebles<br/>
+                  ✅ Ver finanzas<br/>
+                  ✅ Gestionar usuarios<br/>
+                  ✅ Configuración
+                </div>
+              </div>
+              <div>
+                <div className="font-semibold mb-2">Gestor</div>
+                <div className="text-sm text-gray mb-3">Acceso a gestión de inmuebles y documentos</div>
+                <div className="text-sm">
+                  ✅ Gestionar inmuebles<br/>
+                  ✅ Subir documentos<br/>
+                  ❌ Ver finanzas completas<br/>
+                  ❌ Gestionar usuarios
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preferencias & Datos */}
+      {activeSection === 'preferencias' && (
+        <div className="space-y-4">
+          <div className="card">
+            <h3 style={{margin: '0 0 16px 0'}}>Preferencias Generales</h3>
+            <div className="grid-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Switch Personal ON/OFF</label>
+                <div className="flex items-center gap-2 mt-2">
+                  <label className="toggle">
+                    <input 
+                      type="checkbox" 
+                      checked={personalToggle}
+                      onChange={(e) => setPersonalToggle(e.target.checked)}
+                    />
+                    <span className="slider"></span>
+                  </label>
+                  <span className="text-sm text-gray">
+                    {personalToggle ? 'Mostrar finanzas personales' : 'Solo mostrar inmuebles'}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Idioma</label>
+                <select className="form-control">
+                  <option value="es">Español (ES)</option>
+                  <option value="en">English (EN)</option>
+                  <option value="fr">Français (FR)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Zona horaria</label>
+                <select className="form-control">
+                  <option value="Europe/Madrid">Europa/Madrid (CET)</option>
+                  <option value="Europe/London">Europa/Londres (GMT)</option>
+                  <option value="America/New_York">América/Nueva York (EST)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Formato de fecha</label>
+                <select className="form-control">
+                  <option value="dd/mm/yyyy">DD/MM/YYYY</option>
+                  <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+                  <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <h3 style={{margin: '0 0 16px 0'}}>Importar / Exportar Datos</h3>
+            <div className="grid-2 gap-4">
+              <div>
+                <h4 style={{margin: '0 0 12px 0', fontSize: '16px'}}>Importar</h4>
+                <div className="space-y-3">
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={() => alert('Disponible en Próximo Hito')}
+                  >
+                    📊 Importar CSV (inmuebles)
+                  </button>
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={() => alert('Disponible en Próximo Hito')}
+                  >
+                    📄 Importar facturas (ZIP)
+                  </button>
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={() => alert('Disponible en Próximo Hito')}
+                  >
+                    🏦 Importar movimientos bancarios
+                  </button>
+                </div>
+              </div>
+              <div>
+                <h4 style={{margin: '0 0 12px 0', fontSize: '16px'}}>Exportar</h4>
+                <div className="space-y-3">
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={() => alert('Disponible en Próximo Hito')}
+                  >
+                    📊 Exportar todo (CSV)
+                  </button>
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={() => alert('Disponible en Próximo Hito')}
+                  >
+                    📄 Backup completo (JSON)
+                  </button>
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={() => alert('Disponible en Próximo Hito')}
+                  >
+                    🧾 Informe fiscal anual
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <h3 style={{margin: '0 0 16px 0'}}>Notificaciones</h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium">Modo PERSONAL</div>
-                  <div className="text-sm text-gray">Incluir finanzas personales en el panel</div>
+                  <div className="font-semibold">Alertas de saldo bajo</div>
+                  <div className="text-sm text-gray">Notificar cuando una cuenta esté por debajo del objetivo</div>
                 </div>
                 <label className="toggle">
                   <input type="checkbox" defaultChecked />
@@ -95,8 +368,8 @@ export default function Page() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium">Notificaciones por email</div>
-                  <div className="text-sm text-gray">Recibir alertas de pagos y vencimientos</div>
+                  <div className="font-semibold">Vencimiento de contratos</div>
+                  <div className="text-sm text-gray">Recordatorios 30 días antes del vencimiento</div>
                 </div>
                 <label className="toggle">
                   <input type="checkbox" defaultChecked />
@@ -105,11 +378,11 @@ export default function Page() {
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium">Recordatorios móviles</div>
-                  <div className="text-sm text-gray">Push notifications en el móvil</div>
+                  <div className="font-semibold">Documentos pendientes</div>
+                  <div className="text-sm text-gray">Recordatorio semanal de facturas sin procesar</div>
                 </div>
                 <label className="toggle">
-                  <input type="checkbox" />
+                  <input type="checkbox" defaultChecked />
                   <span className="slider"></span>
                 </label>
               </div>
@@ -117,231 +390,6 @@ export default function Page() {
           </div>
         </div>
       )}
-
-      {/* INMUEBLES SECTION */}
-      {activeSection === 'inmuebles' && (
-        <div className="grid gap-4">
-          <div className="card">
-            <h3 style={{margin: '0 0 16px 0'}}>Configuración de Inmuebles</h3>
-            <div className="grid gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1">Incremento anual por defecto</label>
-                <div className="flex gap-2">
-                  <input type="number" className="input" defaultValue="2.5" style={{width: '100px'}} />
-                  <span className="flex items-center">%</span>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1">Fianza estándar</label>
-                <div className="flex gap-2">
-                  <input type="number" className="input" defaultValue="2" style={{width: '100px'}} />
-                  <span className="flex items-center">meses de alquiler</span>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1">Comisión gestión (%)</label>
-                <input type="number" className="input" defaultValue="8" style={{width: '100px'}} />
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <h3 style={{margin: '0 0 16px 0'}}>Tipos de Inmueble</h3>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between p-2" style={{background: '#F9FAFB', borderRadius: '6px'}}>
-                <span>🏠 Piso</span>
-                <button className="btn btn-secondary btn-sm">Editar</button>
-              </div>
-              <div className="flex items-center justify-between p-2" style={{background: '#F9FAFB', borderRadius: '6px'}}>
-                <span>🏢 Local comercial</span>
-                <button className="btn btn-secondary btn-sm">Editar</button>
-              </div>
-              <div className="flex items-center justify-between p-2" style={{background: '#F9FAFB', borderRadius: '6px'}}>
-                <span>🏘️ Casa</span>
-                <button className="btn btn-secondary btn-sm">Editar</button>
-              </div>
-            </div>
-            <button className="btn btn-secondary btn-sm mt-3">+ Nuevo tipo</button>
-          </div>
-        </div>
-      )}
-
-      {/* FISCAL SECTION */}
-      {activeSection === 'fiscal' && (
-        <div className="grid gap-4">
-          <div className="card">
-            <h3 style={{margin: '0 0 16px 0'}}>Configuración Fiscal</h3>
-            <div className="grid gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1">NIF/CIF</label>
-                <input type="text" className="input" defaultValue="12345678Z" style={{width: '200px'}} />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1">Régimen fiscal</label>
-                <select className="select" style={{width: '250px'}}>
-                  <option>Estimación directa simplificada</option>
-                  <option>Estimación directa normal</option>
-                  <option>Estimación objetiva</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1">Trimestre actual</label>
-                <select className="select" style={{width: '150px'}}>
-                  <option>1T 2024</option>
-                  <option>2T 2024</option>
-                  <option>3T 2024</option>
-                  <option>4T 2024</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <h3 style={{margin: '0 0 16px 0'}}>Categorías de Gastos</h3>
-            <div className="space-y-2">
-              {['Suministros', 'Mantenimiento', 'Seguros', 'Gastos comunidad', 'IBI', 'Gestión'].map(category => (
-                <div key={category} className="flex items-center justify-between p-2" style={{background: '#F9FAFB', borderRadius: '6px'}}>
-                  <span>{category}</span>
-                  <div className="flex gap-1">
-                    <span className="chip success">Deducible</span>
-                    <button className="btn btn-secondary btn-sm">Editar</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button className="btn btn-secondary btn-sm mt-3">+ Nueva categoría</button>
-          </div>
-        </div>
-      )}
-
-      {/* AVANZADO SECTION */}
-      {activeSection === 'avanzado' && (
-        <div className="grid gap-4">
-          <div className="card">
-            <h3 style={{margin: '0 0 16px 0'}}>Integraciones</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Conexión bancaria</div>
-                  <div className="text-sm text-gray">Sincronización automática con cuentas</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="chip success">Conectado</span>
-                  <button className="btn btn-secondary btn-sm">Gestionar</button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Google Drive</div>
-                  <div className="text-sm text-gray">Backup automático de documentos</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="chip gray">No conectado</span>
-                  <button className="btn btn-primary btn-sm">Conectar</button>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Asesoría fiscal</div>
-                  <div className="text-sm text-gray">Compartir datos con gestoria</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="chip warning">Pendiente</span>
-                  <button className="btn btn-secondary btn-sm">Configurar</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <h3 style={{margin: '0 0 16px 0'}}>Datos y Privacidad</h3>
-            <div className="space-y-3">
-              <button className="btn btn-secondary" style={{width: '100%', justifyContent: 'flex-start'}}>
-                📥 Exportar todos los datos
-              </button>
-              <button className="btn btn-secondary" style={{width: '100%', justifyContent: 'flex-start'}}>
-                🗄️ Hacer backup completo
-              </button>
-              <button className="btn btn-secondary" style={{width: '100%', justifyContent: 'flex-start'}}>
-                🔐 Gestionar permisos
-              </button>
-              <div style={{borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '16px'}}>
-                <button className="btn" style={{background: 'var(--error)', color: '#fff', width: '100%', justifyContent: 'flex-start'}}>
-                  🗑️ Eliminar cuenta permanentemente
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <h3 style={{margin: '0 0 16px 0'}}>Información del Sistema</h3>
-            <div className="text-sm text-gray space-y-1">
-              <div>Versión ATLAS: 2.1.4</div>
-              <div>Última actualización: 15/01/2024</div>
-              <div>Base de datos: 2.4 MB</div>
-              <div>Documentos: 847 MB</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Save Button */}
-      <div className="mt-6 flex gap-2 justify-end">
-        <button className="btn btn-secondary">Cancelar</button>
-        <button className="btn btn-primary">💾 Guardar cambios</button>
-      </div>
     </main>
-
-    <style jsx>{`
-      .toggle {
-        position: relative;
-        display: inline-block;
-        width: 44px;
-        height: 24px;
-      }
-      
-      .toggle input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-      }
-      
-      .slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: #E5E7EB;
-        transition: 0.2s;
-        border-radius: 24px;
-      }
-      
-      .slider:before {
-        position: absolute;
-        content: "";
-        height: 18px;
-        width: 18px;
-        left: 3px;
-        bottom: 3px;
-        background-color: white;
-        transition: 0.2s;
-        border-radius: 50%;
-      }
-      
-      input:checked + .slider {
-        background-color: var(--teal);
-      }
-      
-      input:checked + .slider:before {
-        transform: translateX(20px);
-      }
-
-      .space-y-1 > * + * { margin-top: 4px; }
-      .space-y-2 > * + * { margin-top: 8px; }
-      .space-y-3 > * + * { margin-top: 12px; }
-      .space-y-4 > * + * { margin-top: 16px; }
-    `}</style>
   </>);
 }
