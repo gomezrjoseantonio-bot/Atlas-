@@ -28,6 +28,10 @@ class AtlasStore {
       predictedItems: [],
       rulesEngineEnabled: true,
       lastRulesRun: null,
+      // QA Toolkit
+      qaMode: false,
+      activeSeed: null,
+      qaEvents: [],
       // HITO 7: Multi-unit and allocation system
       units: [], // Units belonging to multi-unit properties
       unitContracts: [], // Contracts per unit
@@ -126,6 +130,10 @@ class AtlasStore {
 
   // Reset to demo data
   resetDemo() {
+    // Preserve QA settings
+    const qaMode = this.state.qaMode;
+    const qaEvents = this.state.qaEvents || [];
+    
     this.state = {
       accounts: [...mockData.accounts],
       properties: [...mockData.properties],
@@ -143,6 +151,10 @@ class AtlasStore {
       predictedItems: [...mockData.predictedItems],
       rulesEngineEnabled: true,
       lastRulesRun: null,
+      // QA Toolkit (preserve across resets)
+      qaMode,
+      activeSeed: 'default',
+      qaEvents: [...qaEvents, { type: 'demo_reset', timestamp: new Date().toISOString() }],
       // HITO 7: Multi-unit data
       units: [...(mockData.units || [])],
       unitContracts: [...(mockData.unitContracts || [])],
@@ -896,6 +908,612 @@ class AtlasStore {
       [key]: allocation
     };
     this.setState({ allocationPreferences });
+  }
+
+  // QA Toolkit Methods
+  
+  // Toggle QA Mode
+  toggleQAMode() {
+    const qaMode = !this.state.qaMode;
+    this.setState({ 
+      qaMode,
+      qaEvents: [...(this.state.qaEvents || []), {
+        type: qaMode ? 'qa_mode_enabled' : 'qa_mode_disabled',
+        timestamp: new Date().toISOString()
+      }]
+    });
+  }
+
+  // Load specific seed data
+  loadSeed(seedType) {
+    const seeds = this.getSeeds();
+    const seed = seeds[seedType];
+    
+    if (!seed) {
+      console.error(`Seed ${seedType} not found`);
+      return;
+    }
+
+    // Preserve QA settings
+    const qaMode = this.state.qaMode;
+    const qaEvents = [...(this.state.qaEvents || []), {
+      type: 'seed_loaded',
+      seedType,
+      timestamp: new Date().toISOString()
+    }];
+
+    this.state = {
+      ...seed,
+      qaMode,
+      activeSeed: seedType,
+      qaEvents,
+      lastUpdate: new Date().toISOString()
+    };
+    
+    this.save();
+    this.notifySubscribers();
+  }
+
+  // Get all available seeds
+  getSeeds() {
+    return {
+      A: this.getSeedA(),
+      B: this.getSeedB(), 
+      C: this.getSeedC()
+    };
+  }
+
+  // Seed A (Simple): 1 property, 2 accounts, 1 loan, 4 invoices
+  getSeedA() {
+    return {
+      accounts: [
+        {
+          id: 1,
+          name: 'Cuenta Principal',
+          bank: 'BBVA',
+          iban: 'ES21 0182 1111 ****',
+          balanceToday: 15000,
+          balanceT7: 15200,
+          balanceT30: 14800,
+          targetBalance: 15000,
+          health: 'good',
+          hidden: false
+        },
+        {
+          id: 2,
+          name: 'Cuenta Gastos',
+          bank: 'Santander',
+          iban: 'ES45 0049 2222 ****',
+          balanceToday: 8500,
+          balanceT7: 8200,
+          balanceT30: 8000,
+          targetBalance: 8000,
+          health: 'excellent',
+          hidden: false
+        }
+      ],
+      properties: [
+        {
+          id: 1,
+          address: 'Calle Ejemplo 123, 2ºA',
+          city: 'Madrid',
+          type: 'Piso',
+          purchaseDate: '2020-01-15',
+          purchasePrice: 180000,
+          currentValue: 195000,
+          monthlyRent: 1200,
+          monthlyExpenses: 200,
+          netProfit: 1000,
+          rentability: 6.7,
+          occupancy: 100,
+          tenant: 'Ana García',
+          contractStart: '2023-01-01',
+          contractEnd: '2024-12-31',
+          status: 'Ocupado',
+          multiUnit: false
+        }
+      ],
+      loans: [
+        {
+          id: 1,
+          propertyId: 1,
+          bank: 'BBVA',
+          product: 'Hipoteca estándar',
+          originalAmount: 140000,
+          pendingCapital: 120000,
+          interestRate: 2.5,
+          interestType: 'variable',
+          monthlyPayment: 650,
+          remainingMonths: 180,
+          startDate: '2020-01-15',
+          endDate: '2035-01-15'
+        }
+      ],
+      documents: [
+        {
+          id: 1,
+          uploadDate: '2024-01-10',
+          provider: 'Endesa',
+          amount: 85,
+          description: 'Factura electricidad',
+          category: 'Suministros',
+          type: 'Factura',
+          status: 'Pendiente',
+          recurrence: 'monthly'
+        },
+        {
+          id: 2,
+          uploadDate: '2024-01-12',
+          provider: 'Comunidad',
+          amount: 120,
+          description: 'Gastos comunidad',
+          category: 'Fijos',
+          type: 'Factura',
+          status: 'Pendiente',
+          recurrence: 'monthly'
+        },
+        {
+          id: 3,
+          uploadDate: '2024-01-15',
+          provider: 'Canal Isabel II',
+          amount: 45,
+          description: 'Factura agua',
+          category: 'Suministros',
+          type: 'Factura',
+          status: 'Pendiente',
+          recurrence: 'monthly'
+        },
+        {
+          id: 4,
+          uploadDate: '2024-01-20',
+          provider: 'Mapfre',
+          amount: 35,
+          description: 'Seguro hogar',
+          category: 'Seguros',
+          type: 'Factura',
+          status: 'Pendiente',
+          recurrence: 'monthly'
+        }
+      ],
+      movements: [],
+      alerts: [],
+      inboxEntries: [],
+      missingInvoices: [],
+      users: mockData.users,
+      treasuryRules: mockData.treasuryRules,
+      scheduledPayments: [],
+      providerRules: mockData.providerRules,
+      sweepConfig: mockData.sweepConfig,
+      predictedItems: [],
+      rulesEngineEnabled: true,
+      lastRulesRun: null,
+      units: [],
+      unitContracts: [],
+      allocationPreferences: {},
+      expenseFamilies: [
+        { id: 'acquisition', name: 'Adquisición', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
+        { id: 'improvement', name: 'Mejora / CAPEX', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
+        { id: 'maintenance', name: 'Mantenimiento / Reparación', defaultTreatment: 'deductible', defaultAllocation: 'specific' },
+        { id: 'financing_interest', name: 'Financiación – Intereses', defaultTreatment: 'deductible', defaultAllocation: 'units' },
+        { id: 'financing_fees', name: 'Financiación – Comisiones/Formalización', defaultTreatment: 'capitalizable', defaultAllocation: 'units' },
+        { id: 'operational_fixed', name: 'Explotación – Fijos', defaultTreatment: 'deductible', defaultAllocation: 'total' },
+        { id: 'operational_variable', name: 'Explotación – Variables (Suministros)', defaultTreatment: 'deductible', defaultAllocation: 'occupied' },
+        { id: 'other_owner', name: 'Otros / Propietario', defaultTreatment: 'no_deductible', defaultAllocation: 'no_divide' }
+      ]
+    };
+  }
+
+  // Seed B (Multi-unit): 1 property with 5 rooms
+  getSeedB() {
+    return {
+      accounts: [
+        {
+          id: 1,
+          name: 'Cuenta Principal',
+          bank: 'BBVA',
+          iban: 'ES21 0182 1111 ****',
+          balanceToday: 25000,
+          balanceT7: 24800,
+          balanceT30: 25200,
+          targetBalance: 25000,
+          health: 'excellent',
+          hidden: false
+        },
+        {
+          id: 2,
+          name: 'Cuenta Gastos',
+          bank: 'Santander',
+          iban: 'ES45 0049 2222 ****',
+          balanceToday: 12000,
+          balanceT7: 11800,
+          balanceT30: 12200,
+          targetBalance: 12000,
+          health: 'good',
+          hidden: false
+        }
+      ],
+      properties: [
+        {
+          id: 1,
+          address: 'Calle Multi 456, Piso Compartido',
+          city: 'Madrid',
+          type: 'Piso compartido',
+          purchaseDate: '2021-06-01',
+          purchasePrice: 250000,
+          currentValue: 270000,
+          monthlyRent: 1910,
+          monthlyExpenses: 400,
+          netProfit: 1510,
+          rentability: 7.2,
+          occupancy: 80,
+          tenant: 'Varios inquilinos',
+          contractStart: '2024-01-01',
+          contractEnd: '2024-12-31',
+          status: 'Parcialmente ocupado',
+          multiUnit: true,
+          totalUnits: 5,
+          occupiedUnits: 4
+        }
+      ],
+      units: [
+        { id: 1, propertyId: 1, name: 'H1', sqm: 8, monthlyRent: 320, status: 'Ocupada' },
+        { id: 2, propertyId: 1, name: 'H2', sqm: 9, monthlyRent: 350, status: 'Ocupada' },
+        { id: 3, propertyId: 1, name: 'H3', sqm: 12, monthlyRent: 400, status: 'Ocupada' },
+        { id: 4, propertyId: 1, name: 'H4', sqm: 12, monthlyRent: 400, status: 'Ocupada' },
+        { id: 5, propertyId: 1, name: 'H5', sqm: 15, monthlyRent: 440, status: 'Libre' }
+      ],
+      unitContracts: [
+        {
+          id: 1,
+          unitId: 1,
+          type: 'Alquiler',
+          tenant: 'Pedro Martín',
+          startDate: '2024-01-01',
+          endDate: '2024-12-31',
+          monthlyAmount: 320,
+          status: 'Activo'
+        },
+        {
+          id: 2,
+          unitId: 2,
+          type: 'Alquiler',
+          tenant: 'Laura Sánchez',
+          startDate: '2024-01-01',
+          endDate: '2024-12-31',
+          monthlyAmount: 350,
+          status: 'Activo'
+        },
+        {
+          id: 3,
+          unitId: 3,
+          type: 'Alquiler',
+          tenant: 'Miguel Ruiz',
+          startDate: '2024-01-15',
+          endDate: '2024-12-31',
+          monthlyAmount: 400,
+          status: 'Activo'
+        },
+        {
+          id: 4,
+          unitId: 4,
+          type: 'Alquiler',
+          tenant: 'Sofia López',
+          startDate: '2024-01-01',
+          endDate: '2024-12-31',
+          monthlyAmount: 400,
+          status: 'Activo'
+        }
+      ],
+      loans: [],
+      documents: [
+        {
+          id: 1,
+          uploadDate: '2024-01-10',
+          provider: 'Endesa',
+          amount: 120,
+          description: 'Factura electricidad',
+          category: 'Suministros',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'occupied'
+        },
+        {
+          id: 2,
+          uploadDate: '2024-01-10',
+          provider: 'Canal Isabel II',
+          amount: 60,
+          description: 'Factura agua',
+          category: 'Suministros',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'occupied'
+        },
+        {
+          id: 3,
+          uploadDate: '2024-01-10',
+          provider: 'Movistar',
+          amount: 40,
+          description: 'Internet fibra',
+          category: 'Suministros',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'occupied'
+        },
+        {
+          id: 4,
+          uploadDate: '2024-01-15',
+          provider: 'Comunidad',
+          amount: 80,
+          description: 'Gastos comunidad',
+          category: 'Fijos',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'total'
+        },
+        {
+          id: 5,
+          uploadDate: '2024-01-15',
+          provider: 'Ayuntamiento',
+          amount: 150,
+          description: 'IBI',
+          category: 'Fijos',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'total'
+        },
+        {
+          id: 6,
+          uploadDate: '2024-01-20',
+          provider: 'Cerrajería López',
+          amount: 45,
+          description: 'Cambio cerradura H3',
+          category: 'Mantenimiento',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'specific',
+          specificUnit: 'H3'
+        },
+        {
+          id: 7,
+          uploadDate: '2024-01-25',
+          provider: 'Ventanas Pro',
+          amount: 1500,
+          description: 'Cambio ventanas',
+          category: 'CAPEX',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'sqm'
+        },
+        {
+          id: 8,
+          uploadDate: '2024-01-30',
+          provider: 'BBVA',
+          amount: 210,
+          description: 'Intereses hipoteca',
+          category: 'Financiación',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'units'
+        },
+        {
+          id: 9,
+          uploadDate: '2024-01-30',
+          provider: 'Gestora ABC',
+          amount: 300,
+          description: 'Comisión gestión',
+          category: 'Gestión',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'units'
+        }
+      ],
+      movements: [],
+      alerts: [],
+      inboxEntries: [],
+      missingInvoices: [],
+      users: mockData.users,
+      treasuryRules: mockData.treasuryRules,
+      scheduledPayments: [],
+      providerRules: mockData.providerRules,
+      sweepConfig: mockData.sweepConfig,
+      predictedItems: [],
+      rulesEngineEnabled: true,
+      lastRulesRun: null,
+      allocationPreferences: {
+        'Endesa_Suministros': { method: 'occupied', lastUsed: '2024-01-10' },
+        'Canal_Suministros': { method: 'occupied', lastUsed: '2024-01-10' },
+        'Movistar_Suministros': { method: 'occupied', lastUsed: '2024-01-10' },
+        'Comunidad_Fijos': { method: 'total', lastUsed: '2024-01-15' }
+      },
+      expenseFamilies: [
+        { id: 'acquisition', name: 'Adquisición', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
+        { id: 'improvement', name: 'Mejora / CAPEX', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
+        { id: 'maintenance', name: 'Mantenimiento / Reparación', defaultTreatment: 'deductible', defaultAllocation: 'specific' },
+        { id: 'financing_interest', name: 'Financiación – Intereses', defaultTreatment: 'deductible', defaultAllocation: 'units' },
+        { id: 'financing_fees', name: 'Financiación – Comisiones/Formalización', defaultTreatment: 'capitalizable', defaultAllocation: 'units' },
+        { id: 'operational_fixed', name: 'Explotación – Fijos', defaultTreatment: 'deductible', defaultAllocation: 'total' },
+        { id: 'operational_variable', name: 'Explotación – Variables (Suministros)', defaultTreatment: 'deductible', defaultAllocation: 'occupied' },
+        { id: 'other_owner', name: 'Otros / Propietario', defaultTreatment: 'no_deductible', defaultAllocation: 'no_divide' }
+      ]
+    };
+  }
+
+  // Seed C (Edge cases): overlapping contracts, custom percentages
+  getSeedC() {
+    return {
+      accounts: [
+        {
+          id: 1,
+          name: 'Cuenta Principal',
+          bank: 'BBVA',
+          iban: 'ES21 0182 1111 ****',
+          balanceToday: 18000,
+          balanceT7: 17500,
+          balanceT30: 18200,
+          targetBalance: 18000,
+          health: 'good',
+          hidden: false
+        }
+      ],
+      properties: [
+        {
+          id: 1,
+          address: 'Calle Bordes 789, Casos Límite',
+          city: 'Barcelona',
+          type: 'Piso',
+          purchaseDate: '2022-03-01',
+          purchasePrice: 200000,
+          currentValue: 215000,
+          monthlyRent: 1100,
+          monthlyExpenses: 250,
+          netProfit: 850,
+          rentability: 6.2,
+          occupancy: 100,
+          tenant: 'Contrato Complejo',
+          contractStart: '2024-01-15',
+          contractEnd: '2024-12-31',
+          status: 'Ocupado',
+          multiUnit: true,
+          totalUnits: 2,
+          occupiedUnits: 2,
+          sqm: null // Property without square meters
+        }
+      ],
+      units: [
+        { id: 1, propertyId: 1, name: 'Zona A', sqm: null, monthlyRent: 550, status: 'Ocupada' },
+        { id: 2, propertyId: 1, name: 'Zona B', sqm: null, monthlyRent: 550, status: 'Ocupada' }
+      ],
+      unitContracts: [
+        {
+          id: 1,
+          unitId: 1,
+          type: 'Piso completo',
+          tenant: 'Juan Pérez',
+          startDate: '2024-01-15',
+          endDate: '2024-01-30',
+          monthlyAmount: 1100,
+          status: 'Solapado',
+          overlapping: true
+        },
+        {
+          id: 2,
+          unitId: 2,
+          type: 'Piso completo',
+          tenant: 'María González',
+          startDate: '2024-01-15',
+          endDate: '2024-01-30',
+          monthlyAmount: 1100,
+          status: 'Solapado',
+          overlapping: true
+        }
+      ],
+      loans: [],
+      documents: [
+        {
+          id: 1,
+          uploadDate: '2024-01-10',
+          provider: 'Iberdrola',
+          amount: 95,
+          description: 'Electricidad sin reparto',
+          category: 'Suministros',
+          type: 'Factura',
+          status: 'Sin reparto',
+          allocationMethod: null
+        },
+        {
+          id: 2,
+          uploadDate: '2024-01-15',
+          provider: 'Reparaciones XYZ',
+          amount: 200,
+          description: 'Personalizado 70/30',
+          category: 'Mantenimiento',
+          type: 'Factura',
+          status: 'Personalizado',
+          allocationMethod: 'custom',
+          customAllocation: [
+            { unitId: 1, percentage: 70 },
+            { unitId: 2, percentage: 30 }
+          ]
+        }
+      ],
+      movements: [],
+      alerts: [
+        {
+          id: 1,
+          type: 'warning',
+          title: 'Contratos solapados',
+          description: 'Hay contratos que se solapan 15 días',
+          severity: 'high',
+          date: '2024-01-15',
+          dismissed: false
+        }
+      ],
+      inboxEntries: [],
+      missingInvoices: [],
+      users: mockData.users,
+      treasuryRules: mockData.treasuryRules,
+      scheduledPayments: [],
+      providerRules: mockData.providerRules,
+      sweepConfig: mockData.sweepConfig,
+      predictedItems: [],
+      rulesEngineEnabled: true,
+      lastRulesRun: null,
+      allocationPreferences: {},
+      expenseFamilies: [
+        { id: 'acquisition', name: 'Adquisición', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
+        { id: 'improvement', name: 'Mejora / CAPEX', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
+        { id: 'maintenance', name: 'Mantenimiento / Reparación', defaultTreatment: 'deductible', defaultAllocation: 'specific' },
+        { id: 'financing_interest', name: 'Financiación – Intereses', defaultTreatment: 'deductible', defaultAllocation: 'units' },
+        { id: 'financing_fees', name: 'Financiación – Comisiones/Formalización', defaultTreatment: 'capitalizable', defaultAllocation: 'units' },
+        { id: 'operational_fixed', name: 'Explotación – Fijos', defaultTreatment: 'deductible', defaultAllocation: 'total' },
+        { id: 'operational_variable', name: 'Explotación – Variables (Suministros)', defaultTreatment: 'deductible', defaultAllocation: 'occupied' },
+        { id: 'other_owner', name: 'Otros / Propietario', defaultTreatment: 'no_deductible', defaultAllocation: 'no_divide' }
+      ]
+    };
+  }
+
+  // Add QA event
+  addQAEvent(event) {
+    const qaEvents = [...(this.state.qaEvents || []), {
+      ...event,
+      timestamp: new Date().toISOString()
+    }];
+    this.setState({ qaEvents });
+  }
+
+  // Generate diagnostics info
+  generateDiagnostics() {
+    const state = this.state;
+    const route = typeof window !== 'undefined' ? window.location.pathname : '/';
+    const version = '0.1.3'; // From package.json
+    const commitShort = 'dev-' + Date.now().toString().slice(-6);
+    
+    return {
+      route,
+      version,
+      commit: commitShort,
+      seed: state.activeSeed || 'default',
+      qaMode: state.qaMode,
+      timestamp: new Date().toISOString(),
+      flags: {
+        rulesEngine: state.rulesEngineEnabled,
+        multiUnit: state.properties?.some(p => p.multiUnit) || false
+      }
+    };
+  }
+
+  // Copy diagnostics to clipboard (will be handled in UI)
+  getDiagnosticsText() {
+    const diag = this.generateDiagnostics();
+    return `ATLAS Diagnostics
+Route: ${diag.route}
+Version: ${diag.version}
+Commit: ${diag.commit}
+Seed: ${diag.seed}
+QA Mode: ${diag.qaMode ? 'ON' : 'OFF'}
+Rules Engine: ${diag.flags.rulesEngine ? 'ON' : 'OFF'}
+Multi-unit: ${diag.flags.multiUnit ? 'YES' : 'NO'}
+Timestamp: ${diag.timestamp}`;
   }
 }
 

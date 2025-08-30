@@ -311,6 +311,18 @@ export default function Page() {
                 <div className="text-sm text-gray mb-4">
                   Muestra contador de alertas críticas/altas en la navegación
                 </div>
+
+                <label className="flex items-center gap-2 mb-4">
+                  <input 
+                    type="checkbox" 
+                    checked={storeState.qaMode || false}
+                    onChange={(e) => store.toggleQAMode()}
+                  />
+                  <span className="form-label" style={{margin: 0}}>Modo QA</span>
+                </label>
+                <div className="text-sm text-gray mb-4">
+                  Activa herramientas de testing y validación para verificar H0-H7
+                </div>
               </div>
 
               <div>
