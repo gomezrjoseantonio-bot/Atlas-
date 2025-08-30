@@ -1,30 +1,13 @@
+import { useState } from 'react';
+import { mockData } from '../data/mockData';
+
 export default function Page() {
-  const accounts = [
-    {
-      id: 1,
-      name: 'Cuenta Corriente Principal',
-      bank: 'BBVA',
-      balance: 12450.67,
-      health: 'good',
-      lastUpdate: '2024-01-15'
-    },
-    {
-      id: 2, 
-      name: 'Cuenta Ahorro Inmuebles',
-      bank: 'Santander',
-      balance: 25800.45,
-      health: 'excellent',
-      lastUpdate: '2024-01-14'
-    },
-    {
-      id: 3,
-      name: 'Cuenta Gastos Inmuebles',
-      bank: 'ING',
-      balance: 3240.12,
-      health: 'warning',
-      lastUpdate: '2024-01-12'
-    }
-  ];
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [selectedMovement, setSelectedMovement] = useState(null);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+
+  const { accounts, movements, treasuryRules, scheduledPayments } = mockData;
 
   const getHealthStatus = (health) => {
     const healthMap = {
@@ -34,6 +17,34 @@ export default function Page() {
       'error': { chip: 'error', text: 'Problema', icon: '🚨' }
     };
     return healthMap[health] || healthMap.good;
+  };
+
+  const getBalanceVariation = (today, previous) => {
+    const variation = ((today - previous) / previous) * 100;
+    return {
+      percentage: Math.abs(variation).toFixed(1),
+      isPositive: variation >= 0
+    };
+  };
+
+  const getProgressPercentage = (current, target) => {
+    return Math.min((current / target) * 100, 100);
+  };
+
+  const getStatusChipClass = (status) => {
+    switch (status) {
+      case 'Regla aplicada': return 'success';
+      case 'Pendiente': return 'warning';
+      case 'Excepción': return 'error';
+      default: return 'warning';
+    }
+  };
+
+  const getDaysLeftBadge = (daysLeft) => {
+    if (daysLeft <= 1) return { class: 'error', text: 'Hoy' };
+    if (daysLeft <= 7) return { class: 'warning', text: '7 días' };
+    if (daysLeft <= 30) return { class: 'success', text: '30 días' };
+    return { class: 'success', text: '30+ días' };
   };
 
   return (<>
@@ -70,28 +81,206 @@ export default function Page() {
         <div className="grid gap-4">
           {accounts.map(account => {
             const status = getHealthStatus(account.health);
+            const variationT7 = getBalanceVariation(account.balanceToday, account.balanceT7);
+            const variationT30 = getBalanceVariation(account.balanceToday, account.balanceT30);
+            const progressPercentage = getProgressPercentage(account.balanceToday, account.targetBalance);
+            
             return (
               <div key={account.id} className="card" style={{background: '#F9FAFB'}}>
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <div className="font-semibold">{account.name}</div>
-                    <div className="text-sm text-gray">{account.bank}</div>
+                    <div className="text-sm text-gray">{account.bank} · {account.iban}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span style={{fontSize: '18px'}}>{status.icon}</span>
                     <span className={`chip ${status.chip}`}>{status.text}</span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
+                
+                <div className="grid-3 gap-4 mb-4">
                   <div>
-                    <div className="text-sm text-gray">Saldo actual</div>
+                    <div className="text-sm text-gray">Saldo Hoy</div>
                     <div className="font-semibold" style={{fontSize: '18px'}}>
-                      €{account.balance.toLocaleString('es-ES', {minimumFractionDigits: 2})}
+                      €{account.balanceToday.toLocaleString('es-ES', {minimumFractionDigits: 2})}
                     </div>
                   </div>
+                  <div>
+                    <div className="text-sm text-gray">T-7</div>
+                    <div className="font-semibold" style={{fontSize: '16px', color: variationT7.isPositive ? 'var(--success)' : 'var(--error)'}}>
+                      {variationT7.isPositive ? '+' : '-'}{variationT7.percentage}%
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray">T-30</div>
+                    <div className="font-semibold" style={{fontSize: '16px', color: variationT30.isPositive ? 'var(--success)' : 'var(--error)'}}>
+                      {variationT30.isPositive ? '+' : '-'}{variationT30.percentage}%
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray">Objetivo: €{account.targetBalance.toLocaleString('es-ES')}</span>
+                    <span className="text-sm font-medium">{progressPercentage.toFixed(0)}%</span>
+                  </div>
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill" 
+                      style={{width: `${progressPercentage}%`}}
+                    ></div>
+                  </div>
+                </div>
+
+                <button 
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    setSelectedAccount(account);
+                    setShowTransferModal(true);
+                  }}
+                >
+                  Mover dinero
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Movements Inbox */}
+      <div className="card mb-4">
+        <h3 style={{margin: '0 0 16px 0'}}>Movimientos (Inbox)</h3>
+        <div className="table-responsive">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Descripción</th>
+                <th style={{textAlign: 'right'}}>Importe</th>
+                <th>Categoría</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {movements.slice(0, 10).map(movement => (
+                <tr key={movement.id}>
+                  <td>{movement.date}</td>
+                  <td>
+                    <div>{movement.description}</div>
+                    {movement.propertyId && (
+                      <div className="text-sm text-gray">
+                        {mockData.properties.find(p => p.id === movement.propertyId)?.address}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
+                    <span style={{color: movement.amount > 0 ? 'var(--success)' : 'var(--error)'}}>
+                      €{Math.abs(movement.amount).toLocaleString('es-ES', {minimumFractionDigits: 2})}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="chip">{movement.category}</span>
+                  </td>
+                  <td>
+                    <span className={`chip ${getStatusChipClass(movement.status)}`}>
+                      {movement.status}
+                    </span>
+                  </td>
+                  <td>
+                    {!movement.hasDocument && (
+                      <button 
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => {
+                          setSelectedMovement(movement);
+                          setShowDocumentModal(true);
+                        }}
+                      >
+                        Asignar documento
+                      </button>
+                    )}
+                    {movement.hasDocument && (
+                      <span className="text-sm text-gray">✓ Documentado</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Rules & Sweeps */}
+      <div className="card mb-4">
+        <h3 style={{margin: '0 0 16px 0'}}>Reglas & Sweeps</h3>
+        <div className="table-responsive">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Condición</th>
+                <th>Acción</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {treasuryRules.map(rule => (
+                <tr key={rule.id}>
+                  <td className="font-semibold">{rule.name}</td>
+                  <td>{rule.condition}</td>
+                  <td>
+                    <div>{rule.action}</div>
+                    <div className="text-sm text-gray">
+                      {rule.targetAccount} · €{rule.amount.toLocaleString('es-ES')}
+                    </div>
+                  </td>
+                  <td>
+                    <label className="toggle">
+                      <input 
+                        type="checkbox" 
+                        checked={rule.active}
+                        onChange={() => {
+                          // Mock toggle functionality
+                          console.log(`Toggle rule ${rule.id}`);
+                        }}
+                      />
+                      <span className="slider"></span>
+                    </label>
+                  </td>
+                  <td>
+                    <button className="btn btn-secondary btn-sm">Editar</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Alerts Calendar */}
+      <div className="card mb-4">
+        <h3 style={{margin: '0 0 16px 0'}}>Alertas · Cargos Previstos</h3>
+        <div className="grid gap-3">
+          {scheduledPayments.map(payment => {
+            const badge = getDaysLeftBadge(payment.daysLeft);
+            const property = mockData.properties.find(p => p.id === payment.propertyId);
+            
+            return (
+              <div key={payment.id} className="card" style={{background: '#F9FAFB'}}>
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="font-semibold">{payment.description}</div>
+                    {property && (
+                      <div className="text-sm text-gray">{property.address}</div>
+                    )}
+                    <div className="text-sm text-gray">Vencimiento: {payment.dueDate}</div>
+                  </div>
                   <div className="text-right">
-                    <div className="text-sm text-gray">Última actualización</div>
-                    <div className="text-sm">{account.lastUpdate}</div>
+                    <div className="font-semibold" style={{fontSize: '16px'}}>
+                      €{payment.amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}
+                    </div>
+                    <span className={`chip ${badge.class}`}>{badge.text}</span>
                   </div>
                 </div>
               </div>
@@ -217,6 +406,127 @@ export default function Page() {
           </div>
         </div>
       </div>
+
+      {/* Transfer Money Modal */}
+      {showTransferModal && selectedAccount && (
+        <div className="modal-overlay" onClick={() => setShowTransferModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 style={{margin: 0}}>Mover dinero</h3>
+              <button 
+                className="btn-close"
+                onClick={() => setShowTransferModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <div className="text-sm text-gray mb-2">Desde</div>
+              <div className="font-semibold">{selectedAccount.name}</div>
+              <div className="text-sm text-gray">
+                Saldo: €{selectedAccount.balanceToday.toLocaleString('es-ES', {minimumFractionDigits: 2})}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-sm font-medium">Hacia</label>
+              <select className="form-control">
+                {accounts.filter(a => a.id !== selectedAccount.id).map(account => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} - {account.bank}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-sm font-medium">Importe</label>
+              <input 
+                type="number" 
+                className="form-control" 
+                placeholder="0.00"
+                step="0.01"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button 
+                className="btn btn-secondary flex-1"
+                onClick={() => setShowTransferModal(false)}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn btn-primary flex-1"
+                onClick={() => {
+                  // Mock transfer functionality
+                  alert('Transferencia simulada realizada');
+                  setShowTransferModal(false);
+                }}
+              >
+                Transferir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Assignment Modal */}
+      {showDocumentModal && selectedMovement && (
+        <div className="modal-overlay" onClick={() => setShowDocumentModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 style={{margin: 0}}>Asignar documento</h3>
+              <button 
+                className="btn-close"
+                onClick={() => setShowDocumentModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <div className="text-sm text-gray mb-2">Movimiento</div>
+              <div className="font-semibold">{selectedMovement.description}</div>
+              <div className="text-sm text-gray">
+                €{Math.abs(selectedMovement.amount).toLocaleString('es-ES', {minimumFractionDigits: 2})} · {selectedMovement.date}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-sm font-medium">Documento disponible</label>
+              <select className="form-control">
+                <option value="">Seleccionar documento...</option>
+                {mockData.documents.filter(d => d.status === 'Listo para asignar' || d.status === 'Pendiente').map(doc => (
+                  <option key={doc.id} value={doc.id}>
+                    {doc.provider} - {doc.concept} - €{doc.amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-2">
+              <button 
+                className="btn btn-secondary flex-1"
+                onClick={() => setShowDocumentModal(false)}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn btn-primary flex-1"
+                onClick={() => {
+                  // Mock document assignment
+                  alert('Documento asignado al movimiento');
+                  setShowDocumentModal(false);
+                }}
+              >
+                Asignar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   </>);
 }

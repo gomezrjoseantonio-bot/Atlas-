@@ -1,68 +1,27 @@
-export default function Page() {
-  const properties = [
-    {
-      id: 1,
-      address: 'C/ Mayor 12, 3º A',
-      type: 'Piso',
-      area: 75,
-      rent: 850,
-      tenant: 'María García',
-      occupancy: 'occupied',
-      nextPayment: '2024-02-01',
-      profitability: 6.8,
-      expenses: 145.67
-    },
-    {
-      id: 2,
-      address: 'Avda. Constitución 45, 1º B', 
-      type: 'Piso',
-      area: 85,
-      rent: 950,
-      tenant: 'Juan Pérez',
-      occupancy: 'occupied',
-      nextPayment: '2024-02-05',
-      profitability: 7.2,
-      expenses: 89.50
-    },
-    {
-      id: 3,
-      address: 'C/ Libertad 8, Bajo',
-      type: 'Local',
-      area: 120,
-      rent: 1200,
-      tenant: '',
-      occupancy: 'vacant',
-      nextPayment: '',
-      profitability: 0,
-      expenses: 156.00
-    },
-    {
-      id: 4,
-      address: 'Plaza Mayor 15, 2º C',
-      type: 'Piso',
-      area: 90,
-      rent: 1100,
-      tenant: 'Ana Martín',
-      occupancy: 'occupied',
-      nextPayment: '2024-02-10',
-      profitability: 8.1,
-      expenses: 234.50
-    }
-  ];
+import { useState } from 'react';
+import { mockData, getTotalPortfolioValue, getTotalMonthlyRent, getPortfolioRentability, getOccupancyRate } from '../data/mockData';
 
-  const getOccupancyChip = (occupancy) => {
-    const occupancyMap = {
-      'occupied': { chip: 'success', text: 'Ocupado', icon: '🏠' },
-      'vacant': { chip: 'warning', text: 'Vacante', icon: '🏚️' },
-      'maintenance': { chip: 'error', text: 'Obras', icon: '🔧' }
-    };
-    return occupancyMap[occupancy] || occupancyMap.vacant;
+export default function Page() {
+  const [selectedProperty, setSelectedProperty] = useState(null);
+  const [showAmortizationModal, setShowAmortizationModal] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [filterYear, setFilterYear] = useState('2024');
+  const [filterMonth, setFilterMonth] = useState('all');
+
+  const { properties, contracts, loans } = mockData;
+
+  const formatCurrency = (amount) => {
+    return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
   };
 
-  const totalRent = properties.reduce((sum, prop) => prop.occupancy === 'occupied' ? sum + prop.rent : sum, 0);
-  const totalExpenses = properties.reduce((sum, prop) => sum + prop.expenses, 0);
-  const occupancyRate = (properties.filter(p => p.occupancy === 'occupied').length / properties.length) * 100;
-  const avgProfitability = properties.filter(p => p.profitability > 0).reduce((sum, p) => sum + p.profitability, 0) / properties.filter(p => p.profitability > 0).length;
+  const getContractsByProperty = (propertyId) => {
+    return contracts.filter(c => c.propertyId === propertyId);
+  };
+
+  const getLoansByProperty = (propertyId) => {
+    return loans.filter(l => l.propertyId === propertyId);
+  };
 
   return (<>
     <header className="header">
@@ -92,160 +51,410 @@ export default function Page() {
     <main className="container">
       <div className="flex items-center justify-between mb-4">
         <h2 style={{color:'var(--navy)', margin:0}}>Inmuebles</h2>
-        <button className="btn btn-primary">+ Nuevo inmueble</button>
+        <div className="flex items-center gap-3">
+          <select 
+            className="form-control" 
+            style={{width: 'auto', marginBottom: 0}}
+            value={filterYear}
+            onChange={(e) => setFilterYear(e.target.value)}
+          >
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+          </select>
+          <select 
+            className="form-control" 
+            style={{width: 'auto', marginBottom: 0}}
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value)}
+          >
+            <option value="all">Todos los meses</option>
+            <option value="01">Enero</option>
+            <option value="02">Febrero</option>
+            <option value="03">Marzo</option>
+          </select>
+          <div className="flex items-center gap-2">
+            <button 
+              className={`btn ${viewMode === 'grid' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+              onClick={() => setViewMode('grid')}
+            >
+              Grid
+            </button>
+            <button 
+              className={`btn ${viewMode === 'list' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+              onClick={() => setViewMode('list')}
+            >
+              Lista
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Portfolio KPIs */}
-      <div className="grid-3 gap-4 mb-4">
-        <div className="card">
-          <div className="text-sm text-gray mb-1">Inmuebles en cartera</div>
-          <div className="font-semibold" style={{fontSize: '24px', color: 'var(--navy)'}}>
-            {properties.length}
-          </div>
-          <div className="text-sm text-gray">propiedades</div>
-        </div>
-
-        <div className="card">
-          <div className="text-sm text-gray mb-1">Ocupación</div>
-          <div className="font-semibold" style={{fontSize: '24px', color: 'var(--success)'}}>
-            {occupancyRate.toFixed(1)}%
-          </div>
-          <div className="text-sm text-gray">
-            {properties.filter(p => p.occupancy === 'occupied').length} de {properties.length} ocupados
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="text-sm text-gray mb-1">Rentabilidad bruta</div>
-          <div className="font-semibold" style={{fontSize: '24px', color: 'var(--teal)'}}>
-            {avgProfitability.toFixed(1)}%
-          </div>
-          <div className="text-sm text-gray">media anual</div>
-        </div>
-      </div>
-
-      {/* Monthly Summary */}
-      <div className="grid mb-4">
-        <div className="card">
-          <h3 style={{margin: '0 0 16px 0'}}>Resumen Mensual</h3>
-          <div className="grid-3 gap-4">
-            <div>
-              <div className="text-sm text-gray">Ingresos por alquiler</div>
-              <div className="font-semibold" style={{fontSize: '18px', color: 'var(--success)'}}>
-                €{totalRent.toLocaleString('es-ES')}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray">Gastos del mes</div>
-              <div className="font-semibold" style={{fontSize: '18px', color: 'var(--error)'}}>
-                €{totalExpenses.toLocaleString('es-ES', {minimumFractionDigits: 2})}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray">Beneficio neto</div>
-              <div className="font-semibold" style={{fontSize: '18px', color: 'var(--navy)'}}>
-                €{(totalRent - totalExpenses).toLocaleString('es-ES', {minimumFractionDigits: 2})}
-              </div>
+      <div className="card mb-4">
+        <h3 style={{margin: '0 0 16px 0'}}>KPIs Cartera</h3>
+        <div className="grid-4 gap-4">
+          <div>
+            <div className="text-sm text-gray">Valor Total Cartera</div>
+            <div className="font-semibold" style={{fontSize: '20px', color: 'var(--navy)'}}>
+              {formatCurrency(getTotalPortfolioValue())}
             </div>
           </div>
-        </div>
-
-        <div className="card">
-          <h3 style={{margin: '0 0 16px 0'}}>Alertas</h3>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 p-2" style={{background: '#FEF3C7', borderRadius: '6px'}}>
-              <span>🏚️</span>
-              <span className="text-sm">C/ Libertad 8 lleva 45 días vacante</span>
+          <div>
+            <div className="text-sm text-gray">Ingresos Mensuales</div>
+            <div className="font-semibold" style={{fontSize: '20px', color: 'var(--success)'}}>
+              {formatCurrency(getTotalMonthlyRent())}
             </div>
-            <div className="flex items-center gap-2 p-2" style={{background: '#EFF6FF', borderRadius: '6px'}}>
-              <span>💰</span>
-              <span className="text-sm">2 pagos de alquiler próximos esta semana</span>
+          </div>
+          <div>
+            <div className="text-sm text-gray">Ocupación</div>
+            <div className="font-semibold" style={{fontSize: '20px', color: 'var(--teal)'}}>
+              {getOccupancyRate().toFixed(1)}%
+            </div>
+          </div>
+          <div>
+            <div className="text-sm text-gray">Rentabilidad</div>
+            <div className="font-semibold" style={{fontSize: '20px', color: 'var(--warning)'}}>
+              {getPortfolioRentability().toFixed(1)}%
             </div>
           </div>
         </div>
       </div>
 
-      {/* Properties Table */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 style={{margin: 0}}>Portfolio de Inmuebles</h3>
-          <div className="flex gap-2">
-            <select className="select">
-              <option>Todos los tipos</option>
-              <option>Piso</option>
-              <option>Local</option>
-            </select>
-            <select className="select">
-              <option>Todos los estados</option>
-              <option>Ocupado</option>
-              <option>Vacante</option>
-            </select>
-          </div>
-        </div>
+      {/* Properties Portfolio */}
+      <div className="card mb-4">
+        <h3 style={{margin: '0 0 16px 0'}}>Cartera de Inmuebles</h3>
+        
+        {viewMode === 'grid' ? (
+          <div className="grid gap-4">
+            {properties.map(property => (
+              <div key={property.id} className="card" style={{background: '#F9FAFB'}}>
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className="font-semibold">{property.address}</div>
+                    <div className="text-sm text-gray">{property.city} · {property.type}</div>
+                  </div>
+                  <span className={`chip ${property.status === 'Ocupado' ? 'success' : 'warning'}`}>
+                    {property.status}
+                  </span>
+                </div>
+                
+                <div className="grid-3 gap-3 mb-3">
+                  <div>
+                    <div className="text-sm text-gray">Renta Mensual</div>
+                    <div className="font-semibold">{formatCurrency(property.monthlyRent)}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray">Gastos</div>
+                    <div className="font-semibold" style={{color: 'var(--error)'}}>
+                      {formatCurrency(property.monthlyExpenses)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray">Rentabilidad</div>
+                    <div className="font-semibold" style={{color: 'var(--success)'}}>
+                      {property.rentability}%
+                    </div>
+                  </div>
+                </div>
 
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Dirección</th>
-              <th>Tipo</th>
-              <th>m²</th>
-              <th className="text-right">Alquiler</th>
-              <th>Inquilino</th>
-              <th>Estado</th>
-              <th>Próximo pago</th>
-              <th className="text-right">Rentabilidad</th>
-              <th className="text-right">Gastos mes</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {properties.map(property => {
-              const status = getOccupancyChip(property.occupancy);
-              return (
-                <tr key={property.id}>
-                  <td>
-                    <div className="font-medium">{property.address}</div>
-                  </td>
-                  <td>{property.type}</td>
-                  <td>{property.area} m²</td>
-                  <td className="text-right font-medium">
-                    {property.rent > 0 ? `€${property.rent}` : '-'}
-                  </td>
-                  <td>{property.tenant || '-'}</td>
-                  <td>
-                    <div className="flex items-center gap-1">
-                      <span>{status.icon}</span>
-                      <span className={`chip ${status.chip}`}>{status.text}</span>
-                    </div>
-                  </td>
-                  <td>{property.nextPayment || '-'}</td>
-                  <td className="text-right font-medium">
-                    {property.profitability > 0 ? `${property.profitability}%` : '-'}
-                  </td>
-                  <td className="text-right">€{property.expenses.toFixed(2)}</td>
-                  <td>
-                    <div className="flex gap-1">
-                      <button className="btn btn-secondary btn-sm">Ver</button>
-                      <button className="btn btn-secondary btn-sm">Editar</button>
-                    </div>
-                  </td>
+                {property.tenant && (
+                  <div className="mb-3">
+                    <div className="text-sm text-gray">Inquilino</div>
+                    <div className="font-semibold">{property.tenant}</div>
+                  </div>
+                )}
+
+                <button 
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setSelectedProperty(property)}
+                >
+                  Ver detalle
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Dirección</th>
+                  <th>Tipo</th>
+                  <th style={{textAlign: 'right'}}>Renta Mensual</th>
+                  <th style={{textAlign: 'right'}}>Gastos</th>
+                  <th style={{textAlign: 'right'}}>Beneficio Neto</th>
+                  <th style={{textAlign: 'right'}}>Rentabilidad</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {properties.map(property => (
+                  <tr key={property.id}>
+                    <td>
+                      <div className="font-semibold">{property.address}</div>
+                      <div className="text-sm text-gray">{property.city}</div>
+                    </td>
+                    <td>{property.type}</td>
+                    <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
+                      {formatCurrency(property.monthlyRent)}
+                    </td>
+                    <td style={{textAlign: 'right', fontWeight: 'semibold', color: 'var(--error)'}}>
+                      {formatCurrency(property.monthlyExpenses)}
+                    </td>
+                    <td style={{textAlign: 'right', fontWeight: 'semibold', color: 'var(--success)'}}>
+                      {formatCurrency(property.netProfit)}
+                    </td>
+                    <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
+                      {property.rentability}%
+                    </td>
+                    <td>
+                      <span className={`chip ${property.status === 'Ocupado' ? 'success' : 'warning'}`}>
+                        {property.status}
+                      </span>
+                    </td>
+                    <td>
+                      <button 
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setSelectedProperty(property)}
+                      >
+                        Ver detalle
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Quick Actions */}
-      <div className="mt-4">
-        <h3 style={{color: 'var(--navy)', fontSize: '16px', marginBottom: '16px'}}>Acciones rápidas</h3>
-        <div className="flex gap-2">
-          <button className="btn btn-secondary">🏠 Nuevo inmueble</button>
-          <button className="btn btn-secondary">👥 Gestionar inquilinos</button>
-          <button className="btn btn-secondary">💰 Registrar pago</button>
-          <button className="btn btn-secondary">📊 Generar informe</button>
+      {/* Contracts Table */}
+      <div className="card mb-4">
+        <h3 style={{margin: '0 0 16px 0'}}>Contratos</h3>
+        <div className="table-responsive">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Inmueble</th>
+                <th>Tipo</th>
+                <th>Inquilino/Aseguradora</th>
+                <th>Inicio</th>
+                <th>Fin</th>
+                <th style={{textAlign: 'right'}}>Importe</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contracts.map(contract => {
+                const property = properties.find(p => p.id === contract.propertyId);
+                return (
+                  <tr key={contract.id}>
+                    <td>
+                      <div className="font-semibold">{property?.address}</div>
+                      <div className="text-sm text-gray">{property?.city}</div>
+                    </td>
+                    <td>{contract.type}</td>
+                    <td>{contract.tenant || contract.company}</td>
+                    <td>{contract.startDate}</td>
+                    <td>{contract.endDate}</td>
+                    <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
+                      {formatCurrency(contract.monthlyAmount)}
+                    </td>
+                    <td>
+                      <span className={`chip ${contract.status === 'Activo' ? 'success' : 'warning'}`}>
+                        {contract.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
+
+      {/* Loans/Mortgages */}
+      <div className="card mb-4">
+        <h3 style={{margin: '0 0 16px 0'}}>Préstamos</h3>
+        <div className="table-responsive">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Inmueble</th>
+                <th>Banco</th>
+                <th style={{textAlign: 'right'}}>Saldo Pendiente</th>
+                <th style={{textAlign: 'right'}}>Cuota Mensual</th>
+                <th style={{textAlign: 'right'}}>Tipo Interés</th>
+                <th>Meses Restantes</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loans.map(loan => {
+                const property = properties.find(p => p.id === loan.propertyId);
+                return (
+                  <tr key={loan.id}>
+                    <td>
+                      <div className="font-semibold">{property?.address}</div>
+                      <div className="text-sm text-gray">{property?.city}</div>
+                    </td>
+                    <td>{loan.bank}</td>
+                    <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
+                      {formatCurrency(loan.currentBalance)}
+                    </td>
+                    <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
+                      {formatCurrency(loan.monthlyPayment)}
+                    </td>
+                    <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
+                      {loan.interestRate}%
+                    </td>
+                    <td>{loan.remainingMonths} meses</td>
+                    <td>
+                      <button 
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          setSelectedLoan(loan);
+                          setShowAmortizationModal(true);
+                        }}
+                      >
+                        Amortizar
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Amortization Modal */}
+      {showAmortizationModal && selectedLoan && (
+        <div className="modal-overlay" onClick={() => setShowAmortizationModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 style={{margin: 0}}>Amortizar préstamo</h3>
+              <button 
+                className="btn-close"
+                onClick={() => setShowAmortizationModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <div className="text-sm text-gray mb-2">Préstamo</div>
+              <div className="font-semibold">{selectedLoan.bank}</div>
+              <div className="text-sm text-gray">
+                Saldo actual: {formatCurrency(selectedLoan.currentBalance)}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-sm font-medium">Importe a amortizar</label>
+              <input 
+                type="number" 
+                className="form-control" 
+                placeholder="0.00"
+                step="0.01"
+                max={selectedLoan.currentBalance}
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="text-sm font-medium">Tipo de amortización</label>
+              <select className="form-control">
+                <option value="cuota">Reducir cuota mensual</option>
+                <option value="plazo">Reducir plazo</option>
+              </select>
+            </div>
+
+            <div className="flex gap-2">
+              <button 
+                className="btn btn-secondary flex-1"
+                onClick={() => setShowAmortizationModal(false)}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn btn-primary flex-1"
+                onClick={() => {
+                  // Mock amortization calculation
+                  alert('Amortización simulada calculada');
+                  setShowAmortizationModal(false);
+                }}
+              >
+                Calcular
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Property Detail Modal */}
+      {selectedProperty && (
+        <div className="modal-overlay" onClick={() => setSelectedProperty(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 style={{margin: 0}}>Análisis por Activo</h3>
+              <button 
+                className="btn-close"
+                onClick={() => setSelectedProperty(null)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <div className="font-semibold" style={{fontSize: '18px'}}>{selectedProperty.address}</div>
+              <div className="text-sm text-gray">{selectedProperty.city} · {selectedProperty.type}</div>
+            </div>
+
+            <div className="grid-2 gap-4 mb-4">
+              <div>
+                <div className="text-sm text-gray">Valor de compra</div>
+                <div className="font-semibold">{formatCurrency(selectedProperty.purchasePrice)}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray">Valor actual</div>
+                <div className="font-semibold">{formatCurrency(selectedProperty.currentValue)}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray">Renta mensual</div>
+                <div className="font-semibold">{formatCurrency(selectedProperty.monthlyRent)}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray">Gastos mensuales</div>
+                <div className="font-semibold">{formatCurrency(selectedProperty.monthlyExpenses)}</div>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <h4 style={{margin: '0 0 12px 0'}}>P&L Mensual (Últimos 12 meses)</h4>
+              <div className="text-sm text-gray">
+                Ingresos: {formatCurrency(selectedProperty.monthlyRent * 12)}<br/>
+                Gastos: {formatCurrency(selectedProperty.monthlyExpenses * 12)}<br/>
+                <strong>Beneficio neto: {formatCurrency((selectedProperty.monthlyRent - selectedProperty.monthlyExpenses) * 12)}</strong>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <h4 style={{margin: '0 0 12px 0'}}>Forecast 12-24 meses</h4>
+              <div className="text-sm text-gray">
+                Proyección conservadora basada en datos históricos y tendencias del mercado.
+              </div>
+            </div>
+
+            <button 
+              className="btn btn-primary"
+              onClick={() => setSelectedProperty(null)}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   </>);
 }
