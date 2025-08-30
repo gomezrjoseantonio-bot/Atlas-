@@ -7,55 +7,36 @@ export default function Page() {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedMovement, setSelectedMovement] = useState(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
-  const [storeState, setStoreState] = useState(store.getState());
-  const [mounted, setMounted] = useState(false);
+  const [storeState, setStoreState] = useState(() => {
+    // Initialize with store state immediately
+    let currentState = store.getState();
+    const hasData = currentState.accounts?.length > 0 || 
+                   currentState.properties?.length > 0 || 
+                   currentState.documents?.length > 0;
+    
+    if (!hasData) {
+      console.log('Tesoreria init: No data detected, forcing demo data');
+      store.resetDemo();
+      currentState = store.getState();
+    }
+    
+    return currentState;
+  });
 
-  // Subscribe to store changes and handle hydration
+  // Subscribe to store changes
   useEffect(() => {
-    setMounted(true);
-    // Force a refresh of store state after mounting
-    setStoreState(store.getState());
     const unsubscribe = store.subscribe(setStoreState);
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
-  // Don't render until mounted to avoid hydration issues
-  if (!mounted) {
-    return (
-      <div data-theme="atlas">
-        <header className="header">
-          <div className="container nav">
-            <div className="logo">
-              <div className="logo-mark">
-                <div className="bar short"></div>
-                <div className="bar mid"></div>
-                <div className="bar tall"></div>
-              </div>
-              <div>ATLAS</div>
-            </div>
-            <nav className="tabs">
-              <a className="tab" href="/panel">Panel</a>
-              <a className="tab active" href="/tesoreria">Tesorería</a>
-              <a className="tab" href="/inmuebles">Inmuebles</a>
-              <a className="tab" href="/documentos">Documentos</a>
-              <a className="tab" href="/proyeccion">Proyección</a>
-              <a className="tab" href="/configuracion">Configuración</a>
-            </nav>
-            <div className="actions">
-              <button className="btn btn-secondary btn-sm" style={{marginRight: '12px'}}>🔄 Demo</button>
-              <span>🔍</span><span>🔔</span><span>⚙️</span>
-            </div>
-          </div>
-        </header>
-        <main className="container">
-          <h2 style={{color:'var(--navy)', margin:'0 0 24px 0'}}>Tesorería</h2>
-          <div>Cargando...</div>
-        </main>
-      </div>
-    );
-  }
-
-  const { accounts = [], movements = [], alerts = [], treasuryRules = [], scheduledPayments = [] } = storeState;
+  // Ensure we have valid data with fallbacks
+  const accounts = storeState?.accounts || mockData.accounts || [];
+  const movements = storeState?.movements || mockData.movements || [];
+  const alerts = storeState?.alerts || mockData.alerts || [];
+  const treasuryRules = storeState?.treasuryRules || mockData.treasuryRules || [];
+  const scheduledPayments = storeState?.scheduledPayments || mockData.scheduledPayments || [];
 
   const getHealthStatus = (health) => {
     const healthMap = {

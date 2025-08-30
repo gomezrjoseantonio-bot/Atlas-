@@ -1,86 +1,18 @@
 import { useState, useEffect } from 'react';
 import store from '../../store/index';
-import { mockData } from '../../data/mockData';
 
 export default function ContratosPage() {
-  const [storeState, setStoreState] = useState(() => {
-    // More defensive initialization for deployment environments
-    try {
-      console.log('Contratos: Starting initialization');
-      let currentState = store.getState();
-      console.log('Contratos: Got store state', currentState);
-      
-      const hasData = currentState?.accounts?.length > 0 || 
-                     currentState?.properties?.length > 0 || 
-                     currentState?.documents?.length > 0;
-      
-      if (!hasData) {
-        console.log('Contratos: No data detected, forcing demo data');
-        store.resetDemo();
-        currentState = store.getState();
-        console.log('Contratos: After demo reset', currentState);
-      }
-      
-      // Ensure we have valid data
-      if (!currentState || typeof currentState !== 'object') {
-        console.error('Contratos: Invalid store state, using fallback');
-        return {
-          accounts: mockData.accounts || [],
-          properties: mockData.properties || [],
-          contracts: mockData.contracts || [],
-          documents: mockData.documents || []
-        };
-      }
-      
-      console.log('Contratos: Initialization complete');
-      return currentState;
-    } catch (error) {
-      console.error('Contratos: Error during initialization, using fallback data', error);
-      return {
-        accounts: mockData.accounts || [],
-        properties: mockData.properties || [],
-        contracts: mockData.contracts || [],
-        documents: mockData.documents || []
-      };
-    }
-  });
+  const [storeState, setStoreState] = useState(store.getState());
+  const [mounted, setMounted] = useState(false);
 
-  // Subscribe to store changes with error handling
+  // Subscribe to store changes
   useEffect(() => {
-    try {
-      console.log('Contratos: Setting up store subscription');
-      const unsubscribe = store.subscribe((newState) => {
-        console.log('Contratos: Store updated', newState);
-        setStoreState(newState);
-      });
-      return () => {
-        unsubscribe();
-      };
-    } catch (error) {
-      console.error('Contratos: Error setting up store subscription', error);
-    }
+    setMounted(true);
+    const unsubscribe = store.subscribe(setStoreState);
+    return unsubscribe;
   }, []);
 
-  // Use contracts and properties from store state with fallback to mockData
-  const contracts = storeState?.contracts || mockData.contracts || [];
-  const properties = storeState?.properties || mockData.properties || [];
-
-  // Safety check: if no data, render loading state
-  if (!contracts && !properties) {
-    console.log('Contratos: No data found, showing fallback UI');
-    return (
-      <div style={{padding: '20px', textAlign: 'center'}}>
-        <h2>Cargando contratos...</h2>
-        <p>Inicializando demo data...</p>
-        <script dangerouslySetInnerHTML={{__html: `
-          setTimeout(() => {
-            console.log('Contratos: Fallback timeout, forcing reload');
-            window.location.reload();
-          }, 3000);
-        `}} />
-      </div>
-    );
-  }
+  const { contracts = [], properties = [] } = storeState;
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
@@ -222,13 +154,14 @@ export default function ContratosPage() {
             </div>
           </div>
           
-          <div className="table-responsive">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Inmueble</th>
-                  <th>Tipo</th>
-                  <th>Inquilino/Aseguradora</th>
+          {mounted && (
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Inmueble</th>
+                    <th>Tipo</th>
+                    <th>Inquilino/Aseguradora</th>
                     <th>Inicio</th>
                     <th>Fin</th>
                     <th style={{textAlign: 'right'}}>Importe mensual</th>
@@ -290,8 +223,15 @@ export default function ContratosPage() {
                 </tbody>
               </table>
             </div>
+          )}
 
-          {contracts.length === 0 && (
+          {!mounted && (
+            <div className="text-center py-8">
+              <div className="text-gray">Cargando contratos...</div>
+            </div>
+          )}
+
+          {mounted && contracts.length === 0 && (
             <div className="text-center py-8">
               <div className="text-gray mb-4">No hay contratos registrados</div>
               <button 
