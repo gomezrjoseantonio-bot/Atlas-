@@ -7,10 +7,33 @@ export default function Page() {
   const [selectedInvoices, setSelectedInvoices] = useState([]);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [dragOver, setDragOver] = useState(false);
-  const [filterMonth, setFilterMonth] = useState('all');
-  const [filterProvider, setFilterProvider] = useState('all');
-  const [filterProperty, setFilterProperty] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
+  
+  // Persistent filters using sessionStorage
+  const [filterMonth, setFilterMonth] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('documents.filterMonth') || 'all';
+    }
+    return 'all';
+  });
+  const [filterProvider, setFilterProvider] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('documents.filterProvider') || 'all';
+    }
+    return 'all';
+  });
+  const [filterProperty, setFilterProperty] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('documents.filterProperty') || 'all';
+    }
+    return 'all';
+  });
+  const [filterStatus, setFilterStatus] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('documents.filterStatus') || 'all';
+    }
+    return 'all';
+  });
+  
   const [storeState, setStoreState] = useState(() => {
     // Initialize with store state immediately
     let currentState = store.getState();
@@ -26,6 +49,44 @@ export default function Page() {
     
     return currentState;
   });
+
+  // Persist filter changes to sessionStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('documents.filterMonth', filterMonth);
+    }
+  }, [filterMonth]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('documents.filterProvider', filterProvider);
+    }
+  }, [filterProvider]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('documents.filterProperty', filterProperty);
+    }
+  }, [filterProperty]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('documents.filterStatus', filterStatus);
+    }
+  }, [filterStatus]);
+
+  // Check URL parameters for filter presets
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const filter = urlParams.get('filter');
+      
+      if (filter === 'missing') {
+        setActiveTab('facturas');
+        setFilterStatus('Pendiente');
+      }
+    }
+  }, []);
 
   // Subscribe to store changes
   useEffect(() => {
@@ -64,6 +125,41 @@ export default function Page() {
   const handleDragLeave = () => {
     setDragOver(false);
   };
+
+  const handleSendToInvoices = (entryId) => {
+    // Simulate OCR processing and sending to invoices
+    store.sendInboxEntryToInvoices(entryId);
+    
+    if (window.showToast) {
+      window.showToast('Documento enviado a Facturas tras OCR simulado', 'success');
+    }
+  };
+
+  const handleQuickClose = () => {
+    if (selectedDocuments.length === 0) {
+      if (window.showToast) {
+        window.showToast('Selecciona documentos para cerrar', 'warning');
+      }
+      return;
+    }
+
+    // Close selected documents
+    selectedDocuments.forEach(docId => {
+      store.updateDocumentStatus(docId, 'Validada');
+    });
+
+    if (window.showToast) {
+      window.showToast(`${selectedDocuments.length} documento(s) cerrado(s) exitosamente`, 'success');
+    }
+
+    setSelectedDocuments([]);
+    setShowQuickClose(false);
+  };
+
+  // Check if we should show quick close button
+  useEffect(() => {
+    setShowQuickClose(selectedDocuments.length > 0);
+  }, [selectedDocuments]);
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -307,11 +403,10 @@ export default function Page() {
                             >
                               Ver
                             </button>
-                            {(entry.status === 'Leído' || entry.status === 'Listo para asignar') && (
+                            {entry.status !== 'Validada' && (
                               <button 
                                 className="btn btn-primary btn-sm"
-                                data-action="inbox:send-to-invoices"
-                                data-id={entry.id}
+                                onClick={() => handleSendToInvoices(entry.id)}
                               >
                                 Enviar a Facturas
                               </button>
@@ -949,5 +1044,53 @@ export default function Page() {
         </div>
       )}
     </main>
+
+    {/* Sticky Quick Close Button */}
+    {showQuickClose && (
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        background: 'var(--success)',
+        color: 'white',
+        padding: '12px 16px',
+        borderRadius: '8px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <span className="font-medium">
+          {selectedDocuments.length} documento(s) seleccionado(s)
+        </span>
+        <button
+          onClick={handleQuickClose}
+          className="btn btn-sm"
+          style={{
+            background: 'rgba(255,255,255,0.2)',
+            color: 'white',
+            border: 'none'
+          }}
+        >
+          ✅ Cerrar rápido
+        </button>
+        <button
+          onClick={() => {
+            setSelectedDocuments([]);
+            setShowQuickClose(false);
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'white',
+            cursor: 'pointer',
+            fontSize: '16px'
+          }}
+        >
+          ✕
+        </button>
+      </div>
+    )}
   </>);
 }

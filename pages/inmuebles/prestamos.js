@@ -3,6 +3,10 @@ import store from '../../store/index';
 import { mockData } from '../../data/mockData';
 
 export default function PrestamosPage() {
+  const [showAmortizeModal, setShowAmortizeModal] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [amortizeAmount, setAmortizeAmount] = useState('');
+  
   const [storeState, setStoreState] = useState(() => {
     // More defensive initialization for deployment environments
     try {
@@ -84,7 +88,7 @@ export default function PrestamosPage() {
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
-      return '€0,00';
+      return '—';
     }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
   };
@@ -93,6 +97,110 @@ export default function PrestamosPage() {
     const property = (properties || []).find(p => p.id === propertyId);
     return property ? property.name : 'Sin asignar';
   };
+
+  const isOverdue = (date) => {
+    if (!date) return false;
+    return new Date(date) < new Date();
+  };
+
+  const getReviewStatus = (reviewDate) => {
+    if (!reviewDate) return null;
+    
+    const today = new Date();
+    const review = new Date(reviewDate);
+    const daysUntil = Math.ceil((review - today) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntil < 0) {
+      return { status: 'overdue', chip: 'error', text: 'Vencido' };
+    } else if (daysUntil <= 30) {
+      return { status: 'warning', chip: 'warning', text: `${daysUntil} días` };
+    } else {
+      return { status: 'ok', chip: 'success', text: `${daysUntil} días` };
+    }
+  };
+
+  // Sort loans to show overdue reviews first
+  const sortedLoans = [...(loans || [])].sort((a, b) => {
+    const aOverdue = isOverdue(a.nextRevision);
+    const bOverdue = isOverdue(b.nextRevision);
+    
+    if (aOverdue && !bOverdue) return -1;
+    if (!aOverdue && bOverdue) return 1;
+    return 0;
+  });
+
+  const calculateAmortizationSavings = (loan, amount) => {
+    if (!loan || !amount || amount <= 0) return null;
+    
+    const currentCapital = loan.pendingCapital || 0;
+    const monthlyRate = (loan.interestRate || 0) / 100 / 12;
+    const remainingMonths = loan.remainingMonths || 0;
+    
+    if (remainingMonths <= 0 || monthlyRate <= 0) return null;
+    
+    // Current total interest
+    const currentTotalInterest = (loan.monthlyPayment * remainingMonths) - currentCapital;
+    
+    // After amortization
+    const newCapital = Math.max(0, currentCapital - amount);
+    if (newCapital === 0) {
+      return {
+        newCapital: 0,
+        newMonthlyPayment: 0,
+        newRemainingMonths: 0,
+        totalSavings: currentTotalInterest,
+        monthlySavings: loan.monthlyPayment
+      };
+    }
+    
+    // Recalculate payment for same term
+    const newMonthlyPayment = (newCapital * monthlyRate * Math.pow(1 + monthlyRate, remainingMonths)) / 
+                              (Math.pow(1 + monthlyRate, remainingMonths) - 1);
+    
+    const newTotalInterest = (newMonthlyPayment * remainingMonths) - newCapital;
+    const totalSavings = currentTotalInterest - newTotalInterest;
+    const monthlySavings = loan.monthlyPayment - newMonthlyPayment;
+    
+    return {
+      newCapital,
+      newMonthlyPayment,
+      newRemainingMonths: remainingMonths,
+      totalSavings,
+      monthlySavings
+    };
+  };
+
+  const handleAmortize = (loan) => {
+    setSelectedLoan(loan);
+    setAmortizeAmount('');
+    setShowAmortizeModal(true);
+  };
+
+  const executeAmortization = () => {
+    if (!selectedLoan || !amortizeAmount) return;
+    
+    const amount = parseFloat(amortizeAmount);
+    if (amount <= 0 || amount > selectedLoan.pendingCapital) {
+      if (window.showToast) {
+        window.showToast('Cantidad inválida para amortización', 'error');
+      }
+      return;
+    }
+    
+    // Update loan in store
+    store.amortizeLoan(selectedLoan.id, amount);
+    
+    if (window.showToast) {
+      window.showToast(`Amortización de ${formatCurrency(amount)} aplicada`, 'success');
+    }
+    
+    setShowAmortizeModal(false);
+    setSelectedLoan(null);
+    setAmortizeAmount('');
+  };
+
+  const currentAmortizationSavings = selectedLoan && amortizeAmount ? 
+    calculateAmortizationSavings(selectedLoan, parseFloat(amortizeAmount) || 0) : null;
 
   // Calculate KPIs with safety checks
   const totalLoans = (loans || []).length;
@@ -216,50 +324,55 @@ export default function PrestamosPage() {
                 </tr>
               </thead>
               <tbody>
-                {(loans || []).map(loan => (
-                  <tr key={loan.id}>
-                    <td>
-                      <div className="font-semibold">{loan.bank}</div>
-                      <div className="text-sm text-gray">{loan.product || 'Hipoteca estándar'}</div>
-                    </td>
-                    <td>
-                      <div className="font-medium">{getPropertyName(loan.propertyId)}</div>
-                      {!loan.propertyId && (
-                        <div className="text-sm" style={{color: 'var(--warning)'}}>Sin vincular</div>
-                      )}
-                    </td>
-                    <td className="text-right font-semibold" style={{color: 'var(--error)'}}>
-                      {formatCurrency(loan.pendingCapital || 0)}
-                    </td>
-                    <td>
-                      <span className={`chip ${loan.interestType === 'fijo' ? 'success' : 'warning'}`}>
-                        {loan.interestType === 'fijo' ? 'Fijo' : 'Variable'}
-                      </span>
-                      <div className="text-sm text-gray">{loan.interestRate || 0}%</div>
-                    </td>
-                    <td className="text-right font-semibold">
-                      {formatCurrency(loan.monthlyPayment || 0)}
-                    </td>
-                    <td className="text-right">
-                      {loan.remainingMonths || '—'}
-                    </td>
-                    <td>
-                      {loan.nextRevision ? (
-                        <div>
-                          <div className="text-sm">{new Date(loan.nextRevision).toLocaleDateString('es-ES')}</div>
-                          <div className="text-xs text-gray">Revisión tipo</div>
-                        </div>
-                      ) : (
-                        <span className="text-gray">—</span>
-                      )}
-                    </td>
+                {sortedLoans.map(loan => {
+                  const reviewStatus = getReviewStatus(loan.nextRevision);
+                  return (
+                    <tr key={loan.id}>
+                      <td>
+                        <div className="font-semibold">{loan.bank}</div>
+                        <div className="text-sm text-gray">{loan.product || 'Hipoteca estándar'}</div>
+                      </td>
+                      <td>
+                        <div className="font-medium">{getPropertyName(loan.propertyId)}</div>
+                        {!loan.propertyId && (
+                          <div className="text-sm" style={{color: 'var(--warning)'}}>Sin vincular</div>
+                        )}
+                      </td>
+                      <td className="text-right font-semibold" style={{color: 'var(--error)'}}>
+                        {formatCurrency(loan.pendingCapital || 0)}
+                      </td>
+                      <td>
+                        <span className={`chip ${loan.interestType === 'fijo' ? 'success' : 'warning'}`}>
+                          {loan.interestType === 'fijo' ? 'Fijo' : 'Variable'}
+                        </span>
+                        <div className="text-sm text-gray">{loan.interestRate || 0}%</div>
+                      </td>
+                      <td className="text-right font-semibold">
+                        {formatCurrency(loan.monthlyPayment || 0)}
+                      </td>
+                      <td className="text-right">
+                        {loan.remainingMonths || '—'}
+                      </td>
+                      <td>
+                        {loan.nextRevision ? (
+                          <div>
+                            <div className="text-sm">{new Date(loan.nextRevision).toLocaleDateString('es-ES')}</div>
+                            {reviewStatus && (
+                              <span className={`chip ${reviewStatus.chip}`}>
+                                {reviewStatus.text}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray">—</span>
+                        )}
+                      </td>
                     <td>
                       <div className="flex gap-1">
                         <button 
                           className="btn btn-primary btn-sm"
-                          data-action="loan:amortize"
-                          data-id={loan.id}
-                          title="Reducir capital pendiente (simulado)"
+                          onClick={() => handleAmortize(loan)}
+                          title="Calcular amortización con ahorro inmediato"
                         >
                           💰 Amortizar
                         </button>
@@ -280,7 +393,8 @@ export default function PrestamosPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           ) : (
@@ -320,5 +434,90 @@ export default function PrestamosPage() {
         )}
       </div>
     </main>
+
+    {/* Amortization Modal */}
+    {showAmortizeModal && selectedLoan && (
+      <div className="modal-overlay" onClick={() => setShowAmortizeModal(false)}>
+        <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 style={{margin: 0, color: 'var(--navy)'}}>
+              Amortizar préstamo - {selectedLoan.bank}
+            </h3>
+            <button
+              onClick={() => setShowAmortizeModal(false)}
+              className="btn-close"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="mb-4">
+            <div className="text-sm text-gray mb-2">Capital pendiente actual</div>
+            <div className="font-semibold text-lg" style={{color: 'var(--error)'}}>
+              {formatCurrency(selectedLoan.pendingCapital)}
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <label className="text-sm font-medium">Cantidad a amortizar</label>
+            <input
+              type="number"
+              className="input"
+              style={{width: '100%', marginTop: '4px'}}
+              placeholder="Ej: 10000"
+              value={amortizeAmount}
+              onChange={(e) => setAmortizeAmount(e.target.value)}
+              max={selectedLoan.pendingCapital}
+            />
+          </div>
+
+          {currentAmortizationSavings && (
+            <div className="card mb-4" style={{background: '#F0FDF4', border: '1px solid var(--success)'}}>
+              <h4 style={{margin: '0 0 12px 0', color: 'var(--success)'}}>
+                💰 Ahorro calculado
+              </h4>
+              <div className="grid gap-3">
+                <div className="grid gap-1">
+                  <div className="text-sm text-gray">Nuevo capital pendiente</div>
+                  <div className="font-semibold">{formatCurrency(currentAmortizationSavings.newCapital)}</div>
+                </div>
+                <div className="grid gap-1">
+                  <div className="text-sm text-gray">Nueva cuota mensual</div>
+                  <div className="font-semibold">{formatCurrency(currentAmortizationSavings.newMonthlyPayment)}</div>
+                </div>
+                <div className="grid gap-1">
+                  <div className="text-sm text-gray">Ahorro mensual</div>
+                  <div className="font-semibold" style={{color: 'var(--success)'}}>
+                    {formatCurrency(currentAmortizationSavings.monthlySavings)}
+                  </div>
+                </div>
+                <div className="grid gap-1">
+                  <div className="text-sm text-gray">Ahorro total en intereses</div>
+                  <div className="font-bold text-lg" style={{color: 'var(--success)'}}>
+                    {formatCurrency(currentAmortizationSavings.totalSavings)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => setShowAmortizeModal(false)}
+              className="btn btn-secondary"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={executeAmortization}
+              className="btn btn-primary"
+              disabled={!amortizeAmount || parseFloat(amortizeAmount) <= 0}
+            >
+              ✅ Aplicar amortización
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </>);
 }

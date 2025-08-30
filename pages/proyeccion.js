@@ -6,6 +6,8 @@ export default function Page() {
   const [selectedScenario, setSelectedScenario] = useState('base');
   const [timeframe, setTimeframe] = useState('12');
   const [activeTab, setActiveTab] = useState('inmuebles');
+  const [showDSCRModal, setShowDSCRModal] = useState(false);
+  
   const [storeState, setStoreState] = useState(() => {
     // Initialize with store state immediately
     let currentState = store.getState();
@@ -457,9 +459,26 @@ export default function Page() {
                 <div className="font-semibold" style={{fontSize: '18px'}}>
                   {calculateDSCR(consolidatedForecast[0]?.totalNet || 0).toFixed(2)}x
                 </div>
-                <div className={`chip ${calculateDSCR(consolidatedForecast[0]?.totalNet || 0) > 1.25 ? 'success' : 'warning'}`}>
+                <div className={`chip ${calculateDSCR(consolidatedForecast[0]?.totalNet || 0) > 1.25 ? 'success' : 
+                  calculateDSCR(consolidatedForecast[0]?.totalNet || 0) >= 1.0 ? 'warning' : 'attention'}`}>
                   {calculateDSCR(consolidatedForecast[0]?.totalNet || 0) > 1.25 ? 'Saludable' : 'Atención'}
                 </div>
+                
+                {/* DSCR Legend */}
+                <div className="text-xs text-gray mt-2" style={{fontStyle: 'italic'}}>
+                  DSCR = Flujo neto / Cuotas
+                </div>
+                
+                {/* Show improvement link if DSCR < 1.0 */}
+                {calculateDSCR(consolidatedForecast[0]?.totalNet || 0) < 1.0 && (
+                  <button
+                    onClick={() => setShowDSCRModal(true)}
+                    className="btn btn-outline btn-sm mt-2"
+                    style={{width: '100%'}}
+                  >
+                    💡 Mejorar DSCR
+                  </button>
+                )}
               </div>
               <div className="card" style={{background: '#F9FAFB'}}>
                 <div className="text-sm text-gray">Capacidad de compra</div>
@@ -473,5 +492,99 @@ export default function Page() {
         </div>
       )}
     </main>
+
+    {/* DSCR Improvement Modal */}
+    {showDSCRModal && (
+      <div className="modal-overlay" onClick={() => setShowDSCRModal(false)}>
+        <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 style={{margin: 0, color: 'var(--navy)'}}>
+              💡 Sugerencias para mejorar DSCR
+            </h3>
+            <button
+              onClick={() => setShowDSCRModal(false)}
+              className="btn-close"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="mb-4">
+            <div className="text-sm text-gray mb-2">DSCR actual</div>
+            <div className="font-semibold text-lg" style={{color: 'var(--error)'}}>
+              {calculateDSCR(consolidatedForecast[0]?.totalNet || 0).toFixed(2)}x
+              <span className="text-sm text-gray ml-2">(Objetivo: ≥ 1.25x)</span>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="card" style={{background: '#F0FDF4', border: '1px solid var(--success)'}}>
+              <h4 style={{margin: '0 0 8px 0', color: 'var(--success)'}}>
+                📉 Reducir gastos 15%
+              </h4>
+              <div className="text-sm mb-2">
+                Optimizar gastos operativos y mantenimiento
+              </div>
+              <div className="text-xs text-gray">
+                Impacto estimado: +0.3 DSCR
+              </div>
+            </div>
+
+            <div className="card" style={{background: '#FEF3C7', border: '1px solid var(--warning)'}}>
+              <h4 style={{margin: '0 0 8px 0', color: 'var(--warning)'}}>
+                📈 Subir rentas 8%
+              </h4>
+              <div className="text-sm mb-2">
+                Actualizar precios al mercado actual
+              </div>
+              <div className="text-xs text-gray">
+                Impacto estimado: +0.2 DSCR
+              </div>
+            </div>
+
+            <div className="card" style={{background: '#EDE9FE', border: '1px solid var(--navy)'}}>
+              <h4 style={{margin: '0 0 8px 0', color: 'var(--navy)'}}>
+                💰 Amortizar 25.000€
+              </h4>
+              <div className="text-sm mb-2">
+                Reducir carga financiera mensual
+              </div>
+              <div className="text-xs text-gray">
+                Impacto estimado: +0.4 DSCR
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+            <div className="text-sm font-medium text-blue-800 mb-1">
+              💡 Recomendación
+            </div>
+            <div className="text-sm text-blue-700">
+              Combinar amortización parcial con optimización de gastos para alcanzar el DSCR objetivo de 1.25x
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end mt-4">
+            <button
+              onClick={() => setShowDSCRModal(false)}
+              className="btn btn-secondary"
+            >
+              Cerrar
+            </button>
+            <button
+              onClick={() => {
+                if (window.showToast) {
+                  window.showToast('Plan de mejora guardado en Proyección', 'info');
+                }
+                setShowDSCRModal(false);
+              }}
+              className="btn btn-primary"
+            >
+              📋 Guardar plan
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </>);
 }
