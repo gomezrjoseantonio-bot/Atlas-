@@ -90,7 +90,7 @@ class AtlasStore {
       documents: [...mockData.documents],
       inboxEntries: [...mockData.inboxEntries],
       movements: [...mockData.movements],
-      alerts: [...mockData.alerts],
+      alerts: [...(mockData.scheduledPayments || [])],
       missingInvoices: [...mockData.missingInvoices],
       users: [...mockData.users],
       treasuryRules: [...mockData.treasuryRules],
