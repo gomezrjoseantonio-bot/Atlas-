@@ -342,48 +342,7 @@ export default function Page() {
     }));
   };
 
-  const processFileWithOCR = async (file, entryId) => {
-    try {
-      // Set initial processing status
-      store.setInboxEntryOCRStatus(entryId, 'OCR en curso');
-      
-      const result = await ocrService.processDocument(file, (progress) => {
-        handleOCRProgress(entryId, progress);
-      });
 
-      // Update store with OCR results
-      store.updateInboxEntryOCR(entryId, result);
-      
-      // Clear progress
-      setOcrProgress(prev => {
-        const updated = { ...prev };
-        delete updated[entryId];
-        return updated;
-      });
-
-      if (window.showToast) {
-        window.showToast(
-          `OCR completado: ${result.confidence}% confianza (${result.pages} página${result.pages > 1 ? 's' : ''})`,
-          'success'
-        );
-      }
-
-    } catch (error) {
-      console.error('OCR processing failed:', error);
-      store.setInboxEntryOCRStatus(entryId, 'Error OCR', error.message);
-      
-      // Clear progress
-      setOcrProgress(prev => {
-        const updated = { ...prev };
-        delete updated[entryId];
-        return updated;
-      });
-
-      if (window.showToast) {
-        window.showToast(`Error OCR: ${error.message}`, 'error');
-      }
-    }
-  };
 
   const handleProcessOCR = async () => {
     if (selectedInboxEntries.length === 0) {
@@ -396,47 +355,6 @@ export default function Page() {
     setIsOCRProcessing(true);
 
     try {
-      // Process each selected entry
-      for (const entryId of selectedInboxEntries) {
-        const entry = storeState.inboxEntries.find(e => e.id === entryId);
-        if (!entry) continue;
-
-        // Simulate file object from entry (in real app, files would be stored)
-        const simulatedFile = {
-          name: entry.fileName,
-          type: entry.fileName.includes('.pdf') ? 'application/pdf' : 'image/jpeg',
-          size: parseInt(entry.fileSize) * 1024, // Convert KB to bytes
-          arrayBuffer: async () => {
-            // In a real implementation, you'd fetch the actual file data
-            // For now, we'll create a simple mock response
-            throw new Error('Archivo no disponible para procesamiento - funcionalidad simulada');
-          }
-        };
-
-        // Simulate OCR processing with mock data
-        setTimeout(() => {
-          const mockOCRResult = {
-            text: `Factura simulada\nProveedor: ${entry.provider}\nFecha: ${new Date().toLocaleDateString('es-ES')}\nTotal: €${entry.amount || 150.00}`,
-            confidence: Math.floor(Math.random() * 30) + 70, // 70-100% confidence
-            language: 'spa+eng',
-            pages: entry.fileName.includes('.pdf') ? Math.floor(Math.random() * 3) + 1 : 1,
-            pagesOcr: [{
-              page: 1,
-              text: `Texto simulado de la página 1`,
-              confidence: Math.floor(Math.random() * 30) + 70
-            }],
-            extractedData: {
-              date: new Date().toLocaleDateString('es-ES'),
-              provider: entry.provider !== 'Pendiente OCR' ? entry.provider : 'Proveedor OCR',
-              total: entry.amount || (Math.random() * 500 + 50).toFixed(2),
-              concept: 'Concepto extraído por OCR'
-            }
-          };
-
-          store.updateInboxEntryOCR(entryId, mockOCRResult);
-        }, 1000 + Math.random() * 2000); // Random delay 1-3 seconds
-      }
-
       if (window.showToast) {
         window.showToast(
           `Procesando ${selectedInboxEntries.length} documento(s) con OCR...`,
@@ -444,6 +362,60 @@ export default function Page() {
         );
       }
 
+      // Process each selected entry with real OCR
+      const processingPromises = selectedInboxEntries.map(async (entryId) => {
+        const entry = storeState.inboxEntries.find(e => e.id === entryId);
+        if (!entry || !entry.originalFile) {
+          console.warn(`Entry ${entryId} not found or missing file`);
+          return;
+        }
+
+        try {
+          // Set processing status
+          store.setInboxEntryOCRStatus(entryId, 'OCR en curso');
+          
+          // Process with real OCR service
+          const result = await ocrService.processDocument(entry.originalFile, (progress) => {
+            handleOCRProgress(entryId, progress);
+          });
+
+          // Update store with real OCR results
+          store.updateInboxEntryOCR(entryId, result);
+          
+          // Clear progress
+          setOcrProgress(prev => {
+            const updated = { ...prev };
+            delete updated[entryId];
+            return updated;
+          });
+
+          if (window.showToast) {
+            window.showToast(
+              `OCR completado: ${entry.fileName} - ${result.confidence}% confianza`,
+              'success'
+            );
+          }
+
+        } catch (error) {
+          console.error(`OCR processing failed for ${entry.fileName}:`, error);
+          store.setInboxEntryOCRStatus(entryId, 'Error OCR', error.message);
+          
+          // Clear progress
+          setOcrProgress(prev => {
+            const updated = { ...prev };
+            delete updated[entryId];
+            return updated;
+          });
+
+          if (window.showToast) {
+            window.showToast(`Error OCR en ${entry.fileName}: ${error.message}`, 'error');
+          }
+        }
+      });
+
+      // Wait for all OCR processes to complete
+      await Promise.all(processingPromises);
+      
       setSelectedInboxEntries([]);
 
     } catch (error) {

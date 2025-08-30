@@ -28,23 +28,11 @@ class OCRService {
     if (this.isInitialized) return;
 
     try {
-      // Create Tesseract worker with local paths
-      this.worker = await Tesseract.createWorker('spa+eng', 1, {
-        workerPath: '/ocr/tesseract.worker.min.js',
-        corePath: '/ocr/tesseract-core.wasm',
-        langPath: '/ocr/lang/',
-        logger: (m) => {
-          if (m.status === 'recognizing text') {
-            // Emit progress events for UI updates
-            if (typeof window !== 'undefined') {
-              const event = new CustomEvent('atlas:ocr-progress', {
-                detail: { progress: m.progress, status: m.status }
-              });
-              document.dispatchEvent(event);
-            }
-          }
-        }
-      });
+      // Create Tesseract worker with basic configuration first
+      this.worker = await Tesseract.createWorker();
+      
+      await this.worker.loadLanguage('spa+eng');
+      await this.worker.initialize('spa+eng');
 
       this.isInitialized = true;
       console.log('OCR Service initialized successfully');
