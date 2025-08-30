@@ -214,36 +214,41 @@ class AtlasStore {
       
       const stored = localStorage.getItem(this.storageKey);
       if (stored) {
+        console.log('Loading data from localStorage');
         const parsedData = JSON.parse(stored);
         this.state = { ...this.getInitialState(), ...parsedData };
         
         // Restore lastActivityTime from stored data
         this.lastActivityTime = this.state.lastActivityTime || null;
         
-        // Only auto-reset to demo if this is a completely fresh install
-        // Check if user has ever created any properties or has recent activity
-        const hasProperties = this.state.properties?.length > 0;
-        const hasRecentActivity = this.hasRecentActivity();
-        const hasUserCreatedContent = this.state.lastActivityTime || hasProperties;
+        console.log(`Loaded store with ${this.state.properties?.length || 0} properties`);
         
-        // Don't auto-reset if user has created content or has recent activity
-        if (!hasUserCreatedContent && !hasRecentActivity) {
-          const hasAnyData = this.state.accounts?.length > 0 || 
-                           this.state.properties?.length > 0 || 
-                           this.state.documents?.length > 0;
-          
-          if (!hasAnyData) {
-            console.log('Fresh install detected, loading demo data');
-            this.resetDemo();
-            return;
-          }
+        // Check if this looks like genuine user data
+        const hasUserProperties = this.state.properties?.length > 0;
+        const hasActivity = this.state.lastActivityTime != null;
+        
+        // If we have user properties or activity markers, respect the stored data
+        if (hasUserProperties || hasActivity) {
+          console.log('User data detected, preserving stored properties');
+          this.notifySubscribers();
+          return;
         }
-      } else {
-        console.log('No stored data found, loading demo data');
-        this.resetDemo(); // Load demo data if nothing in storage
-        return;
+        
+        // If no user content but we have some demo data structure, keep it
+        const hasAnyData = this.state.accounts?.length > 0 || 
+                         this.state.documents?.length > 0;
+        
+        if (hasAnyData) {
+          console.log('Keeping existing demo data structure');
+          this.notifySubscribers();
+          return;
+        }
       }
-      this.notifySubscribers();
+      
+      // Only load demo data if no localStorage data exists at all
+      console.log('No stored data found, loading demo data');
+      this.resetDemo();
+      
     } catch (error) {
       console.warn('Failed to load from localStorage, using demo data:', error);
       this.resetDemo();
@@ -296,21 +301,29 @@ class AtlasStore {
     // Mark recent activity to prevent demo reset
     this.markRecentActivity();
     
+    // Update state with new properties
     this.setState({ properties });
     
     console.log('Property added successfully:', property.alias);
+    console.log('Total properties now:', properties.length);
   }
   
   // Track recent activity to prevent demo reset interference
   markRecentActivity() {
-    this.lastActivityTime = Date.now();
-    // Persist to state so it survives page reloads
+    const now = Date.now();
+    this.lastActivityTime = now;
+    
+    // Update state with activity marker
     this.state = { 
       ...this.state, 
-      lastActivityTime: this.lastActivityTime,
+      lastActivityTime: now,
       lastUpdate: new Date().toISOString() 
     };
+    
+    // Save immediately to localStorage
     this.save();
+    
+    console.log('Activity marked at:', new Date(now).toISOString());
   }
   
   hasRecentActivity() {
@@ -2321,33 +2334,20 @@ Timestamp: ${diag.timestamp}`;
 // Create singleton instance
 const store = new AtlasStore();
 
-// Always ensure we have demo data immediately, regardless of environment
-console.log('Initializing store with demo data');
-store.resetDemo();
-
 // Initialize store on first import
 if (typeof window !== 'undefined') {
-  // In browser environment, try to load from localStorage but keep demo as fallback
+  // In browser environment, try to load from localStorage first
   setTimeout(() => {
+    console.log('Initializing store from localStorage...');
     store.load();
-    
-    // Double-check that store has data after loading - if not, force demo data
-    const state = store.getState();
-    const hasData = state.accounts?.length > 0 || 
-                   state.properties?.length > 0 || 
-                   state.documents?.length > 0;
-    
-    if (!hasData) {
-      console.log('Store still empty after load, forcing demo data');
-      store.resetDemo();
-    }
     
     // Initialize QA mode after data is loaded
     store.initializeQAMode();
   }, 100); // Small delay to allow DOM to be ready
 } else {
-  // If window is not available (SSR), we already have demo data loaded
-  console.log('Window not available, demo data already loaded for SSR');
+  // If window is not available (SSR), load demo data for server rendering
+  console.log('Window not available, loading demo data for SSR');
+  store.resetDemo();
 }
 
 export default store;

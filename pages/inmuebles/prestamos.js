@@ -11,33 +11,7 @@ export default function PrestamosPage() {
     // More defensive initialization for deployment environments
     try {
       console.log('Prestamos: Starting initialization');
-      let currentState = store.getState();
-      console.log('Prestamos: Got store state', currentState);
-      
-      const hasData = currentState?.accounts?.length > 0 || 
-                     currentState?.properties?.length > 0 || 
-                     currentState?.documents?.length > 0;
-      
-      if (!hasData) {
-        console.log('Prestamos: No data detected, forcing demo data');
-        store.resetDemo();
-        currentState = store.getState();
-        console.log('Prestamos: After demo reset', currentState);
-      }
-      
-      // Ensure we have valid data
-      if (!currentState || typeof currentState !== 'object') {
-        console.error('Prestamos: Invalid store state, using fallback');
-        return {
-          accounts: mockData.accounts || [],
-          properties: mockData.properties || [],
-          loans: mockData.loans || [],
-          documents: mockData.documents || []
-        };
-      }
-      
-      console.log('Prestamos: Initialization complete');
-      return currentState;
+    return store.getState();
     } catch (error) {
       console.error('Prestamos: Error during initialization, using fallback data', error);
       return {

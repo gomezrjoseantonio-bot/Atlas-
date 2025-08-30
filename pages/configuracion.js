@@ -7,18 +7,7 @@ export default function Page() {
   const [personalToggle, setPersonalToggle] = useState(true);
   const [storeState, setStoreState] = useState(() => {
     // Initialize with store state immediately
-    let currentState = store.getState();
-    const hasData = currentState.accounts?.length > 0 || 
-                   currentState.properties?.length > 0 || 
-                   currentState.documents?.length > 0;
-    
-    if (!hasData) {
-      console.log('Configuracion init: No data detected, forcing demo data');
-      store.resetDemo();
-      currentState = store.getState();
-    }
-    
-    return currentState;
+    return store.getState();
   });
 
   // Subscribe to store changes

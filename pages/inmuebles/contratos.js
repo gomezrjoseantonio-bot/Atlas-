@@ -7,33 +7,7 @@ export default function ContratosPage() {
     // More defensive initialization for deployment environments
     try {
       console.log('Contratos: Starting initialization');
-      let currentState = store.getState();
-      console.log('Contratos: Got store state', currentState);
-      
-      const hasData = currentState?.accounts?.length > 0 || 
-                     currentState?.properties?.length > 0 || 
-                     currentState?.documents?.length > 0;
-      
-      if (!hasData) {
-        console.log('Contratos: No data detected, forcing demo data');
-        store.resetDemo();
-        currentState = store.getState();
-        console.log('Contratos: After demo reset', currentState);
-      }
-      
-      // Ensure we have valid data
-      if (!currentState || typeof currentState !== 'object') {
-        console.error('Contratos: Invalid store state, using fallback');
-        return {
-          accounts: mockData.accounts || [],
-          properties: mockData.properties || [],
-          contracts: mockData.contracts || [],
-          documents: mockData.documents || []
-        };
-      }
-      
-      console.log('Contratos: Initialization complete');
-      return currentState;
+    return store.getState();
     } catch (error) {
       console.error('Contratos: Error during initialization, using fallback data', error);
       return {
