@@ -19,6 +19,8 @@ export default function Page() {
   // Subscribe to store changes and handle hydration
   useEffect(() => {
     setMounted(true);
+    // Force a refresh of store state after mounting
+    setStoreState(store.getState());
     const unsubscribe = store.subscribe(setStoreState);
     return unsubscribe;
   }, []);
@@ -57,7 +59,7 @@ export default function Page() {
     );
   }
 
-  const { documents, inboxEntries, missingInvoices, properties } = storeState;
+  const { documents = [], inboxEntries = [], missingInvoices = [], properties = [] } = storeState;
 
   const formatCurrency = (amount) => {
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
@@ -118,7 +120,7 @@ export default function Page() {
     setSelectedDocuments([]);
   };
 
-  const mockMissingInvoices = missingInvoices || [];
+  const mockMissingInvoices = missingInvoices;
 
   const deductibleExpenses = (documents || []).filter(doc => 
     doc.status === 'Validada' && doc.propertyId
