@@ -230,6 +230,28 @@ class AtlasStore {
     this.setState({ accounts });
   }
 
+  // Property operations
+  addProperty(property) {
+    const properties = [...this.state.properties, { 
+      ...property, 
+      id: property.id || Date.now(),
+      createdDate: new Date().toISOString() 
+    }];
+    this.setState({ properties });
+  }
+
+  updateProperty(id, updates) {
+    const properties = this.state.properties.map(property => 
+      property.id === id ? { ...property, ...updates } : property
+    );
+    this.setState({ properties });
+  }
+
+  deleteProperty(id) {
+    const properties = this.state.properties.filter(property => property.id !== id);
+    this.setState({ properties });
+  }
+
   // Document operations
   addDocument(document) {
     const documents = [...this.state.documents, { 
