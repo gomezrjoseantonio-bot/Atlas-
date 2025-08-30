@@ -8,63 +8,27 @@ export default function Page() {
   const [selectedMovement, setSelectedMovement] = useState(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [storeState, setStoreState] = useState(() => {
-    // More defensive initialization for deployment environments
-    try {
-      console.log('Tesoreria: Starting initialization');
-      let currentState = store.getState();
-      console.log('Tesoreria: Got store state', currentState);
-      
-      const hasData = currentState?.accounts?.length > 0 || 
-                     currentState?.properties?.length > 0 || 
-                     currentState?.documents?.length > 0;
-      
-      if (!hasData) {
-        console.log('Tesoreria: No data detected, forcing demo data');
-        store.resetDemo();
-        currentState = store.getState();
-        console.log('Tesoreria: After demo reset', currentState);
-      }
-      
-      // Ensure we have valid data
-      if (!currentState || typeof currentState !== 'object') {
-        console.error('Tesoreria: Invalid store state, using fallback');
-        return {
-          accounts: mockData.accounts || [],
-          movements: mockData.movements || [],
-          alerts: mockData.alerts || [],
-          treasuryRules: mockData.treasuryRules || [],
-          scheduledPayments: mockData.scheduledPayments || []
-        };
-      }
-      
-      console.log('Tesoreria: Initialization complete');
-      return currentState;
-    } catch (error) {
-      console.error('Tesoreria: Error during initialization, using fallback data', error);
-      return {
-        accounts: mockData.accounts || [],
-        movements: mockData.movements || [],
-        alerts: mockData.alerts || [],
-        treasuryRules: mockData.treasuryRules || [],
-        scheduledPayments: mockData.scheduledPayments || []
-      };
+    // Initialize with store state immediately
+    let currentState = store.getState();
+    const hasData = currentState.accounts?.length > 0 || 
+                   currentState.properties?.length > 0 || 
+                   currentState.documents?.length > 0;
+    
+    if (!hasData) {
+      console.log('Tesoreria init: No data detected, forcing demo data');
+      store.resetDemo();
+      currentState = store.getState();
     }
+    
+    return currentState;
   });
 
-  // Subscribe to store changes with error handling
+  // Subscribe to store changes
   useEffect(() => {
-    try {
-      console.log('Tesoreria: Setting up store subscription');
-      const unsubscribe = store.subscribe((newState) => {
-        console.log('Tesoreria: Store updated', newState);
-        setStoreState(newState);
-      });
-      return () => {
-        unsubscribe();
-      };
-    } catch (error) {
-      console.error('Tesoreria: Error setting up store subscription', error);
-    }
+    const unsubscribe = store.subscribe(setStoreState);
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Ensure we have valid data with fallbacks
@@ -73,12 +37,6 @@ export default function Page() {
   const alerts = storeState?.alerts || mockData.alerts || [];
   const treasuryRules = storeState?.treasuryRules || mockData.treasuryRules || [];
   const scheduledPayments = storeState?.scheduledPayments || mockData.scheduledPayments || [];
-
-  // Safety check: if no accounts, use fallback data  
-  if (!accounts || accounts.length === 0) {
-    console.log('Tesoreria: No accounts found, using fallback data');
-    // Use mockData fallback instead of loading state
-  }
 
   const getHealthStatus = (health) => {
     const healthMap = {

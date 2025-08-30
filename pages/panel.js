@@ -5,63 +5,27 @@ import { getTotalPortfolioValue, getTotalMonthlyRent, getOccupancyRate } from '.
 export default function Page() {
   const [personalMode, setPersonalMode] = useState(false);
   const [storeState, setStoreState] = useState(() => {
-    // More defensive initialization for deployment environments
-    try {
-      console.log('Panel: Starting initialization');
-      let currentState = store.getState();
-      console.log('Panel: Got store state', currentState);
-      
-      const hasData = currentState?.accounts?.length > 0 || 
-                     currentState?.properties?.length > 0 || 
-                     currentState?.documents?.length > 0;
-      
-      if (!hasData) {
-        console.log('Panel: No data detected, forcing demo data');
-        store.resetDemo();
-        currentState = store.getState();
-        console.log('Panel: After demo reset', currentState);
-      }
-      
-      // Ensure we have valid data
-      if (!currentState || typeof currentState !== 'object') {
-        console.error('Panel: Invalid store state, using fallback');
-        return {
-          missingInvoices: [],
-          accounts: [],
-          documents: [],
-          properties: [],
-          inboxEntries: []
-        };
-      }
-      
-      console.log('Panel: Initialization complete');
-      return currentState;
-    } catch (error) {
-      console.error('Panel: Error during initialization, using fallback data', error);
-      return {
-        missingInvoices: [],
-        accounts: [],
-        documents: [],
-        properties: [],
-        inboxEntries: []
-      };
+    // Initialize with store state immediately
+    let currentState = store.getState();
+    const hasData = currentState.accounts?.length > 0 || 
+                   currentState.properties?.length > 0 || 
+                   currentState.documents?.length > 0;
+    
+    if (!hasData) {
+      console.log('Panel init: No data detected, forcing demo data');
+      store.resetDemo();
+      currentState = store.getState();
     }
+    
+    return currentState;
   });
 
-  // Subscribe to store changes with error handling
+  // Subscribe to store changes
   useEffect(() => {
-    try {
-      console.log('Panel: Setting up store subscription');
-      const unsubscribe = store.subscribe((newState) => {
-        console.log('Panel: Store updated', newState);
-        setStoreState(newState);
-      });
-      return () => {
-        unsubscribe();
-      };
-    } catch (error) {
-      console.error('Panel: Error setting up store subscription', error);
-    }
+    const unsubscribe = store.subscribe(setStoreState);
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const missingInvoices = storeState?.missingInvoices || [];
