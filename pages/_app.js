@@ -4,6 +4,7 @@ import Modal from '../components/Modal';
 import Toast from '../components/Toast';
 import QABar from '../components/QABar';
 import QAPanel from '../components/QAPanel';
+import QAPill from '../components/QAPill';
 import BrandValidator from '../components/BrandValidator';
 import IssueReporter from '../components/IssueReporter';
 import actionBridge from '../actions/bridge';
@@ -12,6 +13,7 @@ import store from '../store/index';
 export default function MyApp({ Component, pageProps }) {
   const [storeState, setStoreState] = useState(() => store.getState());
   const [showIssueReporter, setShowIssueReporter] = useState(false);
+  const [qaPanelCollapsed, setQAPanelCollapsed] = useState(false);
 
   useEffect(() => {
     // Subscribe to store changes
@@ -28,30 +30,69 @@ export default function MyApp({ Component, pageProps }) {
         });
         document.dispatchEvent(event);
       };
+
+      // Listen for QA panel toggle events
+      const handleToggleQAPanel = () => {
+        setQAPanelCollapsed(!qaPanelCollapsed);
+      };
+
+      document.addEventListener('atlas:toggleQAPanel', handleToggleQAPanel);
+      
+      return () => {
+        // Cleanup on unmount
+        unsubscribe();
+        actionBridge.destroy();
+        document.removeEventListener('atlas:toggleQAPanel', handleToggleQAPanel);
+        delete window.showToast;
+      };
     }
     
     return () => {
       // Cleanup on unmount
       unsubscribe();
       actionBridge.destroy();
-      if (typeof window !== 'undefined') {
-        delete window.showToast;
-      }
     };
-  }, []);
+  }, [qaPanelCollapsed]);
 
   const handleLoadSeed = (seedType) => {
     store.loadSeed(seedType);
-    store.addQAEvent({ type: 'seed_changed', seedType, module: 'QA' });
   };
 
   const handleResetDemo = () => {
     store.resetDemo();
-    store.addQAEvent({ type: 'demo_reset', module: 'QA' });
   };
 
   const handleReportIssue = () => {
     setShowIssueReporter(true);
+  };
+
+  const handleExitQA = () => {
+    store.toggleQAMode(); // This will turn off QA mode
+  };
+
+  const handleTogglePill = () => {
+    setQAPanelCollapsed(!qaPanelCollapsed);
+  };
+
+  // QA Quick Actions
+  const handleCreateUpcomingMovements = () => {
+    store.createUpcomingMovements();
+  };
+
+  const handleCreateOverdueMovements = () => {
+    store.createOverdueMovements();
+  };
+
+  const handleGenerateInvoicesWithoutDocs = () => {
+    store.generateInvoicesWithoutDocuments();
+  };
+
+  const handleSimulateLowBalance = () => {
+    store.simulateLowBalance();
+  };
+
+  const handleExecuteRulesEngine = () => {
+    store.executeRulesEngine();
   };
 
   const diagnostics = storeState.qaMode ? store.generateDiagnostics() : null;
@@ -63,6 +104,7 @@ export default function MyApp({ Component, pageProps }) {
         qaMode={storeState.qaMode}
         activeSeed={storeState.activeSeed}
         onCopyDiagnostics={() => store.getDiagnosticsText()}
+        onExitQA={handleExitQA}
         diagnostics={diagnostics}
       />
       
@@ -72,9 +114,20 @@ export default function MyApp({ Component, pageProps }) {
         qaMode={storeState.qaMode}
         qaEvents={storeState.qaEvents}
         activeSeed={storeState.activeSeed}
+        lastSeedReset={storeState.lastSeedReset}
         onLoadSeed={handleLoadSeed}
         onResetDemo={handleResetDemo}
         onReportIssue={handleReportIssue}
+        onCreateUpcomingMovements={handleCreateUpcomingMovements}
+        onCreateOverdueMovements={handleCreateOverdueMovements}
+        onGenerateInvoicesWithoutDocs={handleGenerateInvoicesWithoutDocs}
+        onSimulateLowBalance={handleSimulateLowBalance}
+        onExecuteRulesEngine={handleExecuteRulesEngine}
+      />
+
+      <QAPill 
+        qaMode={storeState.qaMode}
+        onTogglePanel={handleTogglePill}
       />
 
       {/* Main app content - adjust for QA bar */}

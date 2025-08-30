@@ -6,8 +6,87 @@ import { mockData } from '../data/mockData.js';
 class AtlasStore {
   constructor() {
     this.storageKey = 'atlas-store';
+    this.qaModeKey = 'atlas.qaMode';
+    this.activeSeedKey = 'atlas.activeSeed';
     this.state = this.getInitialState();
     this.subscribers = [];
+    
+    // Initialize QA mode from various sources
+    this.initializeQAMode();
+  }
+
+  // Initialize QA mode from localStorage, URL params, and Netlify preview detection
+  initializeQAMode() {
+    if (typeof window === 'undefined') return;
+    
+    let qaMode = false;
+    let activeSeed = null;
+    
+    // 1. Check URL parameters first (highest priority)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('qa')) {
+      qaMode = urlParams.get('qa') === '1';
+      localStorage.setItem(this.qaModeKey, qaMode.toString());
+      console.log(`QA Mode set via URL: ${qaMode}`);
+    }
+    // 2. Check localStorage
+    else {
+      const stored = localStorage.getItem(this.qaModeKey);
+      if (stored !== null) {
+        qaMode = stored === 'true';
+      }
+      // 3. Check if this is a Netlify preview deployment (auto-enable QA)
+      else if (window.location.hostname.includes('--') && window.location.hostname.includes('.netlify.app')) {
+        qaMode = true;
+        localStorage.setItem(this.qaModeKey, 'true');
+        console.log('Auto-enabled QA mode for Netlify preview');
+      }
+    }
+    
+    // Get active seed from localStorage
+    const storedSeed = localStorage.getItem(this.activeSeedKey);
+    if (storedSeed) {
+      activeSeed = storedSeed;
+    }
+    
+    // Update state immediately
+    this.state.qaMode = qaMode;
+    this.state.activeSeed = activeSeed;
+    
+    // Add global keyboard shortcut (Ctrl/Cmd + Alt + Q)
+    if (qaMode) {
+      this.addKeyboardShortcuts();
+    }
+  }
+
+  // Add keyboard shortcuts for QA
+  addKeyboardShortcuts() {
+    if (typeof window === 'undefined') return;
+    
+    const handleKeyboard = (e) => {
+      // Ctrl/Cmd + Alt + Q to toggle QA panel
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'q') {
+        e.preventDefault();
+        this.toggleQAPanel();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyboard);
+    this.keyboardHandler = handleKeyboard;
+  }
+
+  // Remove keyboard shortcuts
+  removeKeyboardShortcuts() {
+    if (typeof window !== 'undefined' && this.keyboardHandler) {
+      document.removeEventListener('keydown', this.keyboardHandler);
+      this.keyboardHandler = null;
+    }
+  }
+
+  // Toggle QA panel visibility (will be implemented in _app.js)
+  toggleQAPanel() {
+    const event = new CustomEvent('atlas:toggleQAPanel');
+    document.dispatchEvent(event);
   }
 
   getInitialState() {
@@ -128,51 +207,15 @@ class AtlasStore {
     }
   }
 
-  // Reset to demo data
+  // Reset to demo data (uses currently selected seed)
   resetDemo() {
-    // Preserve QA settings
-    const qaMode = this.state.qaMode;
-    const qaEvents = this.state.qaEvents || [];
+    // Get current seed or default to 'A'
+    const currentSeed = this.state.activeSeed || 'A';
     
-    this.state = {
-      accounts: [...mockData.accounts],
-      properties: [...mockData.properties],
-      loans: [...mockData.loans],
-      documents: [...mockData.documents],
-      inboxEntries: [...mockData.inboxEntries],
-      movements: [...mockData.movements],
-      alerts: [...(mockData.alerts || [])],
-      missingInvoices: [...mockData.missingInvoices],
-      users: [...mockData.users],
-      treasuryRules: [...mockData.treasuryRules],
-      scheduledPayments: [...mockData.scheduledPayments],
-      providerRules: [...mockData.providerRules],
-      sweepConfig: {...mockData.sweepConfig},
-      predictedItems: [...mockData.predictedItems],
-      rulesEngineEnabled: true,
-      lastRulesRun: null,
-      // QA Toolkit (preserve across resets)
-      qaMode,
-      activeSeed: 'default',
-      qaEvents: [...qaEvents, { type: 'demo_reset', timestamp: new Date().toISOString() }],
-      // HITO 7: Multi-unit data
-      units: [...(mockData.units || [])],
-      unitContracts: [...(mockData.unitContracts || [])],
-      allocationPreferences: {...(mockData.allocationPreferences || {})},
-      expenseFamilies: [
-        { id: 'acquisition', name: 'Adquisición', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
-        { id: 'improvement', name: 'Mejora / CAPEX', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
-        { id: 'maintenance', name: 'Mantenimiento / Reparación', defaultTreatment: 'deductible', defaultAllocation: 'specific' },
-        { id: 'financing_interest', name: 'Financiación – Intereses', defaultTreatment: 'deductible', defaultAllocation: 'units' },
-        { id: 'financing_fees', name: 'Financiación – Comisiones/Formalización', defaultTreatment: 'capitalizable', defaultAllocation: 'units' },
-        { id: 'operational_fixed', name: 'Explotación – Fijos', defaultTreatment: 'deductible', defaultAllocation: 'total' },
-        { id: 'operational_variable', name: 'Explotación – Variables (Suministros)', defaultTreatment: 'deductible', defaultAllocation: 'occupied' },
-        { id: 'other_owner', name: 'Otros / Propietario', defaultTreatment: 'no_deductible', defaultAllocation: 'no_divide' }
-      ],
-      lastUpdate: new Date().toISOString()
-    };
-    this.save();
-    this.notifySubscribers();
+    console.log(`Resetting demo data with Seed ${currentSeed}...`);
+    
+    // Load the selected seed instead of default mockData
+    this.loadSeed(currentSeed);
   }
 
   // Helper methods for specific operations
@@ -912,46 +955,90 @@ class AtlasStore {
 
   // QA Toolkit Methods
   
-  // Toggle QA Mode
+  // Toggle QA Mode with proper persistence
   toggleQAMode() {
     const qaMode = !this.state.qaMode;
+    
+    // Save to localStorage immediately
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.qaModeKey, qaMode.toString());
+    }
+    
+    // Update state
     this.setState({ 
       qaMode,
       qaEvents: [...(this.state.qaEvents || []), {
         type: qaMode ? 'qa_mode_enabled' : 'qa_mode_disabled',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        module: 'QA'
       }]
     });
+    
+    // Add/remove keyboard shortcuts
+    if (qaMode) {
+      this.addKeyboardShortcuts();
+    } else {
+      this.removeKeyboardShortcuts();
+    }
+    
+    // Show toast notification
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast(
+        qaMode ? 'Modo QA activado' : 'Modo QA desactivado', 
+        qaMode ? 'success' : 'info'
+      );
+    }
   }
 
-  // Load specific seed data
+  // Load specific seed data with proper persistence
   loadSeed(seedType) {
     const seeds = this.getSeeds();
     const seed = seeds[seedType];
     
     if (!seed) {
       console.error(`Seed ${seedType} not found`);
+      if (typeof window !== 'undefined' && window.showToast) {
+        window.showToast(`Seed ${seedType} no encontrado`, 'error');
+      }
       return;
     }
 
+    console.log(`Loading Seed ${seedType}...`);
+    
     // Preserve QA settings
     const qaMode = this.state.qaMode;
     const qaEvents = [...(this.state.qaEvents || []), {
       type: 'seed_loaded',
       seedType,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      module: 'QA'
     }];
 
+    // Replace entire state with seed data
     this.state = {
       ...seed,
       qaMode,
       activeSeed: seedType,
       qaEvents,
+      lastSeedReset: new Date().toISOString(),
       lastUpdate: new Date().toISOString()
     };
     
+    // Save active seed to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.activeSeedKey, seedType);
+    }
+    
+    // Save and notify
     this.save();
     this.notifySubscribers();
+    
+    // Show success toast
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast(`Seed ${seedType} cargado`, 'success');
+    }
+    
+    console.log(`✅ Seed ${seedType} loaded successfully`);
   }
 
   // Get all available seeds
@@ -1515,6 +1602,174 @@ Rules Engine: ${diag.flags.rulesEngine ? 'ON' : 'OFF'}
 Multi-unit: ${diag.flags.multiUnit ? 'YES' : 'NO'}
 Timestamp: ${diag.timestamp}`;
   }
+
+  // QA Quick Actions
+  
+  // Create upcoming movements (next 7 days)
+  createUpcomingMovements() {
+    const movements = [];
+    const today = new Date();
+    
+    for (let i = 1; i <= 10; i++) {
+      const futureDate = new Date(today);
+      futureDate.setDate(today.getDate() + i);
+      
+      movements.push({
+        id: Date.now() + i,
+        date: futureDate.toISOString().split('T')[0],
+        description: `Movimiento futuro ${i}`,
+        amount: Math.floor(Math.random() * 500) + 50,
+        account: 'Cuenta Principal',
+        category: 'Programado',
+        status: 'Pendiente'
+      });
+    }
+    
+    const updatedMovements = [...this.state.movements, ...movements];
+    this.setState({ movements: updatedMovements });
+    this.addQAEvent({ type: 'upcoming_movements_created', count: 10, module: 'Tesorería' });
+    
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast('10 movimientos próximos creados', 'success');
+    }
+  }
+
+  // Create overdue movements (last 10 days)
+  createOverdueMovements() {
+    const movements = [];
+    const today = new Date();
+    
+    for (let i = 1; i <= 10; i++) {
+      const pastDate = new Date(today);
+      pastDate.setDate(today.getDate() - i);
+      
+      movements.push({
+        id: Date.now() + i + 1000,
+        date: pastDate.toISOString().split('T')[0],
+        description: `Movimiento atrasado ${i}`,
+        amount: -(Math.floor(Math.random() * 300) + 25),
+        account: 'Cuenta Principal',
+        category: 'Atrasado',
+        status: 'Excepción'
+      });
+    }
+    
+    const updatedMovements = [...this.state.movements, ...movements];
+    this.setState({ movements: updatedMovements });
+    this.addQAEvent({ type: 'overdue_movements_created', count: 10, module: 'Tesorería' });
+    
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast('10 movimientos atrasados creados', 'success');
+    }
+  }
+
+  // Generate invoices without documents
+  generateInvoicesWithoutDocuments() {
+    const invoices = [
+      {
+        id: Date.now() + 1,
+        uploadDate: new Date().toISOString(),
+        provider: 'Proveedor Sin Doc 1',
+        amount: 125.50,
+        description: 'Factura sin documento detectada',
+        category: 'Sin categoría',
+        type: 'Factura',
+        status: 'Sin documento',
+        hasDocument: false
+      },
+      {
+        id: Date.now() + 2,
+        uploadDate: new Date().toISOString(),
+        provider: 'Proveedor Sin Doc 2',
+        amount: 89.25,
+        description: 'Gasto sin justificante',
+        category: 'Sin categoría',
+        type: 'Factura',
+        status: 'Sin documento',
+        hasDocument: false
+      },
+      {
+        id: Date.now() + 3,
+        uploadDate: new Date().toISOString(),
+        provider: 'Proveedor Sin Doc 3',
+        amount: 234.75,
+        description: 'Factura extraviada',
+        category: 'Sin categoría',
+        type: 'Factura',
+        status: 'Sin documento',
+        hasDocument: false
+      }
+    ];
+    
+    const updatedDocuments = [...this.state.documents, ...invoices];
+    const updatedInbox = [...this.state.inboxEntries, ...invoices.map(inv => ({
+      ...inv,
+      type: 'pending_document',
+      urgent: true
+    }))];
+    
+    this.setState({ 
+      documents: updatedDocuments,
+      inboxEntries: updatedInbox
+    });
+    this.addQAEvent({ type: 'invoices_without_docs_created', count: 3, module: 'Documentos' });
+    
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast('3 facturas sin documento generadas', 'success');
+    }
+  }
+
+  // Simulate low balance in an account
+  simulateLowBalance() {
+    const accounts = this.state.accounts.map(account => {
+      if (account.id === 1) { // Main account
+        return {
+          ...account,
+          balanceToday: account.targetBalance - 1000, // Set below target
+          health: 'warning'
+        };
+      }
+      return account;
+    });
+    
+    // Add low balance alert
+    this.addAlert({
+      type: 'low_balance',
+      severity: 'high',
+      title: 'Saldo bajo detectado',
+      description: 'La cuenta principal está por debajo del objetivo',
+      accountId: 1,
+      actions: ['transfer_money', 'adjust_target', 'dismiss']
+    });
+    
+    this.setState({ accounts });
+    this.addQAEvent({ type: 'low_balance_simulated', module: 'Tesorería' });
+    
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast('Saldo bajo simulado en cuenta principal', 'warning');
+    }
+  }
+
+  // Execute rules engine with feedback
+  executeRulesEngine() {
+    console.log('🔄 Ejecutando motor de reglas desde QA...');
+    const changes = this.runRulesEngine();
+    
+    this.addQAEvent({ 
+      type: 'rules_engine_executed', 
+      changesCount: changes.length,
+      module: 'Config'
+    });
+    
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast(
+        `Motor de reglas ejecutado: ${changes.length} cambios aplicados`, 
+        'success'
+      );
+    }
+    
+    return changes;
+  }
 }
 
 // Create singleton instance
@@ -1540,6 +1795,9 @@ if (typeof window !== 'undefined') {
       console.log('Store still empty after load, forcing demo data');
       store.resetDemo();
     }
+    
+    // Initialize QA mode after data is loaded
+    store.initializeQAMode();
   }, 100); // Small delay to allow DOM to be ready
 } else {
   // If window is not available (SSR), we already have demo data loaded

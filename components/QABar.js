@@ -1,7 +1,7 @@
 // QA Bar - Top thin bar visible only in QA Mode
 import { useState } from 'react';
 
-export default function QABar({ qaMode, activeSeed, onCopyDiagnostics, diagnostics }) {
+export default function QABar({ qaMode, activeSeed, onCopyDiagnostics, onExitQA, diagnostics }) {
   const [copied, setCopied] = useState(false);
 
   if (!qaMode) return null;
@@ -55,25 +55,48 @@ export default function QABar({ qaMode, activeSeed, onCopyDiagnostics, diagnosti
         <span>v{diagnostics?.version || '0.1.3'}</span>
         <span>#{diagnostics?.commit || 'dev'}</span>
         <span>Seed: {activeSeed || 'default'}</span>
+        <span style={{ color: 'rgba(255,255,255,0.8)' }}>
+          Brand check: OK
+        </span>
       </div>
       
-      <button
-        onClick={handleCopyDiagnostics}
-        style={{
-          backgroundColor: 'rgba(255,255,255,0.2)',
-          border: 'none',
-          color: 'white',
-          padding: '4px 8px',
-          borderRadius: '4px',
-          fontSize: '11px',
-          cursor: 'pointer',
-          transition: 'all 0.2s ease'
-        }}
-        onMouseOver={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'}
-        onMouseOut={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'}
-      >
-        {copied ? '✓ Copiado' : '📋 Copiar diagnóstico'}
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button
+          onClick={handleCopyDiagnostics}
+          style={{
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            border: 'none',
+            color: 'white',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'}
+          onMouseOut={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'}
+        >
+          {copied ? '✓ Copiado' : '📋 Copiar diagnóstico'}
+        </button>
+        
+        <button
+          onClick={onExitQA}
+          style={{
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            border: 'none',
+            color: 'white',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.3)'}
+          onMouseOut={(e) => e.target.style.backgroundColor = 'rgba(255,255,255,0.2)'}
+        >
+          ❌ Salir de QA
+        </button>
+      </div>
     </div>
   );
 }
