@@ -217,15 +217,26 @@ class AtlasStore {
         const parsedData = JSON.parse(stored);
         this.state = { ...this.getInitialState(), ...parsedData };
         
-        // Ensure we have some data - if arrays are empty, reload demo data
-        const hasData = this.state.accounts?.length > 0 || 
-                       this.state.properties?.length > 0 || 
-                       this.state.documents?.length > 0;
+        // Restore lastActivityTime from stored data
+        this.lastActivityTime = this.state.lastActivityTime || null;
         
-        if (!hasData) {
-          console.log('Stored data is empty, loading demo data');
-          this.resetDemo();
-          return;
+        // Only auto-reset to demo if this is a completely fresh install
+        // Check if user has ever created any properties or has recent activity
+        const hasProperties = this.state.properties?.length > 0;
+        const hasRecentActivity = this.hasRecentActivity();
+        const hasUserCreatedContent = this.state.lastActivityTime || hasProperties;
+        
+        // Don't auto-reset if user has created content or has recent activity
+        if (!hasUserCreatedContent && !hasRecentActivity) {
+          const hasAnyData = this.state.accounts?.length > 0 || 
+                           this.state.properties?.length > 0 || 
+                           this.state.documents?.length > 0;
+          
+          if (!hasAnyData) {
+            console.log('Fresh install detected, loading demo data');
+            this.resetDemo();
+            return;
+          }
         }
       } else {
         console.log('No stored data found, loading demo data');
@@ -293,6 +304,13 @@ class AtlasStore {
   // Track recent activity to prevent demo reset interference
   markRecentActivity() {
     this.lastActivityTime = Date.now();
+    // Persist to state so it survives page reloads
+    this.state = { 
+      ...this.state, 
+      lastActivityTime: this.lastActivityTime,
+      lastUpdate: new Date().toISOString() 
+    };
+    this.save();
   }
   
   hasRecentActivity() {
