@@ -152,15 +152,17 @@ export const deleteInvoice = (id) => {
 };
 
 export const validateInvoice = (id) => {
-  const state = store.getState();
-  const invoice = state.documents.find(doc => doc.id == id);
-  if (!invoice) {
-    showToast('error', 'Factura no encontrada');
-    return;
-  }
-  
-  store.updateDocument(parseInt(id), { status: 'Validada' });
-  showToast('success', 'Factura validada');
+  setTimeout(() => {
+    const state = store.getState();
+    const invoice = state.documents.find(doc => doc.id == id);
+    if (!invoice) {
+      showToast('error', 'Factura no encontrada');
+      return;
+    }
+    
+    store.updateDocument(parseInt(id), { status: 'Validada' });
+    showToast('success', 'Factura validada');
+  }, 400);
 };
 
 // Export Actions
@@ -240,12 +242,14 @@ export const dismissAlert = (id) => {
 
 // Additional treasury actions
 export const toggleTreasuryRule = (id) => {
-  const state = store.getState();
-  const treasuryRules = state.treasuryRules.map(rule => 
-    rule.id == id ? { ...rule, active: !rule.active } : rule
-  );
-  store.setState({ treasuryRules });
-  showToast('success', 'Regla de tesorería actualizada');
+  setTimeout(() => {
+    const state = store.getState();
+    const treasuryRules = state.treasuryRules.map(rule => 
+      rule.id == id ? { ...rule, active: !rule.active } : rule
+    );
+    store.setState({ treasuryRules });
+    showToast('success', 'Regla de tesorería actualizada');
+  }, 250);
 };
 
 export const editTreasuryRule = (id) => {
@@ -253,20 +257,22 @@ export const editTreasuryRule = (id) => {
 };
 
 export const toggleMovementStatus = (id) => {
-  const state = store.getState();
-  const statusCycle = ['Regla aplicada', 'Pendiente', 'Excepción'];
-  
-  const movements = state.movements.map(movement => {
-    if (movement.id == id) {
-      const currentIndex = statusCycle.indexOf(movement.status);
-      const nextIndex = (currentIndex + 1) % statusCycle.length;
-      return { ...movement, status: statusCycle[nextIndex] };
-    }
-    return movement;
-  });
-  
-  store.setState({ movements });
-  showToast('success', 'Estado del movimiento actualizado');
+  setTimeout(() => {
+    const state = store.getState();
+    const statusCycle = ['Regla aplicada', 'Pendiente', 'Excepción'];
+    
+    const movements = state.movements.map(movement => {
+      if (movement.id == id) {
+        const currentIndex = statusCycle.indexOf(movement.status);
+        const nextIndex = (currentIndex + 1) % statusCycle.length;
+        return { ...movement, status: statusCycle[nextIndex] };
+      }
+      return movement;
+    });
+    
+    store.setState({ movements });
+    showToast('success', 'Estado del movimiento actualizado');
+  }, 200);
 };
 
 export const registerIncome = () => {
@@ -362,25 +368,27 @@ export const deleteProperty = (id) => {
 };
 
 export const togglePropertyStatus = (id) => {
-  const state = store.getState();
-  const properties = state.properties.map(property => {
-    if (property.id == id) {
-      const newStatus = property.status === 'Ocupado' ? 'Disponible' : 'Ocupado';
-      const occupancy = newStatus === 'Ocupado' ? 100 : 0;
-      return { 
-        ...property, 
-        status: newStatus, 
-        occupancy,
-        tenant: newStatus === 'Ocupado' ? 'Nuevo inquilino' : null,
-        contractStart: newStatus === 'Ocupado' ? new Date().toISOString().split('T')[0] : null,
-        contractEnd: newStatus === 'Ocupado' ? new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0] : null
-      };
-    }
-    return property;
-  });
-  
-  store.setState({ properties });
-  showToast('success', 'Estado del inmueble actualizado');
+  setTimeout(() => {
+    const state = store.getState();
+    const properties = state.properties.map(property => {
+      if (property.id == id) {
+        const newStatus = property.status === 'Ocupado' ? 'Disponible' : 'Ocupado';
+        const occupancy = newStatus === 'Ocupado' ? 100 : 0;
+        return { 
+          ...property, 
+          status: newStatus, 
+          occupancy,
+          tenant: newStatus === 'Ocupado' ? 'Nuevo inquilino' : null,
+          contractStart: newStatus === 'Ocupado' ? new Date().toISOString().split('T')[0] : null,
+          contractEnd: newStatus === 'Ocupado' ? new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0] : null
+        };
+      }
+      return property;
+    });
+    
+    store.setState({ properties });
+    showToast('success', 'Estado del inmueble actualizado');
+  }, 300);
 };
 
 export const addPropertyExpense = (id) => {

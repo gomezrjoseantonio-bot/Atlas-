@@ -8,12 +8,52 @@ export default function Page() {
   const [selectedMovement, setSelectedMovement] = useState(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [storeState, setStoreState] = useState(store.getState());
+  const [mounted, setMounted] = useState(false);
 
-  // Subscribe to store changes
+  // Subscribe to store changes and handle hydration
   useEffect(() => {
+    setMounted(true);
+    // Force a refresh of store state after mounting
+    setStoreState(store.getState());
     const unsubscribe = store.subscribe(setStoreState);
     return unsubscribe;
   }, []);
+
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div data-theme="atlas">
+        <header className="header">
+          <div className="container nav">
+            <div className="logo">
+              <div className="logo-mark">
+                <div className="bar short"></div>
+                <div className="bar mid"></div>
+                <div className="bar tall"></div>
+              </div>
+              <div>ATLAS</div>
+            </div>
+            <nav className="tabs">
+              <a className="tab" href="/panel">Panel</a>
+              <a className="tab active" href="/tesoreria">Tesorería</a>
+              <a className="tab" href="/inmuebles">Inmuebles</a>
+              <a className="tab" href="/documentos">Documentos</a>
+              <a className="tab" href="/proyeccion">Proyección</a>
+              <a className="tab" href="/configuracion">Configuración</a>
+            </nav>
+            <div className="actions">
+              <button className="btn btn-secondary btn-sm" style={{marginRight: '12px'}}>🔄 Demo</button>
+              <span>🔍</span><span>🔔</span><span>⚙️</span>
+            </div>
+          </div>
+        </header>
+        <main className="container">
+          <h2 style={{color:'var(--navy)', margin:'0 0 24px 0'}}>Tesorería</h2>
+          <div>Cargando...</div>
+        </main>
+      </div>
+    );
+  }
 
   const { accounts, movements, alerts, treasuryRules, scheduledPayments } = storeState;
 
