@@ -1,31 +1,86 @@
 import { useState, useEffect } from 'react';
 import store from '../../store/index';
+import { mockData } from '../../data/mockData';
 
 export default function PrestamosPage() {
   const [storeState, setStoreState] = useState(() => {
-    // Initialize with store state immediately
-    let currentState = store.getState();
-    const hasData = currentState.accounts?.length > 0 || 
-                   currentState.properties?.length > 0 || 
-                   currentState.documents?.length > 0;
-    
-    if (!hasData) {
-      console.log('Component init: No data detected, forcing demo data');
-      store.resetDemo();
-      currentState = store.getState();
+    // More defensive initialization for deployment environments
+    try {
+      console.log('Prestamos: Starting initialization');
+      let currentState = store.getState();
+      console.log('Prestamos: Got store state', currentState);
+      
+      const hasData = currentState?.accounts?.length > 0 || 
+                     currentState?.properties?.length > 0 || 
+                     currentState?.documents?.length > 0;
+      
+      if (!hasData) {
+        console.log('Prestamos: No data detected, forcing demo data');
+        store.resetDemo();
+        currentState = store.getState();
+        console.log('Prestamos: After demo reset', currentState);
+      }
+      
+      // Ensure we have valid data
+      if (!currentState || typeof currentState !== 'object') {
+        console.error('Prestamos: Invalid store state, using fallback');
+        return {
+          accounts: mockData.accounts || [],
+          properties: mockData.properties || [],
+          loans: mockData.loans || [],
+          documents: mockData.documents || []
+        };
+      }
+      
+      console.log('Prestamos: Initialization complete');
+      return currentState;
+    } catch (error) {
+      console.error('Prestamos: Error during initialization, using fallback data', error);
+      return {
+        accounts: mockData.accounts || [],
+        properties: mockData.properties || [],
+        loans: mockData.loans || [],
+        documents: mockData.documents || []
+      };
     }
-    
-    return currentState;
-  });  // Subscribe to store changes and handle hydration
+  });
+
+  // Subscribe to store changes with error handling
   useEffect(() => {
-    setMounted(true);
-    // Force a refresh of store state after mounting
-    setStoreState(store.getState());
-    const unsubscribe = store.subscribe(setStoreState);
-    return unsubscribe;
+    try {
+      console.log('Prestamos: Setting up store subscription');
+      const unsubscribe = store.subscribe((newState) => {
+        console.log('Prestamos: Store updated', newState);
+        setStoreState(newState);
+      });
+      return () => {
+        unsubscribe();
+      };
+    } catch (error) {
+      console.error('Prestamos: Error setting up store subscription', error);
+    }
   }, []);
 
-  const { loans = [], properties = [] } = storeState;
+  // Use loans and properties from store state with fallback to mockData
+  const loans = storeState?.loans || mockData.loans || [];
+  const properties = storeState?.properties || mockData.properties || [];
+
+  // Safety check: if no data, render loading state
+  if (!loans && !properties) {
+    console.log('Prestamos: No data found, showing fallback UI');
+    return (
+      <div style={{padding: '20px', textAlign: 'center'}}>
+        <h2>Cargando préstamos...</h2>
+        <p>Inicializando demo data...</p>
+        <script dangerouslySetInnerHTML={{__html: `
+          setTimeout(() => {
+            console.log('Prestamos: Fallback timeout, forcing reload');
+            window.location.reload();
+          }, 3000);
+        `}} />
+      </div>
+    );
+  }
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {

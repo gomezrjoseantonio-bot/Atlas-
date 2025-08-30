@@ -1,33 +1,93 @@
 import { useState, useEffect } from 'react';
 import store from '../../store/index';
+import { mockData } from '../../data/mockData';
 
 export default function AnalisisPage() {
   const [storeState, setStoreState] = useState(() => {
-    // Initialize with store state immediately
-    let currentState = store.getState();
-    const hasData = currentState.accounts?.length > 0 || 
-                   currentState.properties?.length > 0 || 
-                   currentState.documents?.length > 0;
-    
-    if (!hasData) {
-      console.log('Component init: No data detected, forcing demo data');
-      store.resetDemo();
-      currentState = store.getState();
+    // More defensive initialization for deployment environments
+    try {
+      console.log('Analisis: Starting initialization');
+      let currentState = store.getState();
+      console.log('Analisis: Got store state', currentState);
+      
+      const hasData = currentState?.accounts?.length > 0 || 
+                     currentState?.properties?.length > 0 || 
+                     currentState?.documents?.length > 0;
+      
+      if (!hasData) {
+        console.log('Analisis: No data detected, forcing demo data');
+        store.resetDemo();
+        currentState = store.getState();
+        console.log('Analisis: After demo reset', currentState);
+      }
+      
+      // Ensure we have valid data
+      if (!currentState || typeof currentState !== 'object') {
+        console.error('Analisis: Invalid store state, using fallback');
+        return {
+          accounts: mockData.accounts || [],
+          properties: mockData.properties || [],
+          contracts: mockData.contracts || [],
+          loans: mockData.loans || [],
+          movements: mockData.movements || []
+        };
+      }
+      
+      console.log('Analisis: Initialization complete');
+      return currentState;
+    } catch (error) {
+      console.error('Analisis: Error during initialization, using fallback data', error);
+      return {
+        accounts: mockData.accounts || [],
+        properties: mockData.properties || [],
+        contracts: mockData.contracts || [],
+        loans: mockData.loans || [],
+        movements: mockData.movements || []
+      };
     }
-    
-    return currentState;
-  });const [selectedProperty, setSelectedProperty] = useState(null);
+  });
+  const [selectedProperty, setSelectedProperty] = useState(null);
   const [analysisType, setAnalysisType] = useState('profitability');
   const [timeRange, setTimeRange] = useState('12m');
 
-  // Subscribe to store changes
+  // Subscribe to store changes with error handling
   useEffect(() => {
-    setMounted(true);
-    const unsubscribe = store.subscribe(setStoreState);
-    return unsubscribe;
+    try {
+      console.log('Analisis: Setting up store subscription');
+      const unsubscribe = store.subscribe((newState) => {
+        console.log('Analisis: Store updated', newState);
+        setStoreState(newState);
+      });
+      return () => {
+        unsubscribe();
+      };
+    } catch (error) {
+      console.error('Analisis: Error setting up store subscription', error);
+    }
   }, []);
 
-  const { properties = [], contracts = [], loans = [], movements = [] } = storeState;
+  // Use data from store state with fallback to mockData
+  const properties = storeState?.properties || mockData.properties || [];
+  const contracts = storeState?.contracts || mockData.contracts || [];
+  const loans = storeState?.loans || mockData.loans || [];
+  const movements = storeState?.movements || mockData.movements || [];
+
+  // Safety check: if no data, render loading state
+  if (!properties || properties.length === 0) {
+    console.log('Analisis: No properties found, showing fallback UI');
+    return (
+      <div style={{padding: '20px', textAlign: 'center'}}>
+        <h2>Cargando análisis...</h2>
+        <p>Inicializando demo data...</p>
+        <script dangerouslySetInnerHTML={{__html: `
+          setTimeout(() => {
+            console.log('Analisis: Fallback timeout, forcing reload');
+            window.location.reload();
+          }, 3000);
+        `}} />
+      </div>
+    );
+  }
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
@@ -170,7 +230,7 @@ export default function AnalisisPage() {
         {analysisType === 'profitability' && (
           <div className="card mb-6">
             <h3 style={{margin: '0 0 16px 0'}}>💰 Análisis de Rentabilidad</h3>
-            (
+            {portfolioAnalysis.length > 0 ? (
               <div className="table-responsive">
                 <table className="table">
                   <thead>
@@ -223,13 +283,25 @@ export default function AnalisisPage() {
                   </tbody>
                 </table>
               </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray mb-4">No hay datos suficientes para el análisis de rentabilidad</div>
+                <button 
+                  className="btn btn-secondary"
+                  data-action="demo:load"
+                >
+                  🔄 Cargar datos demo
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {analysisType === 'valuation' && (
           <div className="card mb-6">
             <h3 style={{margin: '0 0 16px 0'}}>📈 Análisis de Valoración</h3>
-            <div className="table-responsive">
+            {portfolioAnalysis.length > 0 ? (
+              <div className="table-responsive">
                 <table className="table">
                   <thead>
                     <tr>
@@ -285,6 +357,17 @@ export default function AnalisisPage() {
                   </tbody>
                 </table>
               </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray mb-4">No hay datos suficientes para el análisis de valoración</div>
+                <button 
+                  className="btn btn-secondary"
+                  data-action="demo:load"
+                >
+                  🔄 Cargar datos demo
+                </button>
+              </div>
+            )}
           </div>
         )}
 
