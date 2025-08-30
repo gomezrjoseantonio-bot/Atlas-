@@ -64,6 +64,9 @@ export default function Page() {
   const contracts = [];
 
   const formatCurrency = (amount) => {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      return '€0,00';
+    }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
   };
 
