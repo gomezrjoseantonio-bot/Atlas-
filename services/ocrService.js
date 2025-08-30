@@ -28,14 +28,18 @@ class OCRService {
     if (this.isInitialized) return;
 
     try {
-      // Create Tesseract worker with basic configuration first
-      this.worker = await Tesseract.createWorker();
+      // Create Tesseract worker with local asset configuration
+      this.worker = await Tesseract.createWorker({
+        workerPath: '/ocr/tesseract.worker.min.js',
+        langPath: '/ocr/lang/',
+        corePath: '/ocr/tesseract-core.wasm',
+      });
       
       await this.worker.loadLanguage('spa+eng');
       await this.worker.initialize('spa+eng');
 
       this.isInitialized = true;
-      console.log('OCR Service initialized successfully');
+      console.log('OCR Service initialized successfully with local assets');
     } catch (error) {
       console.error('Failed to initialize OCR Service:', error);
       throw error;
