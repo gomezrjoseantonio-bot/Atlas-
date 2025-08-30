@@ -493,7 +493,157 @@ export const mockData = {
     ivaProvision: 0,
     estimatedAnnualNet: 38400,
     estimatedAnnualExpenses: 29400
-  }
+  },
+
+  // HITO 6: Provider classification rules
+  providerRules: [
+    {
+      id: 1,
+      providerContains: 'Endesa',
+      category: 'Suministros',
+      propertyId: null, // null means no specific property assignment
+      active: true,
+      deductible: true,
+      order: 1
+    },
+    {
+      id: 2,
+      providerContains: 'Iberdrola',
+      category: 'Suministros',
+      propertyId: null,
+      active: true,
+      deductible: true,
+      order: 2
+    },
+    {
+      id: 3,
+      providerContains: 'Comunidad',
+      category: 'Gastos comunidad',
+      propertyId: 'auto', // auto-assign to property with "Comunidad" in contracts
+      active: true,
+      deductible: true,
+      order: 3
+    },
+    {
+      id: 4,
+      providerContains: 'Administrador',
+      category: 'Gastos comunidad',
+      propertyId: 'auto',
+      active: true,
+      deductible: true,
+      order: 4
+    },
+    {
+      id: 5,
+      providerContains: 'Mapfre',
+      category: 'Seguros',
+      propertyId: null,
+      active: true,
+      deductible: true,
+      order: 5
+    }
+  ],
+
+  // HITO 6: Sweep configuration
+  sweepConfig: {
+    hubAccountId: 2, // Cuenta Ahorro Inmuebles as default hub
+    autoSweepEnabled: false,
+    movementMatchingDays: 3 // ±3 days for movement-invoice matching
+  },
+
+  // HITO 6: Predicted charges and income (next 90 days)
+  predictedItems: [
+    {
+      id: 1,
+      type: 'charge',
+      description: 'Cuota hipoteca BBVA',
+      amount: 658,
+      dueDate: '2024-01-28',
+      propertyId: 1,
+      recurringType: 'monthly',
+      source: 'loan'
+    },
+    {
+      id: 2,
+      type: 'charge',
+      description: 'Cuota hipoteca Santander',
+      amount: 445,
+      dueDate: '2024-01-20',
+      propertyId: 2,
+      recurringType: 'monthly',
+      source: 'loan'
+    },
+    {
+      id: 3,
+      type: 'income',
+      description: 'Alquiler María García',
+      amount: 1200,
+      dueDate: '2024-02-01',
+      propertyId: 1,
+      recurringType: 'monthly',
+      source: 'contract'
+    },
+    {
+      id: 4,
+      type: 'income',
+      description: 'Alquiler João Silva',
+      amount: 850,
+      dueDate: '2024-02-15',
+      propertyId: 2,
+      recurringType: 'monthly',
+      source: 'contract'
+    },
+    {
+      id: 5,
+      type: 'charge',
+      description: 'IBI Valencia',
+      amount: 245,
+      dueDate: '2024-01-30',
+      propertyId: 3,
+      recurringType: 'yearly',
+      source: 'property'
+    }
+  ],
+
+  // HITO 6: Alerts system
+  alerts: [
+    {
+      id: 1,
+      type: 'low_balance',
+      severity: 'critical',
+      title: 'Saldo bajo en Cuenta Gastos Inmuebles',
+      description: 'La cuenta está por debajo del objetivo (€3.240 < €5.000)',
+      accountId: 3,
+      suggestedAmount: 1760,
+      actions: ['move_money', 'postpone', 'dismiss'],
+      createdAt: '2024-01-15T10:00:00',
+      dismissed: false
+    },
+    {
+      id: 2,
+      type: 'upcoming_charge',
+      severity: 'high',
+      title: 'Cargo de hipoteca próximo',
+      description: 'Cuota hipoteca Santander (€445) - 5 días',
+      dueDate: '2024-01-20',
+      amount: 445,
+      propertyId: 2,
+      actions: ['prepare_funds', 'postpone', 'dismiss'],
+      createdAt: '2024-01-15T09:00:00',
+      dismissed: false
+    },
+    {
+      id: 3,
+      type: 'unpaid_invoice',
+      severity: 'low',
+      title: 'Factura sin cargo',
+      description: 'Factura Fontanería García pendiente sin movimiento asociado',
+      documentId: 2,
+      actions: ['create_predicted_charge', 'postpone', 'dismiss'],
+      createdAt: '2024-01-14T16:00:00',
+      dismissed: false
+    }
+  ]
 };
 
 // Helper functions for data manipulation

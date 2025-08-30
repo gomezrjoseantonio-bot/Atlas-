@@ -111,7 +111,23 @@ export default function Page() {
           <a className="tab" href="/configuracion">Configuración</a>
         </nav>
         <div className="actions">
-          <span>🔍</span><span>🔔</span><span>⚙️</span>
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={() => store.resetDemo()}
+            style={{marginRight: '12px'}}
+          >
+            🔄 Demo
+          </button>
+          <span>🔍</span>
+          <a href="/tesoreria" className="notification-badge">
+            <span>🔔</span>
+            {storeState.alerts && storeState.alerts.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length > 0 && (
+              <span className="badge">
+                {storeState.alerts.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length}
+              </span>
+            )}
+          </a>
+          <span>⚙️</span>
         </div>
       </div>
     </header>

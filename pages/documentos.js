@@ -501,7 +501,20 @@ export default function Page() {
                           />
                         </td>
                         <td>{doc.uploadDate}</td>
-                        <td className="font-semibold">{doc.provider}</td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{doc.provider}</span>
+                            {doc.ruleApplied && (
+                              <span 
+                                className="chip success" 
+                                style={{fontSize: '10px', padding: '2px 6px'}}
+                                title={`Regla aplicada: ${doc.provider} → ${doc.category}`}
+                              >
+                                Regla aplicada
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td>{doc.concept}</td>
                         <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
                           {formatCurrency(doc.amount)}
@@ -847,37 +860,97 @@ export default function Page() {
             </div>
 
             <div className="card mb-4">
-              {missingInvoices.map(item => (
-                <div key={item.id} className="flex items-center justify-between p-3" style={{borderBottom: '1px solid var(--border)'}}>
-                  <div className="flex-1">
-                    <div className="font-medium">{item.provider}</div>
-                    <div className="text-sm text-gray">{item.date} • €{item.amount} • {item.property}</div>
+              {missingInvoices.map(item => {
+                // Check if this invoice would match any provider rule
+                const matchingRule = storeState.providerRules?.find(rule => 
+                  rule.active && item.provider.toLowerCase().includes(rule.providerContains.toLowerCase())
+                );
+                
+                return (
+                  <div key={item.id} className="flex items-center justify-between p-3" style={{borderBottom: '1px solid var(--border)'}}>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{item.provider}</span>
+                        {matchingRule && (
+                          <span 
+                            className="chip success" 
+                            style={{fontSize: '10px', padding: '2px 6px'}}
+                            title={`Se aplicará regla: ${matchingRule.providerContains} → ${matchingRule.category}`}
+                          >
+                            Regla disponible
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray">{item.date} • €{item.amount} • {item.concept}</div>
+                      {item.propertyId && (
+                        <div className="text-xs text-gray">
+                          {properties.find(p => p.id === item.propertyId)?.address}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => {
+                          // Simulate attaching document
+                          setTimeout(() => {
+                            // Create a new document entry
+                            const newDoc = {
+                              provider: item.provider,
+                              concept: item.concept,
+                              amount: item.amount,
+                              propertyId: item.propertyId,
+                              status: 'Validada',
+                              category: matchingRule ? matchingRule.category : 'Servicios',
+                              ruleApplied: !!matchingRule,
+                              ruleId: matchingRule?.id
+                            };
+                            store.addDocument(newDoc);
+                            
+                            // Remove from missing invoices
+                            const updatedMissing = storeState.missingInvoices.filter(mi => mi.id !== item.id);
+                            store.setState({ missingInvoices: updatedMissing });
+                            
+                            // Show notification
+                            if (typeof window !== 'undefined' && window.showToast) {
+                              window.showToast(
+                                matchingRule 
+                                  ? `Documento adjuntado y regla aplicada: ${matchingRule.category}`
+                                  : 'Documento adjuntado', 
+                                'success'
+                              );
+                            }
+                          }, 500); // Simulate processing delay
+                        }}
+                      >
+                        📎 Adjuntar
+                      </button>
+                      <button 
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => {
+                          // Simulate requesting duplicate
+                          if (typeof window !== 'undefined' && window.showToast) {
+                            window.showToast(`Duplicado solicitado a ${item.provider}`, 'success');
+                          }
+                        }}
+                      >
+                        📧 Pedir duplicado
+                      </button>
+                      <button 
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => {
+                          // Simulate uploading photo
+                          if (typeof window !== 'undefined' && window.showToast) {
+                            window.showToast('Función de cámara simulada', 'info');
+                          }
+                        }}
+                      >
+                        📸 Subir foto
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button 
-                      className="btn btn-secondary btn-sm"
-                      data-action="invoice:attach-document"
-                      data-id={item.id}
-                    >
-                      📎 Adjuntar
-                    </button>
-                    <button 
-                      className="btn btn-secondary btn-sm"
-                      data-action="invoice:request-duplicate"
-                      data-id={item.id}
-                    >
-                      📧 Pedir duplicado
-                    </button>
-                    <button 
-                      className="btn btn-secondary btn-sm"
-                      data-action="invoice:upload-photo"
-                      data-id={item.id}
-                    >
-                      📸 Subir foto
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="flex gap-2 justify-end">

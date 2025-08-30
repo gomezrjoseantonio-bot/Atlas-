@@ -23,6 +23,11 @@ class AtlasStore {
       users: [],
       treasuryRules: [],
       scheduledPayments: [],
+      providerRules: [],
+      sweepConfig: {},
+      predictedItems: [],
+      rulesEngineEnabled: true,
+      lastRulesRun: null,
       lastUpdate: new Date().toISOString()
     };
   }
@@ -90,11 +95,16 @@ class AtlasStore {
       documents: [...mockData.documents],
       inboxEntries: [...mockData.inboxEntries],
       movements: [...mockData.movements],
-      alerts: [...(mockData.scheduledPayments || [])],
+      alerts: [...(mockData.alerts || [])],
       missingInvoices: [...mockData.missingInvoices],
       users: [...mockData.users],
       treasuryRules: [...mockData.treasuryRules],
       scheduledPayments: [...mockData.scheduledPayments],
+      providerRules: [...mockData.providerRules],
+      sweepConfig: {...mockData.sweepConfig},
+      predictedItems: [...mockData.predictedItems],
+      rulesEngineEnabled: true,
+      lastRulesRun: null,
       lastUpdate: new Date().toISOString()
     };
     this.save();
@@ -184,6 +194,351 @@ class AtlasStore {
     }];
     this.setState({ movements });
   }
+
+  // HITO 6: Rules Engine
+  runRulesEngine() {
+    console.log('🤖 Running ATLAS Rules Engine...');
+    let changesApplied = [];
+    
+    // 1. Provider classification for documents/invoices
+    changesApplied.push(...this.applyProviderClassification());
+    
+    // 2. Movement ↔ Invoice linking
+    changesApplied.push(...this.linkMovementsToInvoices());
+    
+    // 3. Generate predicted charges/income
+    changesApplied.push(...this.generatePredictedItems());
+    
+    // 4. Check for sweep suggestions
+    changesApplied.push(...this.checkSweepSuggestions());
+    
+    // 5. Update alerts based on rules
+    changesApplied.push(...this.updateAlertsFromRules());
+    
+    // Update last rules run timestamp
+    this.setState({ 
+      lastRulesRun: new Date().toISOString()
+    });
+    
+    // Show toast notifications for changes
+    if (changesApplied.length > 0) {
+      this.showRulesAppliedToast(changesApplied);
+    }
+    
+    console.log(`✅ Rules engine completed. ${changesApplied.length} changes applied.`);
+    return changesApplied;
+  }
+
+  applyProviderClassification() {
+    const changes = [];
+    const { documents, providerRules, properties } = this.state;
+    
+    const updatedDocuments = documents.map(doc => {
+      // Only apply rules to documents that don't already have "Regla aplicada" status
+      if (doc.ruleApplied) return doc;
+      
+      for (const rule of providerRules.filter(r => r.active).sort((a, b) => a.order - b.order)) {
+        if (doc.provider && doc.provider.toLowerCase().includes(rule.providerContains.toLowerCase())) {
+          const updates = {
+            category: rule.category,
+            isDeductible: rule.deductible,
+            ruleApplied: true,
+            ruleId: rule.id
+          };
+          
+          // Handle property assignment
+          if (rule.propertyId === 'auto') {
+            // Find property with matching contract that contains the provider name
+            const matchingProperty = properties.find(p => 
+              p.contracts && p.contracts.some(c => 
+                c.company && c.company.toLowerCase().includes(rule.providerContains.toLowerCase())
+              )
+            );
+            if (matchingProperty) {
+              updates.propertyId = matchingProperty.id;
+            }
+          } else if (rule.propertyId) {
+            updates.propertyId = rule.propertyId;
+          }
+          
+          changes.push({
+            type: 'provider_classification',
+            description: `${rule.providerContains} → ${rule.category}`,
+            documentId: doc.id
+          });
+          
+          return { ...doc, ...updates };
+        }
+      }
+      return doc;
+    });
+    
+    if (changes.length > 0) {
+      this.setState({ documents: updatedDocuments });
+    }
+    
+    return changes;
+  }
+
+  linkMovementsToInvoices() {
+    const changes = [];
+    const { documents, movements, sweepConfig } = this.state;
+    const matchingDays = sweepConfig.movementMatchingDays || 3;
+    
+    const updatedDocuments = documents.map(doc => {
+      if (doc.status === 'Validada' || doc.linkedMovementId) return doc;
+      
+      // Find matching movements within ±matchingDays
+      const docDate = new Date(doc.uploadDate);
+      const matchingMovements = movements.filter(mov => {
+        const movDate = new Date(mov.date);
+        const daysDiff = Math.abs((movDate - docDate) / (1000 * 60 * 60 * 24));
+        
+        return daysDiff <= matchingDays && 
+               Math.abs(mov.amount) === doc.amount &&
+               !mov.linkedDocumentId;
+      });
+      
+      if (matchingMovements.length === 1) {
+        // Exact match found - link them
+        const movement = matchingMovements[0];
+        
+        changes.push({
+          type: 'movement_invoice_link',
+          description: `Factura ${doc.provider} vinculada automáticamente`,
+          documentId: doc.id,
+          movementId: movement.id
+        });
+        
+        // Update movement too
+        const updatedMovements = movements.map(mov => 
+          mov.id === movement.id 
+            ? { ...mov, linkedDocumentId: doc.id, status: 'Regla aplicada' }
+            : mov
+        );
+        this.setState({ movements: updatedMovements });
+        
+        return { ...doc, status: 'Validada', linkedMovementId: movement.id };
+      } else if (matchingMovements.length > 1) {
+        // Multiple candidates - needs manual review
+        changes.push({
+          type: 'manual_review_needed',
+          description: `Múltiples candidatos para ${doc.provider}`,
+          documentId: doc.id
+        });
+      }
+      
+      return doc;
+    });
+    
+    if (changes.length > 0) {
+      this.setState({ documents: updatedDocuments });
+    }
+    
+    return changes;
+  }
+
+  generatePredictedItems() {
+    const changes = [];
+    const { loans, contracts, properties } = this.state;
+    const predictedItems = [];
+    const now = new Date();
+    const next90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+    
+    // Generate loan payment predictions
+    loans.forEach(loan => {
+      const nextPaymentDate = new Date(loan.nextRevision || now);
+      while (nextPaymentDate <= next90Days) {
+        predictedItems.push({
+          id: `loan_${loan.id}_${nextPaymentDate.getTime()}`,
+          type: 'charge',
+          description: `Cuota hipoteca ${loan.bank}`,
+          amount: loan.monthlyPayment,
+          dueDate: nextPaymentDate.toISOString().split('T')[0],
+          propertyId: loan.propertyId,
+          recurringType: 'monthly',
+          source: 'loan',
+          loanId: loan.id
+        });
+        nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
+      }
+    });
+    
+    // Generate rental income predictions
+    contracts.filter(c => c.type === 'Alquiler' && c.status === 'Activo').forEach(contract => {
+      const nextRentDate = new Date();
+      nextRentDate.setDate(1); // First of next month
+      nextRentDate.setMonth(nextRentDate.getMonth() + 1);
+      
+      while (nextRentDate <= next90Days) {
+        predictedItems.push({
+          id: `rent_${contract.id}_${nextRentDate.getTime()}`,
+          type: 'income',
+          description: `Alquiler ${contract.tenant}`,
+          amount: contract.monthlyAmount,
+          dueDate: nextRentDate.toISOString().split('T')[0],
+          propertyId: contract.propertyId,
+          recurringType: 'monthly',
+          source: 'contract',
+          contractId: contract.id
+        });
+        nextRentDate.setMonth(nextRentDate.getMonth() + 1);
+      }
+    });
+    
+    if (predictedItems.length > 0) {
+      this.setState({ predictedItems });
+      changes.push({
+        type: 'predicted_items_generated',
+        description: `${predictedItems.length} elementos previstos generados`,
+        count: predictedItems.length
+      });
+    }
+    
+    return changes;
+  }
+
+  checkSweepSuggestions() {
+    const changes = [];
+    const { accounts, sweepConfig } = this.state;
+    
+    accounts.forEach(account => {
+      if (account.balanceToday < account.targetBalance) {
+        const needed = account.targetBalance - account.balanceToday;
+        const hubAccount = accounts.find(a => a.id === sweepConfig.hubAccountId);
+        
+        if (hubAccount && hubAccount.balanceToday >= needed) {
+          changes.push({
+            type: 'sweep_suggestion',
+            description: `Sugerir mover €${needed.toFixed(2)} desde ${hubAccount.name}`,
+            fromAccountId: hubAccount.id,
+            toAccountId: account.id,
+            amount: needed
+          });
+          
+          // Add to alerts
+          this.addAlert({
+            type: 'sweep_suggestion',
+            severity: 'high',
+            title: `Saldo bajo en ${account.name}`,
+            description: `Sugerir mover €${needed.toFixed(2)} desde ${hubAccount.name}`,
+            accountId: account.id,
+            suggestedAmount: needed,
+            fromAccountId: hubAccount.id,
+            actions: ['move_money', 'postpone', 'dismiss']
+          });
+        }
+      }
+    });
+    
+    return changes;
+  }
+
+  updateAlertsFromRules() {
+    const changes = [];
+    const { documents, movements, loans, contracts } = this.state;
+    
+    // Check for invoices without payments
+    documents.filter(doc => doc.status === 'Pendiente' && !doc.linkedMovementId).forEach(doc => {
+      this.addAlert({
+        type: 'unpaid_invoice',
+        severity: 'low',
+        title: 'Factura sin cargo',
+        description: `Factura ${doc.provider} pendiente sin movimiento asociado`,
+        documentId: doc.id,
+        actions: ['create_predicted_charge', 'postpone', 'dismiss']
+      });
+      
+      changes.push({
+        type: 'alert_created',
+        description: `Alerta creada para factura sin cargo: ${doc.provider}`
+      });
+    });
+    
+    // Check for upcoming contract expirations
+    contracts.forEach(contract => {
+      if (contract.endDate) {
+        const endDate = new Date(contract.endDate);
+        const now = new Date();
+        const daysUntilEnd = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilEnd <= 60 && daysUntilEnd > 0) {
+          const severity = daysUntilEnd <= 7 ? 'high' : daysUntilEnd <= 30 ? 'medium' : 'low';
+          
+          this.addAlert({
+            type: 'contract_expiring',
+            severity,
+            title: 'Contrato próximo a vencer',
+            description: `${contract.type} - ${contract.tenant || contract.company} (${daysUntilEnd} días)`,
+            contractId: contract.id,
+            daysLeft: daysUntilEnd,
+            actions: ['open_contract', 'postpone', 'dismiss']
+          });
+          
+          changes.push({
+            type: 'alert_created',
+            description: `Alerta creada para contrato que vence: ${contract.tenant || contract.company}`
+          });
+        }
+      }
+    });
+    
+    return changes;
+  }
+
+  addAlert(alert) {
+    const alerts = [...this.state.alerts, {
+      ...alert,
+      id: Date.now() + Math.random(),
+      createdAt: new Date().toISOString(),
+      dismissed: false
+    }];
+    this.setState({ alerts });
+  }
+
+  showRulesAppliedToast(changes) {
+    // This would trigger toast notifications in the UI
+    if (typeof window !== 'undefined' && window.showToast) {
+      changes.forEach(change => {
+        window.showToast(`Regla aplicada: ${change.description}`, 'success');
+      });
+    }
+  }
+
+  // Dismiss or postpone alerts
+  updateAlert(alertId, updates) {
+    const alerts = this.state.alerts.map(alert => 
+      alert.id === alertId ? { ...alert, ...updates } : alert
+    );
+    this.setState({ alerts });
+  }
+
+  // Provider rules management
+  addProviderRule(rule) {
+    const providerRules = [...this.state.providerRules, {
+      ...rule,
+      id: Date.now(),
+      order: this.state.providerRules.length + 1
+    }];
+    this.setState({ providerRules });
+  }
+
+  updateProviderRule(ruleId, updates) {
+    const providerRules = this.state.providerRules.map(rule => 
+      rule.id === ruleId ? { ...rule, ...updates } : rule
+    );
+    this.setState({ providerRules });
+  }
+
+  deleteProviderRule(ruleId) {
+    const providerRules = this.state.providerRules.filter(rule => rule.id !== ruleId);
+    this.setState({ providerRules });
+  }
+
+  // Sweep config management
+  updateSweepConfig(config) {
+    this.setState({ sweepConfig: { ...this.state.sweepConfig, ...config } });
+  }
 }
 
 // Create singleton instance
@@ -192,6 +547,13 @@ const store = new AtlasStore();
 // Initialize store on first import
 if (typeof window !== 'undefined') {
   store.load();
+  
+  // HITO 6: Auto-run rules engine when app loads
+  setTimeout(() => {
+    if (store.getState().rulesEngineEnabled) {
+      store.runRulesEngine();
+    }
+  }, 1000); // Small delay to ensure everything is loaded
 }
 
 export default store;
