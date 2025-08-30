@@ -74,21 +74,10 @@ export default function Page() {
   const treasuryRules = storeState?.treasuryRules || mockData.treasuryRules || [];
   const scheduledPayments = storeState?.scheduledPayments || mockData.scheduledPayments || [];
 
-  // Safety check: if no accounts, render loading state
+  // Safety check: if no accounts, use fallback data  
   if (!accounts || accounts.length === 0) {
-    console.log('Tesoreria: No accounts found, showing fallback UI');
-    return (
-      <div style={{padding: '20px', textAlign: 'center'}}>
-        <h2>Cargando datos de tesorería...</h2>
-        <p>Inicializando demo data...</p>
-        <script dangerouslySetInnerHTML={{__html: `
-          setTimeout(() => {
-            console.log('Tesoreria: Fallback timeout, forcing reload');
-            window.location.reload();
-          }, 3000);
-        `}} />
-      </div>
-    );
+    console.log('Tesoreria: No accounts found, using fallback data');
+    // Use mockData fallback instead of loading state
   }
 
   const getHealthStatus = (health) => {
