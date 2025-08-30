@@ -5,6 +5,7 @@ class OCRService {
     this.isInitialized = false;
     this.worker = null;
     this.pdfjsLib = null;
+    this.initializationPromise = null;
   }
 
   async initializePDFJS() {
@@ -26,22 +27,62 @@ class OCRService {
 
   async initialize() {
     if (this.isInitialized) return;
+    
+    // Prevent multiple initialization attempts
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
 
+    this.initializationPromise = this._doInitialize();
+    return this.initializationPromise;
+  }
+
+  async _doInitialize() {
     try {
-      // Create Tesseract worker with local asset configuration
-      this.worker = await Tesseract.createWorker({
+      console.log('Initializing OCR Service with local assets...');
+      
+      // Set global worker paths before creating worker
+      if (typeof window !== 'undefined') {
+        window.Tesseract = window.Tesseract || {};
+        window.Tesseract.workerOptions = {
+          workerPath: '/ocr/tesseract.worker.min.js',
+          langPath: '/ocr/lang/',
+          corePath: '/ocr/tesseract-core.wasm',
+        };
+      }
+      
+      // Create worker with explicit local configuration
+      console.log('Creating Tesseract worker...');
+      this.worker = await Tesseract.createWorker('spa+eng', 1, {
         workerPath: '/ocr/tesseract.worker.min.js',
         langPath: '/ocr/lang/',
         corePath: '/ocr/tesseract-core.wasm',
+        cachePath: '/ocr',
+        gzip: false,
+        // Disable CDN completely
+        workerBlobURL: false,
+        errorHandler: (error) => {
+          console.error('Tesseract worker error:', error);
+        },
+        logger: (m) => {
+          console.log('Tesseract:', m);
+        }
       });
-      
-      await this.worker.loadLanguage('spa+eng');
-      await this.worker.initialize('spa+eng');
 
       this.isInitialized = true;
       console.log('OCR Service initialized successfully with local assets');
     } catch (error) {
       console.error('Failed to initialize OCR Service:', error);
+      // Clean up on failure
+      if (this.worker) {
+        try {
+          await this.worker.terminate();
+        } catch (termError) {
+          console.warn('Error terminating failed worker:', termError);
+        }
+        this.worker = null;
+      }
+      this.initializationPromise = null;
       throw error;
     }
   }
@@ -52,15 +93,25 @@ class OCRService {
     }
 
     try {
+      console.log(`Starting OCR processing for file: ${file.name} (${file.type})`);
+      
       const fileType = file.type || this.getFileTypeFromName(file.name);
       
+      // Add overall timeout for document processing
+      const processTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Document processing timeout after 5 minutes')), 300000);
+      });
+      
+      let processingPromise;
       if (fileType === 'application/pdf') {
-        return await this.processPDF(file, onProgress);
+        processingPromise = this.processPDF(file, onProgress);
       } else if (fileType.startsWith('image/')) {
-        return await this.processImage(file, onProgress);
+        processingPromise = this.processImage(file, onProgress);
       } else {
         throw new Error(`Unsupported file type: ${fileType}`);
       }
+      
+      return await Promise.race([processingPromise, processTimeout]);
     } catch (error) {
       console.error('OCR processing failed:', error);
       throw error;
@@ -104,12 +155,18 @@ class OCRService {
         viewport: viewport
       }).promise;
 
-      // Convert canvas to blob for Tesseract
+      // Convert canvas to blob for Tesseract with timeout
       const blob = await new Promise(resolve => {
         canvas.toBlob(resolve, 'image/png');
       });
 
-      const result = await this.worker.recognize(blob);
+      // Add timeout for individual page OCR processing
+      const pageTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(`Page ${pageNum} OCR timeout after 2 minutes`)), 120000);
+      });
+      
+      const recognizePromise = this.worker.recognize(blob);
+      const result = await Promise.race([recognizePromise, pageTimeout]);
       
       allText += `\n--- Página ${pageNum} ---\n${result.data.text}`;
       totalConfidence += result.data.confidence;
@@ -141,7 +198,18 @@ class OCRService {
       });
     }
 
-    const result = await this.worker.recognize(file);
+    console.log(`Processing image: ${file.name}`);
+    
+    // Add timeout for image OCR processing
+    const imageTimeout = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Image OCR timeout after 2 minutes')), 120000);
+    });
+    
+    const recognizePromise = this.worker.recognize(file);
+    const result = await Promise.race([recognizePromise, imageTimeout]);
+    
+    console.log(`Image OCR completed with ${result.data.confidence}% confidence`);
+    
     const extractedData = this.extractSpanishInvoiceData(result.data.text);
 
     return {
