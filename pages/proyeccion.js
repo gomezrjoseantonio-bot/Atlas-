@@ -57,6 +57,9 @@ export default function Page() {
   const { projectionScenarios, personalFinances } = mockData;
 
   const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return '€0';
+    }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 0})}`;
   };
 

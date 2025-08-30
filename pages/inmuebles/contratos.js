@@ -15,6 +15,9 @@ export default function ContratosPage() {
   const { contracts = [], properties = [] } = storeState;
 
   const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return '€0,00';
+    }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
   };
 
