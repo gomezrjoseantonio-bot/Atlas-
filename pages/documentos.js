@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import store from '../store/index';
+import InvoiceBreakdownModal from '../components/InvoiceBreakdownModal';
+import CapexAssignmentModal from '../components/CapexAssignmentModal';
 
 export default function Page() {
   const [activeTab, setActiveTab] = useState('inbox');
@@ -7,6 +9,13 @@ export default function Page() {
   const [selectedInvoices, setSelectedInvoices] = useState([]);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [dragOver, setDragOver] = useState(false);
+  
+  // H9B: CAPEX Modal states
+  const [showBreakdownModal, setShowBreakdownModal] = useState(false);
+  const [showCapexModal, setShowCapexModal] = useState(false);
+  const [selectedDocumentForModal, setSelectedDocumentForModal] = useState(null);
+  const [duplicateDetected, setDuplicateDetected] = useState([]);
+  const [showManualExpenseModal, setShowManualExpenseModal] = useState(false);
   
   // Persistent filters using sessionStorage
   const [filterMonth, setFilterMonth] = useState(() => {
@@ -95,7 +104,7 @@ export default function Page() {
       unsubscribe();
     };
   }, []);
-  const { documents = [], inboxEntries = [], missingInvoices = [], properties = [] } = storeState;
+  const { documents = [], inboxEntries = [], missingInvoices = [], properties = [], capexProjects = [], fiscalTreatments = [] } = storeState;
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
@@ -168,13 +177,37 @@ export default function Page() {
     // Simulate file upload - add files to inbox
     const files = Array.from(e.dataTransfer.files);
     files.forEach(file => {
+      // Check for valid file types
+      const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/heic'];
+      if (!validTypes.includes(file.type) && !file.name.toLowerCase().match(/\.(pdf|jpg|jpeg|png|heic)$/)) {
+        if (window.showToast) {
+          window.showToast(`Tipo de archivo no soportado: ${file.name}`, 'error');
+        }
+        return;
+      }
+      
       const entry = {
         fileName: file.name,
         fileSize: `${(file.size / 1024).toFixed(1)}KB`,
         status: 'Pendiente de procesamiento',
         provider: 'Pendiente OCR',
-        hasOcr: false
+        hasOcr: file.type === 'application/pdf' || Math.random() > 0.5, // Simulate OCR availability
+        amount: Math.random() > 0.5 ? Math.round(Math.random() * 500 + 50) : null // Simulate amount detection
       };
+      
+      // Check for duplicates
+      if (entry.amount) {
+        const duplicates = store.detectDuplicateDocuments({
+          amount: entry.amount,
+          uploadDate: new Date().toISOString()
+        });
+        
+        if (duplicates.length > 0) {
+          entry.isDuplicate = true;
+          setDuplicateDetected([...duplicateDetected, entry.fileName]);
+        }
+      }
+      
       store.addInboxEntry(entry);
     });
     
@@ -230,6 +263,121 @@ export default function Page() {
     });
     document.dispatchEvent(actionEvent);
     setSelectedDocuments([]);
+  };
+
+  // H9B: CAPEX Functionality Handlers
+  
+  const handleBreakdownDocument = (document) => {
+    setSelectedDocumentForModal(document);
+    setShowBreakdownModal(true);
+  };
+
+  const handleAssignToCapex = (document) => {
+    const documentProperty = properties.find(p => p.id === document.propertyId);
+    if (!documentProperty) {
+      if (window.showToast) {
+        window.showToast('Asigna el documento a una propiedad primero', 'warning');
+      }
+      return;
+    }
+    
+    setSelectedDocumentForModal(document);
+    setShowCapexModal(true);
+  };
+
+  const handleSaveBreakdown = (breakdownData) => {
+    if (!selectedDocumentForModal) return;
+    
+    // Add breakdown to document
+    store.addDocumentBreakdown(selectedDocumentForModal.id, breakdownData.lineItems);
+    
+    setShowBreakdownModal(false);
+    setSelectedDocumentForModal(null);
+    
+    if (window.showToast) {
+      window.showToast(
+        `Factura desglosada en ${breakdownData.lineItems.length} líneas`, 
+        'success'
+      );
+    }
+  };
+
+  const handleCapexAssignment = (assignment) => {
+    if (!selectedDocumentForModal) return;
+    
+    // Assign to CAPEX project
+    if (assignment.lineItemIds && assignment.lineItemIds.length > 0) {
+      // Assign specific line items
+      assignment.lineItemIds.forEach(lineItemId => {
+        store.assignToCapexProject(assignment.projectId, assignment.documentId, lineItemId);
+      });
+    } else {
+      // Assign entire document
+      store.assignToCapexProject(assignment.projectId, assignment.documentId);
+    }
+    
+    setShowCapexModal(false);
+    setSelectedDocumentForModal(null);
+    
+    if (window.showToast) {
+      window.showToast(
+        `Documento asignado a CAPEX (${formatCurrency(assignment.amount)})`, 
+        'success'
+      );
+    }
+  };
+
+  const handleCreateCapexProject = (projectData) => {
+    const project = store.addCapexProject(projectData);
+    
+    if (window.showToast) {
+      window.showToast(`Proyecto CAPEX creado: ${project.name}`, 'success');
+    }
+    
+    return project;
+  };
+
+  const handleAddManualExpense = (expenseData) => {
+    const document = store.addManualCapexExpense(expenseData);
+    
+    if (window.showToast) {
+      window.showToast(
+        `Gasto manual añadido: ${formatCurrency(document.amount)}`, 
+        'success'
+      );
+    }
+    
+    setShowManualExpenseModal(false);
+  };
+
+  const handleCapexYearClosure = (year) => {
+    // Find properties with CAPEX activity in the year
+    const propertiesWithCapex = properties.filter(property => {
+      const propertyProjects = capexProjects.filter(project => 
+        project.propertyId === property.id &&
+        new Date(project.createdDate).getFullYear() === year
+      );
+      return propertyProjects.length > 0;
+    });
+
+    if (propertiesWithCapex.length === 0) {
+      if (window.showToast) {
+        window.showToast(`No hay actividad CAPEX en ${year}`, 'info');
+      }
+      return;
+    }
+
+    // Create closures for each property
+    const closures = propertiesWithCapex.map(property => 
+      store.closeCapexYear(year, property.id)
+    );
+
+    if (window.showToast) {
+      window.showToast(
+        `Cierre CAPEX ${year} completado (${closures.length} propiedades)`, 
+        'success'
+      );
+    }
   };
 
   // Filter documents based on current filters
@@ -328,14 +476,28 @@ export default function Page() {
               <input 
                 type="file" 
                 multiple 
-                accept=".pdf,.jpg,.jpeg,.png,.zip"
+                accept=".pdf,.jpg,.jpeg,.png,.heic,image/*"
+                capture="environment"
                 onChange={handleFileSelect}
                 style={{display: 'none'}}
                 id="file-input"
               />
-              <label htmlFor="file-input" className="btn btn-primary">
-                Seleccionar archivos
-              </label>
+              <input 
+                type="file" 
+                accept="image/*"
+                capture="environment"
+                onChange={handleFileSelect}
+                style={{display: 'none'}}
+                id="camera-input"
+              />
+              <div className="flex gap-2">
+                <label htmlFor="file-input" className="btn btn-primary">
+                  📁 Seleccionar archivos
+                </label>
+                <label htmlFor="camera-input" className="btn btn-secondary">
+                  📸 Cámara
+                </label>
+              </div>
             </div>
 
             <div className="flex gap-2 mt-4">
@@ -347,12 +509,24 @@ export default function Page() {
               </button>
               <button 
                 className="btn btn-secondary"
+                onClick={() => setShowManualExpenseModal(true)}
+              >
+                ➕ Gasto manual
+              </button>
+              <button 
+                className="btn btn-secondary"
+                onClick={() => handleCapexYearClosure(new Date().getFullYear())}
+              >
+                📋 Cierre CAPEX {new Date().getFullYear()}
+              </button>
+              <button 
+                className="btn btn-secondary"
                 data-action="invoice:clear-upload"
               >
                 Limpiar
               </button>
               <div className="text-sm text-gray" style={{alignSelf: 'center', marginLeft: '16px'}}>
-                💡 El OCR es simulado en esta etapa
+                💡 Soporta PDF, JPG, PNG, HEIC. OCR simulado.
               </div>
             </div>
           </div>
@@ -384,6 +558,11 @@ export default function Page() {
                         <td>{new Date(entry.uploadDate).toLocaleDateString('es-ES')}</td>
                         <td>
                           <div className="font-semibold">{entry.provider}</div>
+                          {entry.isDuplicate && (
+                            <span className="chip chip-warning chip-sm">
+                              Posible duplicado
+                            </span>
+                          )}
                         </td>
                         <td>
                           <div>{entry.fileName}</div>
@@ -626,25 +805,43 @@ export default function Page() {
                         <td>
                           <div className="flex gap-1">
                             <button 
-                              className="btn btn-secondary btn-sm"
+                              className="btn btn-secondary btn-xs"
                               data-action="invoice:view"
                               data-id={doc.id}
+                              title="Ver"
                             >
-                              Ver
+                              👁️
                             </button>
                             <button 
-                              className="btn btn-secondary btn-sm"
+                              className="btn btn-primary btn-xs"
+                              onClick={() => handleBreakdownDocument(doc)}
+                              title="Desglosar"
+                            >
+                              📋
+                            </button>
+                            <button 
+                              className="btn btn-success btn-xs"
+                              onClick={() => handleAssignToCapex(doc)}
+                              title="Asignar a CAPEX"
+                              disabled={!doc.propertyId}
+                            >
+                              🏗️
+                            </button>
+                            <button 
+                              className="btn btn-secondary btn-xs"
                               data-action="invoice:edit"
                               data-id={doc.id}
+                              title="Editar"
                             >
-                              Editar
+                              ✏️
                             </button>
                             <button 
-                              className="btn btn-error btn-sm"
+                              className="btn btn-error btn-xs"
                               data-action="invoice:delete"
                               data-id={doc.id}
+                              title="Borrar"
                             >
-                              Borrar
+                              🗑️
                             </button>
                           </div>
                         </td>
@@ -1040,6 +1237,193 @@ export default function Page() {
                 ✅ Resolver todos
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* H9B: CAPEX Modals */}
+      
+      {/* Invoice Breakdown Modal */}
+      <InvoiceBreakdownModal
+        document={selectedDocumentForModal}
+        isOpen={showBreakdownModal}
+        onClose={() => {
+          setShowBreakdownModal(false);
+          setSelectedDocumentForModal(null);
+        }}
+        onSave={handleSaveBreakdown}
+        fiscalTreatments={storeState.fiscalTreatments || []}
+      />
+
+      {/* CAPEX Assignment Modal */}
+      <CapexAssignmentModal
+        document={selectedDocumentForModal}
+        property={selectedDocumentForModal ? properties.find(p => p.id === selectedDocumentForModal.propertyId) : null}
+        capexProjects={storeState.capexProjects || []}
+        isOpen={showCapexModal}
+        onClose={() => {
+          setShowCapexModal(false);
+          setSelectedDocumentForModal(null);
+        }}
+        onAssign={handleCapexAssignment}
+        onCreateProject={handleCreateCapexProject}
+      />
+
+      {/* Manual Expense Modal */}
+      {showManualExpenseModal && (
+        <div 
+          className="modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          onClick={() => setShowManualExpenseModal(false)}
+        >
+          <div 
+            className="modal-content"
+            style={{
+              background: '#fff',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '500px',
+              width: '90%'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 style={{margin: 0}}>➕ Gasto manual CAPEX</h3>
+              <button 
+                onClick={() => setShowManualExpenseModal(false)}
+                className="btn btn-secondary btn-sm"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              const expenseData = {
+                provider: formData.get('provider'),
+                concept: formData.get('concept'),
+                amount: parseFloat(formData.get('amount')),
+                date: formData.get('date'),
+                propertyId: parseInt(formData.get('propertyId')),
+                fiscalTreatment: formData.get('fiscalTreatment'),
+                capexProjectId: formData.get('capexProjectId') || null
+              };
+              handleAddManualExpense(expenseData);
+            }}>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium">Proveedor *</label>
+                  <input
+                    type="text"
+                    name="provider"
+                    className="form-control"
+                    required
+                    placeholder="ej: Ferretería López"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Concepto *</label>
+                  <input
+                    type="text"
+                    name="concept"
+                    className="form-control"
+                    required
+                    placeholder="ej: Material reforma cocina"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium">Importe *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="amount"
+                      className="form-control"
+                      required
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Fecha *</label>
+                    <input
+                      type="date"
+                      name="date"
+                      className="form-control"
+                      defaultValue={new Date().toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Inmueble *</label>
+                  <select name="propertyId" className="form-control" required>
+                    <option value="">Seleccionar inmueble...</option>
+                    {properties.map(property => (
+                      <option key={property.id} value={property.id}>
+                        {property.address || property.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Tratamiento fiscal</label>
+                  <select name="fiscalTreatment" className="form-control">
+                    {(storeState.fiscalTreatments || []).map(treatment => (
+                      <option key={treatment.id} value={treatment.id}>
+                        {treatment.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium">Proyecto CAPEX (opcional)</label>
+                  <select name="capexProjectId" className="form-control">
+                    <option value="">Sin asignar a proyecto</option>
+                    {(storeState.capexProjects || [])
+                      .filter(project => project.status === 'active')
+                      .map(project => (
+                        <option key={project.id} value={project.id}>
+                          {project.name} — {formatCurrency(project.spentAmount || 0)}/{formatCurrency(project.totalBudget || 0)}
+                        </option>
+                      ))
+                    }
+                  </select>
+                </div>
+              </div>
+              
+              <div className="flex gap-2 justify-end mt-4">
+                <button 
+                  type="button"
+                  onClick={() => setShowManualExpenseModal(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="btn btn-primary"
+                >
+                  ➕ Añadir gasto
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

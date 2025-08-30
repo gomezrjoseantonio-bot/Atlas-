@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import CapexCard from './CapexCard';
+import store from '../store/index';
 
 const PropertyDetailModal = ({ property, onClose }) => {
   const [showEditCostsModal, setShowEditCostsModal] = useState(false);
@@ -171,10 +173,27 @@ const PropertyDetailModal = ({ property, onClose }) => {
           <div className="text-sm text-gray">{property.city} · {property.type || 'Inmueble'}</div>
         </div>
 
-        {/* Three cards as specified in requirements */}
+        {/* Four cards as specified: Identity, Structure, Acquisition Costs, and CAPEX */}
         {renderPropertyInfo()}
         {renderStructure()}
         {renderAcquisitionCosts()}
+        
+        {/* H9B: CAPEX Card */}
+        <CapexCard
+          property={property}
+          capexProjects={store.getState().capexProjects || []}
+          capexItems={store.getState().capexItems || []}
+          documents={store.getState().documents || []}
+          fiscalConfig={store.getState().fiscalConfig || {}}
+          onViewProject={(projectId) => {
+            // TODO: Implement project detail view
+            console.log('View project:', projectId);
+          }}
+          onEditProject={(projectId) => {
+            // TODO: Implement project editing
+            console.log('Edit project:', projectId);
+          }}
+        />
 
         <div className="flex gap-3">
           <button className="btn btn-primary" onClick={onClose}>

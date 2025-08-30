@@ -125,6 +125,50 @@ class AtlasStore {
         { id: 'operational_variable', name: 'Explotación – Variables (Suministros)', defaultTreatment: 'deductible', defaultAllocation: 'occupied' },
         { id: 'other_owner', name: 'Otros / Propietario', defaultTreatment: 'no_deductible', defaultAllocation: 'no_divide' }
       ],
+      // H9B: CAPEX Management System
+      capexProjects: [], // CAPEX projects for properties
+      capexItems: [], // Individual CAPEX items linked to projects and documents
+      fiscalConfig: {
+        rcAnnualLimit: 1000, // R/C annual limit per property (€)
+        rcCarryoverYears: 4, // Years to carry over unused R/C limit
+        furnitureDepreciationYears: 10, // Furniture depreciation period
+        improvementCapitalizationThreshold: 600 // Minimum for capitalizable improvements
+      },
+      fiscalTreatments: [
+        { 
+          id: 'rc_maintenance', 
+          name: 'Reparación/Conservación (R/C)', 
+          description: 'Deducible hasta límite anual, arrastre 4 años',
+          type: 'deductible_limited',
+          annualLimit: true,
+          carryover: true
+        },
+        { 
+          id: 'improvement_capitalizable', 
+          name: 'Mejora capitalizable', 
+          description: 'Se capitaliza al edificio, no deducible',
+          type: 'capitalizable',
+          annualLimit: false,
+          carryover: false
+        },
+        { 
+          id: 'furniture_depreciable', 
+          name: 'Mobiliario amortizable', 
+          description: 'Amortizable en 10 años',
+          type: 'depreciable',
+          annualLimit: false,
+          carryover: false,
+          depreciationYears: 10
+        },
+        { 
+          id: 'operational_expense', 
+          name: 'Gasto operacional', 
+          description: 'Deducible íntegramente',
+          type: 'deductible',
+          annualLimit: false,
+          carryover: false
+        }
+      ],
       lastUpdate: new Date().toISOString()
     };
   }
@@ -1145,10 +1189,14 @@ class AtlasStore {
           provider: 'Endesa',
           amount: 85,
           description: 'Factura electricidad',
+          concept: 'Factura electricidad',
           category: 'Suministros',
           type: 'Factura',
-          status: 'Pendiente',
-          recurrence: 'monthly'
+          status: 'Asignada a CAPEX',
+          recurrence: 'monthly',
+          propertyId: 1,
+          fiscalTreatment: 'operational_expense',
+          capexProjectId: 1
         },
         {
           id: 2,
@@ -1208,6 +1256,73 @@ class AtlasStore {
         { id: 'operational_fixed', name: 'Explotación – Fijos', defaultTreatment: 'deductible', defaultAllocation: 'total' },
         { id: 'operational_variable', name: 'Explotación – Variables (Suministros)', defaultTreatment: 'deductible', defaultAllocation: 'occupied' },
         { id: 'other_owner', name: 'Otros / Propietario', defaultTreatment: 'no_deductible', defaultAllocation: 'no_divide' }
+      ],
+      // H9B: CAPEX data for demonstration
+      capexProjects: [
+        {
+          id: 1,
+          name: 'Reforma cocina 2024',
+          description: 'Renovación completa de la cocina del inmueble',
+          propertyId: 1,
+          propertyName: 'Calle Ejemplo 123, 2ºA',
+          totalBudget: 8000,
+          spentAmount: 3500,
+          documentCount: 3,
+          status: 'active',
+          category: 'improvement',
+          fiscalTreatment: 'improvement_capitalizable',
+          createdDate: '2024-01-01T00:00:00.000Z'
+        }
+      ],
+      capexItems: [
+        {
+          id: 1,
+          projectId: 1,
+          documentId: 1,
+          lineItemId: null,
+          assignedDate: '2024-01-10T00:00:00.000Z'
+        }
+      ],
+      fiscalConfig: {
+        rcAnnualLimit: 1000,
+        rcCarryoverYears: 4,
+        furnitureDepreciationYears: 10,
+        improvementCapitalizationThreshold: 600
+      },
+      fiscalTreatments: [
+        { 
+          id: 'rc_maintenance', 
+          name: 'Reparación/Conservación (R/C)', 
+          description: 'Deducible hasta límite anual, arrastre 4 años',
+          type: 'deductible_limited',
+          annualLimit: true,
+          carryover: true
+        },
+        { 
+          id: 'improvement_capitalizable', 
+          name: 'Mejora capitalizable', 
+          description: 'Se capitaliza al edificio, no deducible',
+          type: 'capitalizable',
+          annualLimit: false,
+          carryover: false
+        },
+        { 
+          id: 'furniture_depreciable', 
+          name: 'Mobiliario amortizable', 
+          description: 'Amortizable en 10 años',
+          type: 'depreciable',
+          annualLimit: false,
+          carryover: false,
+          depreciationYears: 10
+        },
+        { 
+          id: 'operational_expense', 
+          name: 'Gasto operacional', 
+          description: 'Deducible íntegramente',
+          type: 'deductible',
+          annualLimit: false,
+          carryover: false
+        }
       ]
     };
   }
@@ -1791,6 +1906,301 @@ Timestamp: ${diag.timestamp}`;
     }
     
     return changes;
+  }
+
+  // H9B: CAPEX Management Methods
+  
+  // Create a new CAPEX project
+  addCapexProject(project) {
+    const capexProjects = [...this.state.capexProjects, {
+      ...project,
+      id: Date.now(),
+      createdDate: new Date().toISOString(),
+      status: 'active', // active, completed, cancelled
+      totalBudget: project.totalBudget || 0,
+      spentAmount: 0,
+      documentCount: 0
+    }];
+    this.setState({ capexProjects });
+    return capexProjects[capexProjects.length - 1];
+  }
+
+  // Update CAPEX project
+  updateCapexProject(projectId, updates) {
+    const capexProjects = this.state.capexProjects.map(project => 
+      project.id === projectId ? { ...project, ...updates } : project
+    );
+    this.setState({ capexProjects });
+  }
+
+  // Add document breakdown with line items
+  addDocumentBreakdown(documentId, lineItems) {
+    // Update the document with line items
+    const documents = this.state.documents.map(doc => {
+      if (doc.id === documentId) {
+        return {
+          ...doc,
+          hasBreakdown: true,
+          lineItems: lineItems.map(item => ({
+            ...item,
+            id: Date.now() + Math.random(),
+            documentId: documentId
+          }))
+        };
+      }
+      return doc;
+    });
+    
+    this.setState({ documents });
+  }
+
+  // Assign document or line item to CAPEX project
+  assignToCapexProject(projectId, documentId, lineItemId = null) {
+    const capexItems = [...this.state.capexItems, {
+      id: Date.now(),
+      projectId: projectId,
+      documentId: documentId,
+      lineItemId: lineItemId,
+      assignedDate: new Date().toISOString()
+    }];
+    
+    // Update document status
+    const documents = this.state.documents.map(doc => {
+      if (doc.id === documentId) {
+        return {
+          ...doc,
+          capexProjectId: projectId,
+          status: 'Asignada a CAPEX'
+        };
+      }
+      return doc;
+    });
+    
+    // Update project totals
+    this.recalculateCapexProjectTotals(projectId);
+    
+    this.setState({ capexItems, documents });
+  }
+
+  // Recalculate CAPEX project totals
+  recalculateCapexProjectTotals(projectId) {
+    const projectItems = this.state.capexItems.filter(item => item.projectId === projectId);
+    let totalSpent = 0;
+    let documentCount = 0;
+    
+    projectItems.forEach(item => {
+      const document = this.state.documents.find(doc => doc.id === item.documentId);
+      if (document) {
+        if (item.lineItemId) {
+          // If it's a line item, find the specific line
+          const lineItem = document.lineItems?.find(line => line.id === item.lineItemId);
+          if (lineItem) {
+            totalSpent += lineItem.amount || 0;
+          }
+        } else {
+          // If it's the entire document
+          totalSpent += document.amount || 0;
+          documentCount++;
+        }
+      }
+    });
+    
+    // Update project
+    const capexProjects = this.state.capexProjects.map(project => {
+      if (project.id === projectId) {
+        return {
+          ...project,
+          spentAmount: totalSpent,
+          documentCount: documentCount
+        };
+      }
+      return project;
+    });
+    
+    this.setState({ capexProjects });
+  }
+
+  // Get CAPEX summary for a property
+  getCapexSummaryForProperty(propertyId) {
+    const propertyProjects = this.state.capexProjects.filter(project => project.propertyId === propertyId);
+    const currentYear = new Date().getFullYear();
+    
+    const summary = {
+      totalCapex: 0,
+      currentYearCapex: 0,
+      pendingCapex: 0,
+      projectCount: propertyProjects.length,
+      activeProjects: 0,
+      rcUsed: 0,
+      rcAvailable: this.state.fiscalConfig.rcAnnualLimit
+    };
+    
+    propertyProjects.forEach(project => {
+      summary.totalCapex += project.spentAmount || 0;
+      
+      if (project.status === 'active') {
+        summary.activeProjects++;
+        summary.pendingCapex += (project.totalBudget || 0) - (project.spentAmount || 0);
+      }
+      
+      // Calculate current year spending
+      const projectYear = new Date(project.createdDate).getFullYear();
+      if (projectYear === currentYear) {
+        summary.currentYearCapex += project.spentAmount || 0;
+      }
+    });
+    
+    // Calculate R/C usage for current year
+    const currentYearRCItems = this.state.capexItems.filter(item => {
+      const document = this.state.documents.find(doc => doc.id === item.documentId);
+      if (!document) return false;
+      
+      const fiscalTreatment = document.fiscalTreatment || 'rc_maintenance';
+      const itemYear = new Date(document.uploadDate || document.date).getFullYear();
+      
+      return fiscalTreatment === 'rc_maintenance' && itemYear === currentYear;
+    });
+    
+    currentYearRCItems.forEach(item => {
+      const document = this.state.documents.find(doc => doc.id === item.documentId);
+      if (document) {
+        if (item.lineItemId) {
+          const lineItem = document.lineItems?.find(line => line.id === item.lineItemId);
+          if (lineItem) {
+            summary.rcUsed += lineItem.amount || 0;
+          }
+        } else {
+          summary.rcUsed += document.amount || 0;
+        }
+      }
+    });
+    
+    summary.rcAvailable = Math.max(0, this.state.fiscalConfig.rcAnnualLimit - summary.rcUsed);
+    
+    return summary;
+  }
+
+  // Get fiscal summary for CAPEX
+  getCapexFiscalSummary(propertyId, year = null) {
+    const targetYear = year || new Date().getFullYear();
+    const propertyProjects = this.state.capexProjects.filter(project => project.propertyId === propertyId);
+    
+    const summary = {
+      year: targetYear,
+      rcMaintenance: { used: 0, limit: this.state.fiscalConfig.rcAnnualLimit, available: 0 },
+      improvements: { total: 0, capitalized: 0 },
+      furniture: { total: 0, annualDepreciation: 0 },
+      operational: { total: 0, deducted: 0 }
+    };
+    
+    // Collect all items for the property in the target year
+    const yearItems = this.state.capexItems.filter(item => {
+      const document = this.state.documents.find(doc => doc.id === item.documentId);
+      if (!document) return false;
+      
+      const itemYear = new Date(document.uploadDate || document.date).getFullYear();
+      return itemYear === targetYear && 
+             propertyProjects.some(project => project.id === item.projectId);
+    });
+    
+    yearItems.forEach(item => {
+      const document = this.state.documents.find(doc => doc.id === item.documentId);
+      if (!document) return;
+      
+      let amount = 0;
+      if (item.lineItemId) {
+        const lineItem = document.lineItems?.find(line => line.id === item.lineItemId);
+        amount = lineItem?.amount || 0;
+      } else {
+        amount = document.amount || 0;
+      }
+      
+      const fiscalTreatment = document.fiscalTreatment || 'rc_maintenance';
+      
+      switch (fiscalTreatment) {
+        case 'rc_maintenance':
+          summary.rcMaintenance.used += amount;
+          break;
+        case 'improvement_capitalizable':
+          summary.improvements.total += amount;
+          summary.improvements.capitalized += amount;
+          break;
+        case 'furniture_depreciable':
+          summary.furniture.total += amount;
+          summary.furniture.annualDepreciation += amount / this.state.fiscalConfig.furnitureDepreciationYears;
+          break;
+        case 'operational_expense':
+          summary.operational.total += amount;
+          summary.operational.deducted += amount;
+          break;
+      }
+    });
+    
+    summary.rcMaintenance.available = Math.max(0, summary.rcMaintenance.limit - summary.rcMaintenance.used);
+    
+    return summary;
+  }
+
+  // Detect duplicate documents
+  detectDuplicateDocuments(newDocument) {
+    const duplicates = this.state.documents.filter(doc => {
+      // Check amount similarity (±1€)
+      const amountDiff = Math.abs((doc.amount || 0) - (newDocument.amount || 0));
+      if (amountDiff > 1) return false;
+      
+      // Check date similarity (±7 days)
+      const docDate = new Date(doc.uploadDate || doc.date);
+      const newDocDate = new Date(newDocument.uploadDate || newDocument.date);
+      const daysDiff = Math.abs(docDate - newDocDate) / (1000 * 60 * 60 * 24);
+      if (daysDiff > 7) return false;
+      
+      return true;
+    });
+    
+    return duplicates;
+  }
+
+  // Add manual CAPEX expense
+  addManualCapexExpense(expense) {
+    const document = {
+      ...expense,
+      id: Date.now(),
+      uploadDate: new Date().toISOString(),
+      type: 'Manual',
+      status: 'Validada',
+      source: 'manual_capex'
+    };
+    
+    const documents = [...this.state.documents, document];
+    this.setState({ documents });
+    
+    // If assigned to project, create the assignment
+    if (expense.capexProjectId) {
+      this.assignToCapexProject(expense.capexProjectId, document.id);
+    }
+    
+    return document;
+  }
+
+  // Close CAPEX year (fiscal closure)
+  closeCapexYear(year, propertyId) {
+    const summary = this.getCapexFiscalSummary(propertyId, year);
+    
+    // Create a closure record
+    const capexClosures = this.state.capexClosures || [];
+    const closure = {
+      id: Date.now(),
+      year: year,
+      propertyId: propertyId,
+      closureDate: new Date().toISOString(),
+      fiscalSummary: summary,
+      status: 'closed'
+    };
+    
+    capexClosures.push(closure);
+    this.setState({ capexClosures });
+    
+    return closure;
   }
 }
 
