@@ -41,20 +41,56 @@ class OCRService {
     try {
       console.log('Initializing simplified OCR Service...');
       
+      // Check if we're in development for enhanced debugging
+      const isDev = typeof window !== 'undefined' && 
+                   (window.location.hostname === 'localhost' || 
+                    window.location.hostname === '127.0.0.1');
+      
+      if (isDev) {
+        console.log('Development mode detected - enabling detailed OCR logging');
+      }
+      
       // Create worker with minimal configuration for maximum compatibility
       console.log('Creating Tesseract worker with basic configuration...');
       
       // Use a simple approach - let Tesseract.js handle defaults
       this.worker = await Tesseract.createWorker(['spa', 'eng'], 1, {
         logger: (m) => {
-          console.log('Tesseract:', m);
+          if (isDev) {
+            console.log('Tesseract:', m);
+          } else if (m.status === 'recognizing text' || m.progress > 0) {
+            console.log(`Tesseract: ${m.status} ${Math.round(m.progress * 100)}%`);
+          }
         }
       });
 
       this.isInitialized = true;
       console.log('OCR Service initialized successfully');
+      
+      // In development, add a global test function
+      if (isDev && typeof window !== 'undefined') {
+        window.atlasOCRService = this;
+        window.testAtlasOCR = async (file) => {
+          try {
+            const result = await this.processDocument(file);
+            console.log('Test OCR result:', result);
+            return result;
+          } catch (error) {
+            console.error('Test OCR failed:', error);
+            throw error;
+          }
+        };
+        console.log('OCR test functions added to window.testAtlasOCR');
+      }
+      
     } catch (error) {
       console.error('Failed to initialize OCR Service:', error);
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      
       // Clean up on failure
       if (this.worker) {
         try {
@@ -74,7 +110,7 @@ class OCRService {
     try {
       console.log(`Starting simplified OCR processing for file: ${file.name} (${file.type})`);
       
-      // Initialize if needed
+      // Try initialization first
       if (!this.isInitialized) {
         if (onProgress) {
           onProgress({
@@ -82,7 +118,29 @@ class OCRService {
             status: 'Iniciando OCR...'
           });
         }
-        await this.initialize();
+        
+        try {
+          await this.initialize();
+        } catch (initError) {
+          console.warn('Primary OCR initialization failed, trying fallback approach:', initError);
+          
+          // Fallback: Try creating a worker with even simpler configuration
+          if (onProgress) {
+            onProgress({
+              type: 'initialization',
+              status: 'Probando configuración alternativa...'
+            });
+          }
+          
+          try {
+            this.worker = await Tesseract.createWorker('eng');
+            this.isInitialized = true;
+            console.log('Fallback OCR initialization successful (English only)');
+          } catch (fallbackError) {
+            console.error('All OCR initialization attempts failed:', fallbackError);
+            throw new Error('No se pudo inicializar el OCR. Verifique la conexión a internet.');
+          }
+        }
       }
 
       const fileType = file.type || this.getFileTypeFromName(file.name);
@@ -104,11 +162,25 @@ class OCRService {
       return await Promise.race([processingPromise, processTimeout]);
     } catch (error) {
       console.error('OCR processing failed:', error);
+      
+      // Provide user-friendly error messages
+      let userMessage = error.message;
+      if (error.message.includes('timeout')) {
+        userMessage = 'El procesamiento OCR tardó demasiado. Intente con una imagen más pequeña.';
+      } else if (error.message.includes('Failed to initialize')) {
+        userMessage = 'No se pudo inicializar el OCR. Verifique su conexión a internet.';
+      } else if (error.message.includes('Unsupported file')) {
+        userMessage = 'Formato de archivo no soportado. Use PDF, JPG, PNG o HEIC.';
+      }
+      
       // Clean up worker on critical errors
       if (error.message.includes('timeout') || error.message.includes('Failed to initialize')) {
         await this.terminate();
       }
-      throw error;
+      
+      const friendlyError = new Error(userMessage);
+      friendlyError.originalError = error;
+      throw friendlyError;
     }
   }
 
