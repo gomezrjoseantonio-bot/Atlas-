@@ -166,25 +166,31 @@ export const mockData = {
       id: 1,
       propertyId: 1,
       bank: 'BBVA',
+      product: 'Hipoteca estándar',
       originalAmount: 140000,
-      currentBalance: 98750,
+      pendingCapital: 98750,
       interestRate: 2.85,
+      interestType: 'variable',
       monthlyPayment: 658,
       remainingMonths: 156,
       startDate: '2020-03-15',
-      endDate: '2033-03-15'
+      endDate: '2033-03-15',
+      nextRevision: '2024-03-15'
     },
     {
       id: 2,
       propertyId: 2,
       bank: 'Santander',
+      product: 'Hipoteca estándar',
       originalAmount: 75000,
-      currentBalance: 62400,
+      pendingCapital: 62400,
       interestRate: 3.15,
+      interestType: 'variable',
       monthlyPayment: 445,
       remainingMonths: 142,
       startDate: '2021-09-20',
-      endDate: '2033-07-20'
+      endDate: '2033-07-20',
+      nextRevision: '2024-09-20'
     }
   ],
 
