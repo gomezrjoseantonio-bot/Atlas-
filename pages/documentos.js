@@ -20,7 +20,26 @@ export default function Page() {
     // Force a refresh of store state after mounting
     setStoreState(store.getState());
     const unsubscribe = store.subscribe(setStoreState);
-    return unsubscribe;
+    
+    // Safety timeout - if we're still in loading state after 3 seconds, 
+    // ensure we have data by resetting to demo data
+    const safetyTimeout = setTimeout(() => {
+      const currentState = store.getState();
+      const hasData = currentState.accounts?.length > 0 || 
+                     currentState.properties?.length > 0 || 
+                     currentState.documents?.length > 0;
+      
+      if (!hasData) {
+        console.log('Safety timeout: No data detected, forcing demo data');
+        store.resetDemo();
+        setStoreState(store.getState());
+      }
+    }, 3000);
+    
+    return () => {
+      clearTimeout(safetyTimeout);
+      unsubscribe();
+    };
   }, []);
 
   // Don't render until mounted to avoid hydration issues

@@ -78,11 +78,32 @@ class AtlasStore {
   // Load from localStorage
   load() {
     try {
+      // Check if localStorage is available (not available during SSR)
+      if (typeof localStorage === 'undefined') {
+        console.log('localStorage not available, loading demo data');
+        this.resetDemo();
+        return;
+      }
+      
       const stored = localStorage.getItem(this.storageKey);
       if (stored) {
-        this.state = { ...this.getInitialState(), ...JSON.parse(stored) };
+        const parsedData = JSON.parse(stored);
+        this.state = { ...this.getInitialState(), ...parsedData };
+        
+        // Ensure we have some data - if arrays are empty, reload demo data
+        const hasData = this.state.accounts?.length > 0 || 
+                       this.state.properties?.length > 0 || 
+                       this.state.documents?.length > 0;
+        
+        if (!hasData) {
+          console.log('Stored data is empty, loading demo data');
+          this.resetDemo();
+          return;
+        }
       } else {
+        console.log('No stored data found, loading demo data');
         this.resetDemo(); // Load demo data if nothing in storage
+        return;
       }
       this.notifySubscribers();
     } catch (error) {
@@ -94,7 +115,10 @@ class AtlasStore {
   // Save to localStorage
   save() {
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify(this.state));
+      // Check if localStorage is available
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(this.storageKey, JSON.stringify(this.state));
+      }
     } catch (error) {
       console.warn('Failed to save to localStorage:', error);
     }
@@ -882,6 +906,17 @@ const store = new AtlasStore();
 if (typeof window !== 'undefined') {
   store.load();
   
+  // Double-check that store has data after loading - if not, force demo data
+  const state = store.getState();
+  const hasData = state.accounts?.length > 0 || 
+                 state.properties?.length > 0 || 
+                 state.documents?.length > 0;
+  
+  if (!hasData) {
+    console.log('Store still empty after load, forcing demo data');
+    store.resetDemo();
+  }
+  
   // HITO 6: Auto-run rules engine when app loads - DISABLED for deployment stability
   // Users can manually trigger rules via "Aplicar reglas ahora" button
   // setTimeout(() => {
@@ -889,6 +924,10 @@ if (typeof window !== 'undefined') {
   //     store.runRulesEngine();
   //   }
   // }, 2000);
+} else {
+  // If window is not available (SSR), load demo data immediately
+  console.log('Window not available, loading demo data for SSR');
+  store.resetDemo();
 }
 
 export default store;
