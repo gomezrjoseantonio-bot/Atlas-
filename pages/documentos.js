@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { mockData } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import store from '../store/index';
 
 export default function Page() {
   const [activeTab, setActiveTab] = useState('inbox');
@@ -11,8 +11,15 @@ export default function Page() {
   const [filterProvider, setFilterProvider] = useState('all');
   const [filterProperty, setFilterProperty] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [storeState, setStoreState] = useState(store.getState());
 
-  const { documents, inboxEntries, missingInvoices, properties } = mockData;
+  // Subscribe to store changes
+  useEffect(() => {
+    const unsubscribe = store.subscribe(setStoreState);
+    return unsubscribe;
+  }, []);
+
+  const { documents, inboxEntries, missingInvoices, properties } = storeState;
 
   const formatCurrency = (amount) => {
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
@@ -43,21 +50,52 @@ export default function Page() {
   const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
-    // Mock file upload
-    alert('Archivos subidos (simulado)');
+    
+    // Simulate file upload - add files to inbox
+    const files = Array.from(e.dataTransfer.files);
+    files.forEach(file => {
+      store.addInboxEntry({
+        fileName: file.name,
+        fileSize: file.size,
+        status: 'Pendiente de procesamiento',
+        provider: 'Pendiente OCR',
+        url: null
+      });
+    });
   };
 
   const handleFileSelect = (e) => {
-    // Mock file selection
-    alert('Archivos seleccionados (simulado)');
+    // Simulate file selection - add files to inbox
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      store.addInboxEntry({
+        fileName: file.name,
+        fileSize: file.size,
+        status: 'Pendiente de procesamiento',
+        provider: 'Pendiente OCR',
+        url: null
+      });
+    });
+    e.target.value = ''; // Reset input
   };
 
-  const handleBulkAction = (action) => {
+  // Remove old bulk action handler since we now use data-action
+  
+  // Helper function to handle bulk actions via events
+  const executeBulkAction = (action) => {
     if (selectedDocuments.length === 0) {
-      alert('Selecciona al menos un documento');
+      const event = new CustomEvent('atlas:toast', {
+        detail: { type: 'warning', message: 'Selecciona al menos un documento' }
+      });
+      document.dispatchEvent(event);
       return;
     }
-    alert(`Acción "${action}" aplicada a ${selectedDocuments.length} documentos`);
+
+    // Create event with selected document IDs
+    const actionEvent = new CustomEvent('atlas:bulk-action', {
+      detail: { action, documentIds: selectedDocuments }
+    });
+    document.dispatchEvent(actionEvent);
     setSelectedDocuments([]);
   };
 
@@ -170,13 +208,13 @@ export default function Page() {
             <div className="flex gap-2 mt-4">
               <button 
                 className="btn btn-primary"
-                onClick={() => alert('OCR procesado (simulado)')}
+                data-action="invoice:process-ocr"
               >
                 Procesar con OCR
               </button>
               <button 
                 className="btn btn-secondary"
-                onClick={() => alert('Archivos limpiados')}
+                data-action="invoice:clear-upload"
               >
                 Limpiar
               </button>
@@ -225,11 +263,18 @@ export default function Page() {
                         </td>
                         <td>
                           <div className="flex gap-2">
-                            <button className="btn btn-secondary btn-sm">Ver</button>
-                            {entry.status === 'Leído' && (
+                            <button 
+                              className="btn btn-secondary btn-sm"
+                              data-action="invoice:view"
+                              data-id={entry.id}
+                            >
+                              Ver
+                            </button>
+                            {entry.status === 'Listo para asignar' && (
                               <button 
                                 className="btn btn-primary btn-sm"
-                                onClick={() => alert('Documento enviado a tabla de Facturas')}
+                                data-action="invoice:process-ocr"
+                                data-extra={JSON.stringify({entryId: entry.id})}
                               >
                                 Enviar a Facturas
                               </button>
@@ -317,25 +362,25 @@ export default function Page() {
                 <div className="flex gap-2">
                   <button 
                     className="btn btn-secondary btn-sm"
-                    onClick={() => handleBulkAction('Asignar inmueble')}
+                    onClick={() => executeBulkAction('assign-property')}
                   >
                     Asignar inmueble
                   </button>
                   <button 
                     className="btn btn-success btn-sm"
-                    onClick={() => handleBulkAction('Marcar validada')}
+                    onClick={() => executeBulkAction('validate')}
                   >
                     Marcar validada
                   </button>
                   <button 
                     className="btn btn-secondary btn-sm"
-                    onClick={() => handleBulkAction('Pedir duplicado')}
+                    onClick={() => executeBulkAction('request-duplicate')}
                   >
                     Pedir duplicado
                   </button>
                   <button 
                     className="btn btn-error btn-sm"
-                    onClick={() => handleBulkAction('Borrar')}
+                    onClick={() => executeBulkAction('delete')}
                   >
                     Borrar
                   </button>
@@ -435,9 +480,27 @@ export default function Page() {
                         </td>
                         <td>
                           <div className="flex gap-1">
-                            <button className="btn btn-secondary btn-sm">Ver</button>
-                            <button className="btn btn-secondary btn-sm">Editar</button>
-                            <button className="btn btn-error btn-sm">Borrar</button>
+                            <button 
+                              className="btn btn-secondary btn-sm"
+                              data-action="invoice:view"
+                              data-id={doc.id}
+                            >
+                              Ver
+                            </button>
+                            <button 
+                              className="btn btn-secondary btn-sm"
+                              data-action="invoice:edit"
+                              data-id={doc.id}
+                            >
+                              Editar
+                            </button>
+                            <button 
+                              className="btn btn-error btn-sm"
+                              data-action="invoice:delete"
+                              data-id={doc.id}
+                            >
+                              Borrar
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -475,13 +538,13 @@ export default function Page() {
             <div className="flex gap-2">
               <button 
                 className="btn btn-primary"
-                onClick={() => alert('Disponible en Próximo Hito')}
+                data-action="export:fiscal-pdf"
               >
                 Exportar PDF (informe fiscal)
               </button>
               <button 
                 className="btn btn-secondary"
-                onClick={() => alert('Disponible en Próximo Hito')}
+                data-action="export:deductibles-csv"
               >
                 Exportar Excel (deducibles)
               </button>
@@ -527,10 +590,30 @@ export default function Page() {
                   {selectedInvoices.length} factura(s) seleccionada(s)
                 </span>
                 <div className="flex gap-2">
-                  <button className="btn btn-secondary btn-sm">Asignar inmueble</button>
-                  <button className="btn btn-secondary btn-sm">Marcar validada</button>
-                  <button className="btn btn-secondary btn-sm">Pedir duplicado</button>
-                  <button className="btn btn-secondary btn-sm">Borrar</button>
+                  <button 
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => executeBulkAction('assign-property')}
+                  >
+                    Asignar inmueble
+                  </button>
+                  <button 
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => executeBulkAction('validate')}
+                  >
+                    Marcar validada
+                  </button>
+                  <button 
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => executeBulkAction('request-duplicate')}
+                  >
+                    Pedir duplicado
+                  </button>
+                  <button 
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => executeBulkAction('delete')}
+                  >
+                    Borrar
+                  </button>
                 </div>
               </div>
             </div>
@@ -593,8 +676,20 @@ export default function Page() {
                       <td>{getStatusChip(invoice.status, invoice.statusText)}</td>
                       <td>
                         <div className="flex gap-1">
-                          <button className="btn btn-secondary btn-sm">Ver</button>
-                          <button className="btn btn-secondary btn-sm">Editar</button>
+                          <button 
+                            className="btn btn-secondary btn-sm"
+                            data-action="invoice:view"
+                            data-id={invoice.id}
+                          >
+                            Ver
+                          </button>
+                          <button 
+                            className="btn btn-secondary btn-sm"
+                            data-action="invoice:edit"
+                            data-id={invoice.id}
+                          >
+                            Editar
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -626,8 +721,18 @@ export default function Page() {
               </div>
             </div>
             <div className="flex gap-2">
-              <button className="btn btn-primary">📄 Exportar "Expediente Renta"</button>
-              <button className="btn btn-secondary">📊 Exportar Excel</button>
+              <button 
+                className="btn btn-primary"
+                data-action="export:fiscal-pdf"
+              >
+                📄 Exportar "Expediente Renta"
+              </button>
+              <button 
+                className="btn btn-secondary"
+                data-action="export:deductibles-csv"
+              >
+                📊 Exportar Excel
+              </button>
             </div>
           </div>
         </div>
@@ -686,9 +791,27 @@ export default function Page() {
                     <div className="text-sm text-gray">{item.date} • €{item.amount} • {item.property}</div>
                   </div>
                   <div className="flex gap-2">
-                    <button className="btn btn-secondary btn-sm">📎 Adjuntar</button>
-                    <button className="btn btn-secondary btn-sm">📧 Pedir duplicado</button>
-                    <button className="btn btn-secondary btn-sm">📸 Subir foto</button>
+                    <button 
+                      className="btn btn-secondary btn-sm"
+                      data-action="invoice:attach-document"
+                      data-id={item.id}
+                    >
+                      📎 Adjuntar
+                    </button>
+                    <button 
+                      className="btn btn-secondary btn-sm"
+                      data-action="invoice:request-duplicate"
+                      data-id={item.id}
+                    >
+                      📧 Pedir duplicado
+                    </button>
+                    <button 
+                      className="btn btn-secondary btn-sm"
+                      data-action="invoice:upload-photo"
+                      data-id={item.id}
+                    >
+                      📸 Subir foto
+                    </button>
                   </div>
                 </div>
               ))}
@@ -701,7 +824,10 @@ export default function Page() {
               >
                 Cancelar
               </button>
-              <button className="btn btn-primary">
+              <button 
+                className="btn btn-primary"
+                data-action="invoice:resolve-all"
+              >
                 ✅ Resolver todos
               </button>
             </div>
