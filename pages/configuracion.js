@@ -6,31 +6,83 @@ export default function Page() {
   const [activeSection, setActiveSection] = useState('bancos');
   const [personalToggle, setPersonalToggle] = useState(true);
   const [storeState, setStoreState] = useState(() => {
-    // Initialize with store state immediately
-    let currentState = store.getState();
-    const hasData = currentState.accounts?.length > 0 || 
-                   currentState.properties?.length > 0 || 
-                   currentState.documents?.length > 0;
-    
-    if (!hasData) {
-      console.log('Configuracion init: No data detected, forcing demo data');
-      store.resetDemo();
-      currentState = store.getState();
+    // More defensive initialization for deployment environments
+    try {
+      console.log('Configuracion: Starting initialization');
+      let currentState = store.getState();
+      console.log('Configuracion: Got store state', currentState);
+      
+      const hasData = currentState?.accounts?.length > 0 || 
+                     currentState?.properties?.length > 0 || 
+                     currentState?.documents?.length > 0;
+      
+      if (!hasData) {
+        console.log('Configuracion: No data detected, forcing demo data');
+        store.resetDemo();
+        currentState = store.getState();
+        console.log('Configuracion: After demo reset', currentState);
+      }
+      
+      // Ensure we have valid data
+      if (!currentState || typeof currentState !== 'object') {
+        console.error('Configuracion: Invalid store state, using fallback');
+        return {
+          accounts: mockData.accounts || [],
+          sweepConfig: {},
+          rulesEngineEnabled: true
+        };
+      }
+      
+      console.log('Configuracion: Initialization complete');
+      return currentState;
+    } catch (error) {
+      console.error('Configuracion: Error during initialization, using fallback data', error);
+      return {
+        accounts: mockData.accounts || [],
+        sweepConfig: {},
+        rulesEngineEnabled: true
+      };
     }
-    
-    return currentState;
   });
 
-  // Subscribe to store changes
+  // Subscribe to store changes with error handling
   useEffect(() => {
-    const unsubscribe = store.subscribe(setStoreState);
-    return () => {
-      unsubscribe();
-    };
+    try {
+      console.log('Configuracion: Setting up store subscription');
+      const unsubscribe = store.subscribe((newState) => {
+        console.log('Configuracion: Store updated', newState);
+        setStoreState(newState);
+      });
+      return () => {
+        unsubscribe();
+      };
+    } catch (error) {
+      console.error('Configuracion: Error setting up store subscription', error);
+    }
   }, []);
 
-  const { accounts = [], users = [] } = mockData;
-  const { sweepConfig = {}, rulesEngineEnabled = true } = storeState;
+  // Use accounts from store state with fallback to mockData
+  const accounts = storeState?.accounts || mockData.accounts || [];
+  const users = mockData.users || [];
+  const sweepConfig = storeState?.sweepConfig || {};
+  const rulesEngineEnabled = storeState?.rulesEngineEnabled ?? true;
+
+  // Safety check: if no accounts, render loading state
+  if (!accounts || accounts.length === 0) {
+    console.log('Configuracion: No accounts found, showing fallback UI');
+    return (
+      <div style={{padding: '20px', textAlign: 'center'}}>
+        <h2>Cargando configuración...</h2>
+        <p>Inicializando demo data...</p>
+        <script dangerouslySetInnerHTML={{__html: `
+          setTimeout(() => {
+            console.log('Configuracion: Fallback timeout, forcing reload');
+            window.location.reload();
+          }, 3000);
+        `}} />
+      </div>
+    );
+  }
 
   return (<>
     <header className="header">
