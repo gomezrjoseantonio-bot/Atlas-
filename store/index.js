@@ -340,7 +340,8 @@ class AtlasStore {
 
   generatePredictedItems() {
     const changes = [];
-    const { loans, contracts, properties } = this.state;
+    const { loans, properties } = this.state;
+    const contracts = this.state.contracts || []; // Get contracts from state or empty array
     const predictedItems = [];
     const now = new Date();
     const next90Days = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
@@ -364,23 +365,22 @@ class AtlasStore {
       }
     });
     
-    // Generate rental income predictions
-    contracts.filter(c => c.type === 'Alquiler' && c.status === 'Activo').forEach(contract => {
+    // Generate rental income predictions from properties with active rent
+    properties.filter(p => p.status === 'Ocupado' && p.monthlyRent > 0).forEach(property => {
       const nextRentDate = new Date();
       nextRentDate.setDate(1); // First of next month
       nextRentDate.setMonth(nextRentDate.getMonth() + 1);
       
       while (nextRentDate <= next90Days) {
         predictedItems.push({
-          id: `rent_${contract.id}_${nextRentDate.getTime()}`,
+          id: `rent_${property.id}_${nextRentDate.getTime()}`,
           type: 'income',
-          description: `Alquiler ${contract.tenant}`,
-          amount: contract.monthlyAmount,
+          description: `Alquiler ${property.tenant || 'Inquilino'}`,
+          amount: property.monthlyRent,
           dueDate: nextRentDate.toISOString().split('T')[0],
-          propertyId: contract.propertyId,
+          propertyId: property.id,
           recurringType: 'monthly',
-          source: 'contract',
-          contractId: contract.id
+          source: 'property'
         });
         nextRentDate.setMonth(nextRentDate.getMonth() + 1);
       }
@@ -436,7 +436,8 @@ class AtlasStore {
 
   updateAlertsFromRules() {
     const changes = [];
-    const { documents, movements, loans, contracts } = this.state;
+    const { documents, movements, loans } = this.state;
+    const contracts = this.state.contracts || []; // Get contracts from state or empty array
     
     // Check for invoices without payments
     documents.filter(doc => doc.status === 'Pendiente' && !doc.linkedMovementId).forEach(doc => {
@@ -455,29 +456,27 @@ class AtlasStore {
       });
     });
     
-    // Check for upcoming contract expirations
-    contracts.forEach(contract => {
-      if (contract.endDate) {
-        const endDate = new Date(contract.endDate);
+    // Check for upcoming loan revisions
+    loans.forEach(loan => {
+      if (loan.nextRevision) {
+        const nextRevision = new Date(loan.nextRevision);
         const now = new Date();
-        const daysUntilEnd = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+        const daysUntilRevision = Math.ceil((nextRevision - now) / (1000 * 60 * 60 * 24));
         
-        if (daysUntilEnd <= 60 && daysUntilEnd > 0) {
-          const severity = daysUntilEnd <= 7 ? 'high' : daysUntilEnd <= 30 ? 'medium' : 'low';
-          
+        if (daysUntilRevision <= 30 && daysUntilRevision > 0) {
           this.addAlert({
-            type: 'contract_expiring',
-            severity,
-            title: 'Contrato próximo a vencer',
-            description: `${contract.type} - ${contract.tenant || contract.company} (${daysUntilEnd} días)`,
-            contractId: contract.id,
-            daysLeft: daysUntilEnd,
-            actions: ['open_contract', 'postpone', 'dismiss']
+            type: 'loan_revision_upcoming',
+            severity: 'medium',
+            title: 'Revisión de tipo próxima',
+            description: `${loan.bank} - Revisión de tipo en ${daysUntilRevision} días`,
+            loanId: loan.id,
+            daysLeft: daysUntilRevision,
+            actions: ['view_loan', 'postpone', 'dismiss']
           });
           
           changes.push({
             type: 'alert_created',
-            description: `Alerta creada para contrato que vence: ${contract.tenant || contract.company}`
+            description: `Alerta creada para revisión de préstamo: ${loan.bank}`
           });
         }
       }
@@ -550,10 +549,10 @@ if (typeof window !== 'undefined') {
   
   // HITO 6: Auto-run rules engine when app loads
   setTimeout(() => {
-    if (store.getState().rulesEngineEnabled) {
+    if (store.getState().rulesEngineEnabled !== false) {
       store.runRulesEngine();
     }
-  }, 1000); // Small delay to ensure everything is loaded
+  }, 2000); // Increased delay to ensure everything is loaded including toast system
 }
 
 export default store;

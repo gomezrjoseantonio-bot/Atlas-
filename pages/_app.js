@@ -9,9 +9,22 @@ export default function MyApp({ Component, pageProps }) {
     // Initialize ActionBridge when app mounts
     actionBridge.init();
     
+    // Add global toast utility
+    if (typeof window !== 'undefined') {
+      window.showToast = (message, type = 'info') => {
+        const event = new CustomEvent('atlas:toast', {
+          detail: { message, type }
+        });
+        document.dispatchEvent(event);
+      };
+    }
+    
     return () => {
       // Cleanup on unmount
       actionBridge.destroy();
+      if (typeof window !== 'undefined') {
+        delete window.showToast;
+      }
     };
   }, []);
 
