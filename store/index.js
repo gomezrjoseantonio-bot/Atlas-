@@ -358,6 +358,84 @@ class AtlasStore {
     this.setState({ inboxEntries: [] });
   }
 
+  // H10: Send inbox entry to invoices with OCR processing
+  sendInboxEntryToInvoices(entryId) {
+    const entry = this.state.inboxEntries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    // Convert inbox entry to document
+    const document = {
+      provider: entry.provider !== 'Pendiente OCR' ? entry.provider : 'Proveedor simulado',
+      concept: entry.concept || 'Concepto detectado por OCR',
+      amount: entry.amount || 150.00,
+      status: 'Validada',
+      category: 'Servicios',
+      propertyId: null,
+      isDeductible: true,
+      hasOcr: true,
+      ocrText: entry.ocrText || null,
+      ocrConfidence: entry.ocrConfidence || null,
+      ocrLang: entry.ocrLang || null,
+      pagesOcr: entry.pagesOcr || null
+    };
+
+    // Add to documents
+    this.addDocument(document);
+
+    // Remove from inbox
+    const inboxEntries = this.state.inboxEntries.filter(e => e.id !== entryId);
+    this.setState({ inboxEntries });
+  }
+
+  // H10: Update inbox entry with OCR results
+  updateInboxEntryOCR(entryId, ocrResults) {
+    const inboxEntries = this.state.inboxEntries.map(entry => {
+      if (entry.id === entryId) {
+        return {
+          ...entry,
+          status: 'OCR listo',
+          ocrText: ocrResults.text,
+          ocrConfidence: ocrResults.confidence,
+          ocrLang: ocrResults.language,
+          pagesOcr: ocrResults.pagesOcr,
+          // Pre-fill extracted data
+          provider: ocrResults.extractedData.provider || entry.provider,
+          concept: ocrResults.extractedData.concept || entry.concept,
+          amount: ocrResults.extractedData.total || entry.amount,
+          hasOcr: true
+        };
+      }
+      return entry;
+    });
+    this.setState({ inboxEntries });
+  }
+
+  // H10: Set OCR processing status
+  setInboxEntryOCRStatus(entryId, status, errorMessage = null) {
+    const inboxEntries = this.state.inboxEntries.map(entry => {
+      if (entry.id === entryId) {
+        return {
+          ...entry,
+          status: status,
+          ocrError: errorMessage
+        };
+      }
+      return entry;
+    });
+    this.setState({ inboxEntries });
+  }
+
+  // H10: Process multiple documents with OCR
+  async processDocumentsWithOCR(entryIds) {
+    // This will be called from the UI to trigger OCR processing
+    entryIds.forEach(id => {
+      this.setInboxEntryOCRStatus(id, 'OCR en curso');
+    });
+
+    // Return the IDs for the UI to handle actual OCR processing
+    return entryIds;
+  }
+
   // Movement operations
   addMovement(movement) {
     const movements = [...this.state.movements, { 

@@ -298,6 +298,7 @@ body {
 .chip.success { background: #D1FAE5; color: var(--success); }
 .chip.warning { background: #FEF3C7; color: var(--warning); }
 .chip.error { background: #FEE2E2; color: var(--error); }
+.chip.info { background: #DBEAFE; color: var(--teal); }
 .chip.gray { background: #F3F4F6; color: var(--gray); border: 1px solid var(--border); }
 
 /* Buttons */
