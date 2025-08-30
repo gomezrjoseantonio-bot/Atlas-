@@ -556,3 +556,26 @@ export const setupMultiUnit = (propertyId, config) => {
     showToast('error', `Error configurando Multi-unidad: ${error.message}`);
   }
 };
+
+// HITO 7: Document allocation action
+export const allocateDocument = (documentId) => {
+  const state = store.getState();
+  const document = state.documents.find(d => d.id == documentId);
+  
+  if (!document) {
+    showToast('error', 'Documento no encontrado');
+    return;
+  }
+
+  const property = state.properties.find(p => p.id === document.propertyId);
+  if (!property || !property.multiUnit) {
+    showToast('error', 'Este documento no está asignado a un inmueble multi-unidad');
+    return;
+  }
+
+  showModal('document-allocation', { 
+    document: document, 
+    property: property,
+    documentId: documentId 
+  });
+};

@@ -166,6 +166,11 @@ class ActionBridge {
         case 'property:setup-multi-unit':
           actions.setupMultiUnit(id, extraData);
           break;
+        
+        // HITO 7: Document allocation actions
+        case 'document:allocate':
+          actions.allocateDocument(id);
+          break;
 
         // Demo actions
         case 'demo:load':

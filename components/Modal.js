@@ -70,7 +70,8 @@ function getModalTitle(modalType) {
     addPropertyExpense: 'Añadir Gasto de Explotación',
     // HITO 7: Multi-unit modals
     'multi-unit-setup': 'Configurar Multi-unidad',
-    'manage-units': 'Gestionar Unidades'
+    'manage-units': 'Gestionar Unidades',
+    'document-allocation': 'Prorratear Gasto'
   };
   return titles[modalType] || 'Modal';
 }
@@ -108,6 +109,8 @@ function renderModalContent(modalType, data, closeModal, showToast) {
       return <MultiUnitSetupForm property={data.property} propertyId={data.propertyId} onClose={closeModal} showToast={showToast} />;
     case 'manage-units':
       return <ManageUnitsContent property={data.property} propertyId={data.propertyId} onClose={closeModal} showToast={showToast} />;
+    case 'document-allocation':
+      return <DocumentAllocationForm document={data.document} property={data.property} documentId={data.documentId} onClose={closeModal} showToast={showToast} />;
     default:
       return <div>Contenido del modal no encontrado</div>;
   }
@@ -122,7 +125,13 @@ function EditInvoiceForm({ invoice, onClose, showToast }) {
     category: invoice.category || 'Otros',
     propertyId: invoice.propertyId || '',
     status: invoice.status || 'Pendiente',
-    isDeductible: invoice.isDeductible || false
+    isDeductible: invoice.isDeductible || false,
+    // HITO 7: Fiscal fields
+    expenseFamily: invoice.expenseFamily || '',
+    fiscalTreatment: invoice.fiscalTreatment || 'deductible',
+    rentalAffectation: invoice.rentalAffectation || 100,
+    amortizationYears: invoice.amortizationYears || 10,
+    amortizationStartDate: invoice.amortizationStartDate || new Date().toISOString().split('T')[0]
   });
 
   const state = store.getState();
@@ -130,9 +139,19 @@ function EditInvoiceForm({ invoice, onClose, showToast }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     store.updateDocument(invoice.id, formData);
+    
+    // If property is multi-unit and no allocation exists, suggest allocation
+    const property = state.properties.find(p => p.id === formData.propertyId);
+    if (property && property.multiUnit && !invoice.allocation && formData.expenseFamily) {
+      const suggestedMethod = store.getSuggestedAllocation(formData.expenseFamily, formData.propertyId);
+      showToast('info', `Sugerencia: considera prorratear por "${suggestedMethod}"`);
+    }
+    
     showToast('success', 'Factura actualizada');
     onClose();
   };
+
+  const expenseFamilies = state.expenseFamilies || [];
 
   return (
     <form onSubmit={handleSubmit} className="modal-form">
@@ -178,6 +197,81 @@ function EditInvoiceForm({ invoice, onClose, showToast }) {
           <option value="Otros">Otros</option>
         </select>
       </div>
+
+      {/* HITO 7: Expense Family */}
+      <div className="form-group">
+        <label>Familia de Gasto:</label>
+        <select 
+          value={formData.expenseFamily}
+          onChange={(e) => {
+            const family = expenseFamilies.find(ef => ef.id === e.target.value);
+            setFormData({
+              ...formData, 
+              expenseFamily: e.target.value,
+              fiscalTreatment: family ? family.defaultTreatment : 'deductible'
+            });
+          }}
+        >
+          <option value="">Seleccionar familia...</option>
+          {expenseFamilies.map(family => (
+            <option key={family.id} value={family.id}>{family.name}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* HITO 7: Fiscal Treatment */}
+      <div className="form-group">
+        <label>Tratamiento Fiscal:</label>
+        <select 
+          value={formData.fiscalTreatment}
+          onChange={(e) => setFormData({...formData, fiscalTreatment: e.target.value})}
+        >
+          <option value="deductible">Deducible en período</option>
+          <option value="capitalizable">Capitalizable - Amortizable</option>
+          <option value="no_deductible">No deducible</option>
+        </select>
+      </div>
+
+      {/* HITO 7: Rental Affectation */}
+      <div className="form-group">
+        <label>% Afectación Alquiler:</label>
+        <input 
+          type="number" 
+          min="0"
+          max="100"
+          step="1"
+          value={formData.rentalAffectation}
+          onChange={(e) => setFormData({...formData, rentalAffectation: parseInt(e.target.value) || 100})}
+        />
+        <div className="text-sm text-gray">Porcentaje del gasto afectado al alquiler</div>
+      </div>
+
+      {/* HITO 7: Amortization fields (only if capitalizable) */}
+      {formData.fiscalTreatment === 'capitalizable' && (
+        <>
+          <div className="form-group">
+            <label>Años de Amortización:</label>
+            <input 
+              type="number" 
+              min="1"
+              max="50"
+              value={formData.amortizationYears}
+              onChange={(e) => setFormData({...formData, amortizationYears: parseInt(e.target.value) || 10})}
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <label>Fecha Inicio Amortización:</label>
+            <input 
+              type="date" 
+              value={formData.amortizationStartDate}
+              onChange={(e) => setFormData({...formData, amortizationStartDate: e.target.value})}
+              required 
+            />
+          </div>
+        </>
+      )}
+
       <div className="form-group">
         <label>Inmueble:</label>
         <select 
@@ -186,7 +280,9 @@ function EditInvoiceForm({ invoice, onClose, showToast }) {
         >
           <option value="">Sin asignar</option>
           {state.properties.map(property => (
-            <option key={property.id} value={property.id}>{property.name}</option>
+            <option key={property.id} value={property.id}>
+              {property.address} {property.multiUnit ? '(Multi-unidad)' : ''}
+            </option>
           ))}
         </select>
       </div>
@@ -208,7 +304,7 @@ function EditInvoiceForm({ invoice, onClose, showToast }) {
             checked={formData.isDeductible}
             onChange={(e) => setFormData({...formData, isDeductible: e.target.checked})}
           />
-          Gasto deducible
+          Gasto deducible (legacy)
         </label>
       </div>
       <div className="modal-actions">
@@ -1105,6 +1201,213 @@ function ManageUnitsContent({ property, propertyId, onClose, showToast }) {
       <div className="modal-actions">
         <button className="btn btn-primary" onClick={onClose}>Cerrar</button>
       </div>
+    </div>
+  );
+}
+
+
+// HITO 7: Document allocation form
+function DocumentAllocationForm({ document, property, documentId, onClose, showToast }) {
+  const [allocationMethod, setAllocationMethod] = useState("units");
+  const [customPercentages, setCustomPercentages] = useState({});
+  const [selectedUnits, setSelectedUnits] = useState([]);
+  const [excludedUnits, setExcludedUnits] = useState([]);
+  
+  const state = store.getState();
+  const units = property.units || [];
+
+  // Get suggested allocation based on expense family
+  useEffect(() => {
+    if (document.expenseFamily) {
+      const suggested = store.getSuggestedAllocation(document.expenseFamily, property.id);
+      setAllocationMethod(suggested);
+    }
+  }, [document.expenseFamily, property.id]);
+
+  // Initialize custom percentages
+  useEffect(() => {
+    const initialPercentages = {};
+    units.forEach(unit => {
+      initialPercentages[unit.id] = 100 / units.length;
+    });
+    setCustomPercentages(initialPercentages);
+  }, [units]);
+
+  const calculateDistribution = () => {
+    return store.calculateAllocationDistribution(
+      property.id, 
+      allocationMethod, 
+      selectedUnits, 
+      customPercentages
+    );
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    const distribution = calculateDistribution();
+    
+    // Validate custom percentages sum to 100%
+    if (allocationMethod === "custom") {
+      const total = Object.values(customPercentages).reduce((sum, pct) => sum + pct, 0);
+      if (Math.abs(total - 100) > 0.01) {
+        showToast("error", "Los porcentajes deben sumar 100%");
+        return;
+      }
+    }
+
+    // Apply allocation
+    const allocation = {
+      method: allocationMethod,
+      distribution,
+      excludedUnits,
+      allocatedAt: new Date().toISOString()
+    };
+
+    // Calculate actual amounts
+    Object.keys(distribution).forEach(unitId => {
+      allocation.distribution[unitId].amount = (document.amount * distribution[unitId].percentage) / 100;
+    });
+
+    store.allocateDocument(documentId, allocation);
+    showToast("success", "Prorrateo aplicado correctamente");
+    onClose();
+  };
+
+  const getMethodDescription = () => {
+    switch (allocationMethod) {
+      case "occupied":
+        return "Solo unidades con contratos activos";
+      case "total":
+        return "Todas las unidades por igual";
+      case "sqm":
+        return "Proporcional a los metros cuadrados";
+      case "custom":
+        return "Porcentajes personalizados";
+      case "specific":
+        return "Unidades específicas seleccionadas";
+      case "no_divide":
+        return "No dividir, mantener a nivel inmueble";
+      default:
+        return "";
+    }
+  };
+
+  const occupiedUnits = units.filter(unit => unit.status === "Ocupada");
+  const totalSqm = units.reduce((sum, unit) => sum + (unit.sqm || 0), 0);
+
+  return (
+    <div className="allocation-form">
+      <div className="document-info mb-4 p-3" style={{background: "#F9FAFB", borderRadius: "6px"}}>
+        <div><strong>Documento:</strong> {document.provider} - {document.concept}</div>
+        <div><strong>Importe:</strong> €{document.amount.toLocaleString("es-ES")}</div>
+        <div><strong>Inmueble:</strong> {property.address} ({units.length} unidades)</div>
+        {document.expenseFamily && (
+          <div><strong>Familia:</strong> {state.expenseFamilies.find(ef => ef.id === document.expenseFamily)?.name}</div>
+        )}
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>Método de Prorrateo:</label>
+          <select 
+            value={allocationMethod}
+            onChange={(e) => setAllocationMethod(e.target.value)}
+          >
+            <option value="occupied">Ocupadas ({occupiedUnits.length}/{units.length})</option>
+            <option value="total">Totales ({units.length}/{units.length})</option>
+            {totalSqm > 0 && <option value="sqm">Por m² ({totalSqm}m² total)</option>}
+            <option value="custom">Personalizado (%)</option>
+            <option value="specific">Unidad específica</option>
+            <option value="no_divide">No dividir</option>
+          </select>
+          <div className="text-sm text-gray">{getMethodDescription()}</div>
+        </div>
+
+        {allocationMethod === "custom" && (
+          <div className="form-group">
+            <label>Porcentajes por Unidad:</label>
+            {units.map(unit => (
+              <div key={unit.id} className="flex items-center gap-2 mb-2">
+                <span style={{minWidth: "60px"}}>{unit.name}:</span>
+                <input 
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={customPercentages[unit.id] || 0}
+                  onChange={(e) => setCustomPercentages({
+                    ...customPercentages,
+                    [unit.id]: parseFloat(e.target.value) || 0
+                  })}
+                  style={{width: "80px"}}
+                />
+                <span>%</span>
+                <span className="text-sm text-gray">
+                  = €{((document.amount * (customPercentages[unit.id] || 0)) / 100).toLocaleString("es-ES")}
+                </span>
+              </div>
+            ))}
+            <div className="text-sm">
+              <strong>Total: {Object.values(customPercentages).reduce((sum, pct) => sum + pct, 0).toFixed(1)}%</strong>
+            </div>
+          </div>
+        )}
+
+        {allocationMethod === "specific" && (
+          <div className="form-group">
+            <label>Seleccionar Unidades:</label>
+            {units.map(unit => (
+              <label key={unit.id} className="flex items-center gap-2 mb-2">
+                <input 
+                  type="checkbox"
+                  checked={selectedUnits.includes(unit.id)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedUnits([...selectedUnits, unit.id]);
+                    } else {
+                      setSelectedUnits(selectedUnits.filter(id => id !== unit.id));
+                    }
+                  }}
+                />
+                <span>{unit.name}</span>
+                <span className="text-sm text-gray">
+                  {unit.sqm && `${unit.sqm}m²`} · €{unit.monthlyRent}/mes · {unit.status}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        {/* Preview */}
+        {allocationMethod !== "no_divide" && (
+          <div className="allocation-preview mt-4 p-3" style={{background: "#F0F9FF", borderRadius: "6px"}}>
+            <h5>Vista Previa del Prorrateo:</h5>
+            <div className="preview-items">
+              {Object.entries(calculateDistribution()).map(([unitId, allocation]) => {
+                const unit = units.find(u => u.id == unitId);
+                if (!unit) return null;
+                return (
+                  <div key={unitId} className="flex justify-between py-1">
+                    <span>{unit.name}</span>
+                    <span>{allocation.percentage.toFixed(1)}%</span>
+                    <span>€{((document.amount * allocation.percentage) / 100).toLocaleString("es-ES")}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="modal-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            Cancelar
+          </button>
+          <button type="submit" className="btn btn-primary">
+            Aplicar Prorrateo
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

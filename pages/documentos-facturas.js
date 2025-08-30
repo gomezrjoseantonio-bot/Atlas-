@@ -328,7 +328,9 @@ export default function Page() {
                         <th>Concepto</th>
                         <th style={{textAlign: 'right'}}>Importe</th>
                         <th>Categoría</th>
+                        <th>Familia Fiscal</th>
                         <th>Inmueble</th>
+                        <th>Prorrateo</th>
                         <th>Estado</th>
                         <th>Acciones</th>
                       </tr>
@@ -358,6 +360,24 @@ export default function Page() {
                           <td>
                             <span className="chip chip-secondary">{doc.category}</span>
                           </td>
+                          
+                          {/* HITO 7: Expense Family */}
+                          <td>
+                            {doc.expenseFamily ? (
+                              <span className="chip chip-gray">
+                                {storeState.expenseFamilies.find(ef => ef.id === doc.expenseFamily)?.name.split(' ')[0] || doc.expenseFamily}
+                              </span>
+                            ) : (
+                              <span className="text-gray text-sm">-</span>
+                            )}
+                            {doc.fiscalTreatment && (
+                              <div className="text-xs text-gray">
+                                {doc.fiscalTreatment === 'deductible' ? 'Deducible' : 
+                                 doc.fiscalTreatment === 'capitalizable' ? 'Capitalizable' : 'No deducible'}
+                              </div>
+                            )}
+                          </td>
+                          
                           <td>
                             {doc.propertyId ? (
                               <span className="chip chip-primary">
@@ -378,6 +398,58 @@ export default function Page() {
                                   </option>
                                 ))}
                               </select>
+                            )}
+                          </td>
+                          
+                          {/* HITO 7: Allocation */}
+                          <td>
+                            {doc.allocation ? (
+                              (() => {
+                                const property = properties.find(p => p.id === doc.propertyId);
+                                if (!property || !property.multiUnit) {
+                                  return <span className="allocation-chip no-divide">No prorr.</span>;
+                                }
+                                
+                                const { method, distribution, excludedUnits = [] } = doc.allocation;
+                                const totalUnits = property.units?.length || 0;
+                                const allocatedUnits = Object.keys(distribution || {}).length;
+                                const excludedCount = excludedUnits.length;
+                                
+                                switch (method) {
+                                  case 'occupied':
+                                    return <span className="allocation-chip occupied">Ocupadas {allocatedUnits}/{totalUnits}</span>;
+                                  case 'total':
+                                    return <span className="allocation-chip total">Totales {allocatedUnits}/{totalUnits}</span>;
+                                  case 'sqm':
+                                    return <span className="allocation-chip sqm">m²</span>;
+                                  case 'custom':
+                                    return <span className="allocation-chip custom">% custom</span>;
+                                  case 'specific':
+                                    const unitNames = Object.keys(distribution || {}).map(unitId => 
+                                      property.units?.find(u => u.id == unitId)?.name
+                                    ).filter(Boolean).join(', ');
+                                    return <span className="allocation-chip specific">{unitNames}</span>;
+                                  default:
+                                    return <span className="allocation-chip no-divide">No prorr.</span>;
+                                }
+                              })()
+                            ) : (
+                              (() => {
+                                const property = properties.find(p => p.id === doc.propertyId);
+                                if (property && property.multiUnit) {
+                                  return (
+                                    <button 
+                                      className="btn btn-primary btn-xs"
+                                      data-action="document:allocate"
+                                      data-id={doc.id}
+                                      title="Prorratear ahora"
+                                    >
+                                      Prorratear ahora
+                                    </button>
+                                  );
+                                }
+                                return <span className="text-gray text-sm">-</span>;
+                              })()
                             )}
                           </td>
                           <td>
