@@ -273,6 +273,11 @@ const NewPropertyWizard = ({ onClose, onSuccess }) => {
     // Add to store
     store.addProperty(newProperty);
     
+    // Show success message
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast(`Inmueble "${newProperty.alias}" creado correctamente`, 'success');
+    }
+    
     // Close wizard and notify success
     onSuccess(newProperty);
   };

@@ -281,7 +281,25 @@ class AtlasStore {
       id: property.id || Date.now(),
       createdDate: new Date().toISOString() 
     }];
+    
+    // Mark recent activity to prevent demo reset
+    this.markRecentActivity();
+    
     this.setState({ properties });
+    
+    console.log('Property added successfully:', property.alias);
+  }
+  
+  // Track recent activity to prevent demo reset interference
+  markRecentActivity() {
+    this.lastActivityTime = Date.now();
+  }
+  
+  hasRecentActivity() {
+    if (!this.lastActivityTime) return false;
+    const timeSinceActivity = Date.now() - this.lastActivityTime;
+    // Consider activity recent if within last 5 minutes
+    return timeSinceActivity < 5 * 60 * 1000;
   }
 
   updateProperty(id, updates) {
