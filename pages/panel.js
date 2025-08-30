@@ -1,10 +1,35 @@
-import { useState } from 'react';
-import { mockData, getTotalPortfolioValue, getTotalMonthlyRent, getOccupancyRate } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import store from '../store/index';
+import { getTotalPortfolioValue, getTotalMonthlyRent, getOccupancyRate } from '../data/mockData';
 
 export default function Page() {
   const [personalMode, setPersonalMode] = useState(false);
+  const [storeState, setStoreState] = useState(store.getState());
 
-  const { missingInvoices, personalFinances, accounts } = mockData;
+  // Subscribe to store changes
+  useEffect(() => {
+    const unsubscribe = store.subscribe(setStoreState);
+    return unsubscribe;
+  }, []);
+
+  const { missingInvoices, accounts, documents, properties } = storeState;
+  
+  // Calculate live data
+  const unprocessedInboxEntries = storeState.inboxEntries.filter(entry => 
+    entry.status === 'Pendiente de procesamiento' || entry.status === 'Error lectura'
+  );
+  const pendingDocuments = documents.filter(doc => doc.status === 'Pendiente');
+  const totalMissingInvoices = unprocessedInboxEntries.length + pendingDocuments.length;
+  
+  // Personal finances mock data for now
+  const personalFinances = {
+    monthlyNetSalary: 3200,
+    monthlyExpenses: 2450,
+    irpfProvision: 850,
+    ivaProvision: 0,
+    estimatedAnnualNet: 38400,
+    estimatedAnnualExpenses: 29400
+  };
 
   const formatCurrency = (amount) => {
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
@@ -84,7 +109,7 @@ export default function Page() {
       <div className="card mb-4" style={{borderColor: 'var(--warning)', background: '#FFFBEB'}}>
         <div className="flex items-center justify-between">
           <div>
-            <span className="font-medium" style={{color: 'var(--warning)'}}>{missingInvoices.length} gastos sin factura</span>
+            <span className="font-medium" style={{color: 'var(--warning)'}}>{totalMissingInvoices} gastos sin factura</span>
             <span className="text-gray"> · Recupera deducciones (5 min)</span>
           </div>
           <a href="/documentos" className="btn btn-primary btn-sm">Resolver</a>
@@ -96,7 +121,7 @@ export default function Page() {
         <div>
           <span className="font-medium" style={{color: 'var(--error)'}}>Deducible perdido ahora mismo: </span>
           <span className="font-semibold" style={{color: 'var(--error)'}}>
-            {formatCurrency(missingInvoices.reduce((sum, inv) => sum + inv.amount, 0))}
+            {formatCurrency(pendingDocuments.reduce((sum, doc) => sum + (doc.amount || 0), 0))}
           </span>
         </div>
       </div>
@@ -112,7 +137,7 @@ export default function Page() {
           <div className="grid gap-4">
             <div>
               <div className="text-sm text-gray">Inmuebles en cartera</div>
-              <div className="font-semibold" style={{fontSize: '18px'}}>{mockData.properties.length} propiedades</div>
+              <div className="font-semibold" style={{fontSize: '18px'}}>{storeState.properties.length} propiedades</div>
             </div>
             <div>
               <div className="text-sm text-gray">Ocupación media</div>

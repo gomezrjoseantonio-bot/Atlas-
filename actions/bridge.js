@@ -74,6 +74,9 @@ class ActionBridge {
         case 'invoice:verify':
           actions.validateInvoice(id);
           break;
+        case 'inbox:send-to-invoices':
+          actions.sendToInvoices(id);
+          break;
 
         // Export actions
         case 'export:deductibles-csv':
@@ -107,6 +110,9 @@ class ActionBridge {
         case 'movement:assign-document':
         case 'movements:view-all':
           actions.movementAction(normalizedAction, id);
+          break;
+        case 'movement:toggle-status':
+          actions.toggleMovementStatus(id);
           break;
 
         case 'alert:add':
@@ -142,6 +148,12 @@ class ActionBridge {
           break;
         case 'property:delete':
           actions.deleteProperty(id);
+          break;
+        case 'property:toggle-status':
+          actions.togglePropertyStatus(id);
+          break;
+        case 'property:add-expense':
+          actions.addPropertyExpense(id);
           break;
 
         // Demo actions

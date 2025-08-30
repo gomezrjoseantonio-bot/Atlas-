@@ -54,28 +54,47 @@ export default function Page() {
     // Simulate file upload - add files to inbox
     const files = Array.from(e.dataTransfer.files);
     files.forEach(file => {
-      store.addInboxEntry({
+      const entry = {
         fileName: file.name,
-        fileSize: file.size,
+        fileSize: `${(file.size / 1024).toFixed(1)}KB`,
         status: 'Pendiente de procesamiento',
         provider: 'Pendiente OCR',
-        url: null
-      });
+        hasOcr: false
+      };
+      store.addInboxEntry(entry);
     });
+    
+    if (files.length > 0) {
+      // Show toast using the event system
+      const event = new CustomEvent('atlas:toast', {
+        detail: { type: 'success', message: `${files.length} archivo(s) añadido(s) al Inbox` }
+      });
+      document.dispatchEvent(event);
+    }
   };
 
   const handleFileSelect = (e) => {
     // Simulate file selection - add files to inbox
     const files = Array.from(e.target.files);
     files.forEach(file => {
-      store.addInboxEntry({
+      const entry = {
         fileName: file.name,
-        fileSize: file.size,
+        fileSize: `${(file.size / 1024).toFixed(1)}KB`,
         status: 'Pendiente de procesamiento',
         provider: 'Pendiente OCR',
-        url: null
-      });
+        hasOcr: false
+      };
+      store.addInboxEntry(entry);
     });
+    
+    if (files.length > 0) {
+      // Show toast using the event system
+      const event = new CustomEvent('atlas:toast', {
+        detail: { type: 'success', message: `${files.length} archivo(s) añadido(s) al Inbox` }
+      });
+      document.dispatchEvent(event);
+    }
+    
     e.target.value = ''; // Reset input
   };
 
@@ -270,11 +289,11 @@ export default function Page() {
                             >
                               Ver
                             </button>
-                            {entry.status === 'Listo para asignar' && (
+                            {(entry.status === 'Leído' || entry.status === 'Listo para asignar') && (
                               <button 
                                 className="btn btn-primary btn-sm"
-                                data-action="invoice:process-ocr"
-                                data-extra={JSON.stringify({entryId: entry.id})}
+                                data-action="inbox:send-to-invoices"
+                                data-id={entry.id}
                               >
                                 Enviar a Facturas
                               </button>

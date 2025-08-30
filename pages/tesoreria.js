@@ -196,9 +196,18 @@ export default function Page() {
                     <span className="chip">{movement.category}</span>
                   </td>
                   <td>
-                    <span className={`chip ${getStatusChipClass(movement.status)}`}>
+                    <button 
+                      className={`chip ${getStatusChipClass(movement.status)}`}
+                      data-action="movement:toggle-status"
+                      data-id={movement.id}
+                      style={{
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '4px 8px'
+                      }}
+                    >
                       {movement.status}
-                    </span>
+                    </button>
                   </td>
                   <td>
                     {!movement.hasDocument && (

@@ -66,7 +66,8 @@ function getModalTitle(modalType) {
     createLoan: 'Crear Nuevo Préstamo',
     linkLoanProperty: 'Vincular Préstamo a Inmueble',
     propertyPL: 'Análisis P&L - Inmueble',
-    propertyDetail: 'Detalle del Inmueble'
+    propertyDetail: 'Detalle del Inmueble',
+    addPropertyExpense: 'Añadir Gasto de Explotación'
   };
   return titles[modalType] || 'Modal';
 }
@@ -97,6 +98,8 @@ function renderModalContent(modalType, data, closeModal, showToast) {
       return <PropertyPLContent property={data.property} onClose={closeModal} />;
     case 'propertyDetail':
       return <PropertyDetailContent property={data.property} onClose={closeModal} />;
+    case 'addPropertyExpense':
+      return <AddPropertyExpenseForm property={data.property} onClose={closeModal} showToast={showToast} />;
     default:
       return <div>Contenido del modal no encontrado</div>;
   }
@@ -429,16 +432,12 @@ function EditLoanForm({ loan, properties, onClose, showToast }) {
 // Create Loan Form
 function CreateLoanForm({ properties, onClose, showToast }) {
   const [formData, setFormData] = useState({
-    bank: '',
-    product: 'Hipoteca estándar',
     propertyId: '',
-    originalCapital: 0,
-    pendingCapital: 0,
-    interestRate: 3.5,
-    interestType: 'variable',
+    bank: '',
+    originalAmount: 0,
+    interestRate: 0,
     monthlyPayment: 0,
-    remainingMonths: 0,
-    nextRevision: ''
+    remainingMonths: 0
   });
 
   const handleSubmit = (e) => {
@@ -447,23 +446,32 @@ function CreateLoanForm({ properties, onClose, showToast }) {
     const newLoan = {
       id: Date.now(),
       ...formData,
-      originalCapital: parseFloat(formData.originalCapital) || 0,
-      pendingCapital: parseFloat(formData.pendingCapital) || 0,
-      interestRate: parseFloat(formData.interestRate) || 0,
-      monthlyPayment: parseFloat(formData.monthlyPayment) || 0,
-      remainingMonths: parseInt(formData.remainingMonths) || 0,
-      propertyId: formData.propertyId ? parseInt(formData.propertyId) : null
+      currentBalance: formData.originalAmount,
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + formData.remainingMonths * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     };
 
     const state = store.getState();
     store.setState({ loans: [...state.loans, newLoan] });
-    
-    showToast('success', 'Préstamo creado exitosamente');
+    showToast('success', 'Préstamo creado');
     onClose();
   };
 
   return (
     <form onSubmit={handleSubmit} className="modal-form">
+      <div className="form-group">
+        <label>Inmueble:</label>
+        <select 
+          value={formData.propertyId}
+          onChange={(e) => setFormData({...formData, propertyId: parseInt(e.target.value)})}
+          required
+        >
+          <option value="">Seleccionar inmueble...</option>
+          {properties.map(property => (
+            <option key={property.id} value={property.id}>{property.address}</option>
+          ))}
+        </select>
+      </div>
       <div className="form-group">
         <label>Banco:</label>
         <input 
@@ -474,52 +482,22 @@ function CreateLoanForm({ properties, onClose, showToast }) {
         />
       </div>
       <div className="form-group">
-        <label>Producto:</label>
-        <input 
-          type="text" 
-          value={formData.product}
-          onChange={(e) => setFormData({...formData, product: e.target.value})}
-        />
-      </div>
-      <div className="form-group">
-        <label>Inmueble:</label>
-        <select 
-          value={formData.propertyId}
-          onChange={(e) => setFormData({...formData, propertyId: e.target.value})}
-        >
-          <option value="">Sin vincular</option>
-          {properties.map(property => (
-            <option key={property.id} value={property.id}>{property.name}</option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        <label>Capital pendiente:</label>
+        <label>Importe original:</label>
         <input 
           type="number" 
           step="0.01"
-          value={formData.pendingCapital}
-          onChange={(e) => setFormData({...formData, pendingCapital: e.target.value})}
+          value={formData.originalAmount}
+          onChange={(e) => setFormData({...formData, originalAmount: parseFloat(e.target.value) || 0})}
           required 
         />
       </div>
       <div className="form-group">
-        <label>Tipo de interés:</label>
-        <select 
-          value={formData.interestType}
-          onChange={(e) => setFormData({...formData, interestType: e.target.value})}
-        >
-          <option value="fijo">Fijo</option>
-          <option value="variable">Variable</option>
-        </select>
-      </div>
-      <div className="form-group">
-        <label>Tasa de interés (%):</label>
+        <label>Tipo de interés (%):</label>
         <input 
           type="number" 
           step="0.01"
           value={formData.interestRate}
-          onChange={(e) => setFormData({...formData, interestRate: e.target.value})}
+          onChange={(e) => setFormData({...formData, interestRate: parseFloat(e.target.value) || 0})}
           required 
         />
       </div>
@@ -529,60 +507,93 @@ function CreateLoanForm({ properties, onClose, showToast }) {
           type="number" 
           step="0.01"
           value={formData.monthlyPayment}
-          onChange={(e) => setFormData({...formData, monthlyPayment: e.target.value})}
+          onChange={(e) => setFormData({...formData, monthlyPayment: parseFloat(e.target.value) || 0})}
+          required 
+        />
+      </div>
+      <div className="form-group">
+        <label>Meses restantes:</label>
+        <input 
+          type="number" 
+          value={formData.remainingMonths}
+          onChange={(e) => setFormData({...formData, remainingMonths: parseInt(e.target.value) || 0})}
           required 
         />
       </div>
       <div className="modal-actions">
         <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-        <button type="submit" className="btn btn-primary">Crear Préstamo</button>
+        <button type="submit" className="btn btn-primary">Crear</button>
       </div>
     </form>
   );
 }
 
-// Register Income Form
-function RegisterIncomeForm({ accounts, onClose, showToast }) {
+// Add Property Expense Form
+function AddPropertyExpenseForm({ property, onClose, showToast }) {
   const [formData, setFormData] = useState({
-    account: '',
+    date: new Date().toISOString().split('T')[0],
+    concept: '',
     amount: 0,
-    description: '',
-    date: new Date().toISOString().split('T')[0]
+    category: 'Mantenimiento'
   });
+
+  const categories = ['Mantenimiento', 'Reparaciones', 'Suministros', 'Seguros', 'Comunidad', 'Otros'];
 
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Update account balance
-    store.updateAccountBalance(parseInt(formData.account), formData.amount);
-    
-    // Add movement record
-    store.addMovement({
-      type: 'income',
-      account: parseInt(formData.account),
+    // Add expense as a document
+    const newDocument = {
+      id: Date.now(),
+      fileName: `gasto_${property.address}_${Date.now()}.pdf`,
+      provider: 'Gasto directo',
+      concept: formData.concept,
       amount: formData.amount,
-      description: formData.description,
-      date: formData.date
-    });
+      category: formData.category,
+      propertyId: property.id,
+      status: 'Validada',
+      isDeductible: true,
+      uploadDate: formData.date
+    };
 
-    showToast('success', 'Ingreso registrado exitosamente');
+    // Update property expenses
+    const state = store.getState();
+    const updatedProperties = state.properties.map(prop => 
+      prop.id === property.id 
+        ? { ...prop, monthlyExpenses: prop.monthlyExpenses + formData.amount }
+        : prop
+    );
+
+    store.setState({ 
+      documents: [...state.documents, newDocument],
+      properties: updatedProperties
+    });
+    
+    showToast('success', 'Gasto de explotación añadido');
     onClose();
   };
 
   return (
     <form onSubmit={handleSubmit} className="modal-form">
+      <p><strong>Inmueble:</strong> {property.address}</p>
       <div className="form-group">
-        <label>Cuenta:</label>
-        <select 
-          value={formData.account}
-          onChange={(e) => setFormData({...formData, account: e.target.value})}
-          required
-        >
-          <option value="">Seleccionar cuenta...</option>
-          {accounts.map(account => (
-            <option key={account.id} value={account.id}>{account.name}</option>
-          ))}
-        </select>
+        <label>Fecha:</label>
+        <input 
+          type="date" 
+          value={formData.date}
+          onChange={(e) => setFormData({...formData, date: e.target.value})}
+          required 
+        />
+      </div>
+      <div className="form-group">
+        <label>Concepto:</label>
+        <input 
+          type="text" 
+          value={formData.concept}
+          onChange={(e) => setFormData({...formData, concept: e.target.value})}
+          placeholder="Descripción del gasto"
+          required 
+        />
       </div>
       <div className="form-group">
         <label>Importe:</label>
@@ -595,126 +606,54 @@ function RegisterIncomeForm({ accounts, onClose, showToast }) {
         />
       </div>
       <div className="form-group">
-        <label>Descripción:</label>
-        <input 
-          type="text" 
-          value={formData.description}
-          onChange={(e) => setFormData({...formData, description: e.target.value})}
-          required 
-        />
-      </div>
-      <div className="form-group">
-        <label>Fecha:</label>
-        <input 
-          type="date" 
-          value={formData.date}
-          onChange={(e) => setFormData({...formData, date: e.target.value})}
-          required 
-        />
-      </div>
-      <div className="modal-actions">
-        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-        <button type="submit" className="btn btn-primary">Registrar</button>
-      </div>
-    </form>
-  );
-}
-
-// Assign Movement Document Form
-function AssignMovementDocumentForm({ movementId, documents, onClose, showToast }) {
-  const [selectedDocument, setSelectedDocument] = useState('');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (!selectedDocument) {
-      showToast('error', 'Selecciona un documento');
-      return;
-    }
-
-    // This would link the document to the movement in a real implementation
-    showToast('success', 'Documento asignado al movimiento (simulado)');
-    onClose();
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="modal-form">
-      <div className="form-group">
-        <label>Seleccionar documento:</label>
+        <label>Categoría:</label>
         <select 
-          value={selectedDocument}
-          onChange={(e) => setSelectedDocument(e.target.value)}
+          value={formData.category}
+          onChange={(e) => setFormData({...formData, category: e.target.value})}
           required
         >
-          <option value="">Seleccionar documento...</option>
-          {documents.map(doc => (
-            <option key={doc.id} value={doc.id}>
-              {doc.provider} - {doc.concept} - €{doc.amount.toFixed(2)}
-            </option>
+          {categories.map(cat => (
+            <option key={cat} value={cat}>{cat}</option>
           ))}
         </select>
       </div>
       <div className="modal-actions">
         <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-        <button type="submit" className="btn btn-primary">Asignar</button>
+        <button type="submit" className="btn btn-primary">Añadir</button>
       </div>
     </form>
   );
 }
 
-// Link Loan to Property Form
-function LinkLoanPropertyForm({ loans, properties, onClose, showToast }) {
-  const [assignments, setAssignments] = useState(
-    loans.reduce((acc, loan) => ({ ...acc, [loan.id]: '' }), {})
-  );
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    const state = store.getState();
-    const updatedLoans = state.loans.map(loan => {
-      if (assignments[loan.id]) {
-        return { ...loan, propertyId: parseInt(assignments[loan.id]) };
-      }
-      return loan;
-    });
-
-    store.setState({ loans: updatedLoans });
-    showToast('success', 'Préstamos vinculados exitosamente');
-    onClose();
-  };
+// Property Detail Content
+function PropertyDetailContent({ property, onClose }) {
+  const state = store.getState();
+  const relatedDocuments = state.documents.filter(doc => doc.propertyId === property.id);
+  const relatedMovements = state.movements.filter(mov => mov.propertyId === property.id);
 
   return (
-    <form onSubmit={handleSubmit} className="modal-form">
-      <p>Selecciona el inmueble para cada préstamo:</p>
-      {loans.map(loan => (
-        <div key={loan.id} className="form-group">
-          <label>{loan.bank} - {loan.product}:</label>
-          <select 
-            value={assignments[loan.id]}
-            onChange={(e) => setAssignments({...assignments, [loan.id]: e.target.value})}
-          >
-            <option value="">Seleccionar inmueble...</option>
-            {properties.map(property => (
-              <option key={property.id} value={property.id}>{property.name}</option>
-            ))}
-          </select>
+    <div className="property-detail">
+      <div className="property-info">
+        <h4>Información del Inmueble</h4>
+        <p><strong>Dirección:</strong> {property.address}</p>
+        <p><strong>Ciudad:</strong> {property.city}</p>
+        <p><strong>Tipo:</strong> {property.type}</p>
+        <p><strong>Estado:</strong> {property.status}</p>
+        <p><strong>Valor actual:</strong> €{property.currentValue?.toLocaleString('es-ES')}</p>
+        <p><strong>Alquiler mensual:</strong> €{property.monthlyRent?.toLocaleString('es-ES')}</p>
+        <p><strong>Gastos mensuales:</strong> €{property.monthlyExpenses?.toLocaleString('es-ES')}</p>
+        <p><strong>Rentabilidad:</strong> {property.rentability}%</p>
+      </div>
+      
+      <div className="property-kpis">
+        <h4>KPIs del Inmueble</h4>
+        <div className="kpi-grid">
+          <div>Beneficio neto mensual: €{property.netProfit?.toLocaleString('es-ES')}</div>
+          <div>Documentos asociados: {relatedDocuments.length}</div>
+          <div>Movimientos este mes: {relatedMovements.length}</div>
         </div>
-      ))}
-      <div className="modal-actions">
-        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-        <button type="submit" className="btn btn-primary">Vincular</button>
       </div>
-    </form>
-  );
-}
 
-// Property P&L Content (placeholder)
-function PropertyPLContent({ property, onClose }) {
-  return (
-    <div className="property-pl">
-      <p><strong>Inmueble:</strong> {property.name}</p>
-      <p>Análisis P&L detallado disponible en próximas versiones</p>
       <div className="modal-actions">
         <button className="btn btn-primary" onClick={onClose}>Cerrar</button>
       </div>
@@ -722,14 +661,49 @@ function PropertyPLContent({ property, onClose }) {
   );
 }
 
-// Property Detail Content
-function PropertyDetailContent({ property, onClose }) {
+// Property P&L Content
+function PropertyPLContent({ property, onClose }) {
+  const state = store.getState();
+  const relatedDocuments = state.documents.filter(doc => doc.propertyId === property.id && doc.status === 'Validada');
+  const totalExpenses = relatedDocuments.reduce((sum, doc) => sum + doc.amount, 0);
+  const monthlyIncome = property.monthlyRent || 0;
+  const annualIncome = monthlyIncome * 12;
+  const annualExpenses = totalExpenses;
+  const netProfit = annualIncome - annualExpenses;
+
   return (
-    <div className="property-detail">
-      <p><strong>Inmueble:</strong> {property.name}</p>
-      <p><strong>Dirección:</strong> {property.address || 'No especificada'}</p>
-      <p><strong>Tipo:</strong> {property.type || 'No especificado'}</p>
-      <p>Vista detallada del inmueble disponible en próximas versiones</p>
+    <div className="property-pl">
+      <h4>Análisis P&L - {property.address}</h4>
+      
+      <div className="pl-summary">
+        <div className="pl-line">
+          <span>Ingresos anuales:</span>
+          <span>€{annualIncome.toLocaleString('es-ES')}</span>
+        </div>
+        <div className="pl-line">
+          <span>Gastos anuales:</span>
+          <span>€{annualExpenses.toLocaleString('es-ES')}</span>
+        </div>
+        <div className="pl-line total">
+          <span>Beneficio neto:</span>
+          <span>€{netProfit.toLocaleString('es-ES')}</span>
+        </div>
+        <div className="pl-line">
+          <span>Rentabilidad:</span>
+          <span>{((netProfit / property.currentValue) * 100).toFixed(2)}%</span>
+        </div>
+      </div>
+
+      <div className="expense-breakdown">
+        <h5>Desglose de gastos:</h5>
+        {relatedDocuments.map(doc => (
+          <div key={doc.id} className="expense-item">
+            <span>{doc.concept}</span>
+            <span>€{doc.amount.toLocaleString('es-ES')}</span>
+          </div>
+        ))}
+      </div>
+
       <div className="modal-actions">
         <button className="btn btn-primary" onClick={onClose}>Cerrar</button>
       </div>

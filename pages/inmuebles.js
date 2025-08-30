@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { mockData, getTotalPortfolioValue, getTotalMonthlyRent, getPortfolioRentability, getOccupancyRate } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import store from '../store/index';
+import { getTotalPortfolioValue, getTotalMonthlyRent, getPortfolioRentability, getOccupancyRate } from '../data/mockData';
 
 export default function Page() {
   const [selectedProperty, setSelectedProperty] = useState(null);
@@ -8,8 +9,17 @@ export default function Page() {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [filterYear, setFilterYear] = useState('2024');
   const [filterMonth, setFilterMonth] = useState('all');
+  const [storeState, setStoreState] = useState(store.getState());
 
-  const { properties, contracts, loans } = mockData;
+  // Subscribe to store changes
+  useEffect(() => {
+    const unsubscribe = store.subscribe(setStoreState);
+    return unsubscribe;
+  }, []);
+
+  const { properties, loans } = storeState;
+  // Get contracts from mockData for now since they're not in store
+  const contracts = [];
 
   const formatCurrency = (amount) => {
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
@@ -225,17 +235,36 @@ export default function Page() {
                       {property.rentability}%
                     </td>
                     <td>
-                      <span className={`chip ${property.status === 'Ocupado' ? 'success' : 'warning'}`}>
+                      <button 
+                        className={`chip ${property.status === 'Ocupado' ? 'success' : 'warning'}`}
+                        data-action="property:toggle-status"
+                        data-id={property.id}
+                        style={{
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '4px 8px'
+                        }}
+                      >
                         {property.status}
-                      </span>
+                      </button>
                     </td>
                     <td>
-                      <button 
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => setSelectedProperty(property)}
-                      >
-                        Ver detalle
-                      </button>
+                      <div className="flex gap-2">
+                        <button 
+                          className="btn btn-secondary btn-sm"
+                          data-action="property:view-detail"
+                          data-id={property.id}
+                        >
+                          Ver detalle
+                        </button>
+                        <button 
+                          className="btn btn-primary btn-sm"
+                          data-action="property:add-expense"
+                          data-id={property.id}
+                        >
+                          Añadir gasto
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
