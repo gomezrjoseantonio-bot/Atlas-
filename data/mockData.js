@@ -111,6 +111,65 @@ export const mockData = {
       contractStart: null,
       contractEnd: null,
       status: 'Disponible'
+    },
+    {
+      id: 4,
+      address: 'Calle Alcalá 78, 4ºA',
+      city: 'Madrid',
+      type: 'Piso compartido',
+      purchaseDate: '2022-05-15',
+      purchasePrice: 220000,
+      currentValue: 235000,
+      monthlyRent: 1910, // Sum of all unit rents
+      monthlyExpenses: 250,
+      netProfit: 1660,
+      rentability: 8.5,
+      occupancy: 60, // 3 out of 5 units occupied
+      tenant: 'Varios inquilinos',
+      contractStart: '2024-01-01',
+      contractEnd: '2024-12-31',
+      status: 'Parcialmente ocupado',
+      // HITO 7: Multi-unit properties
+      multiUnit: true,
+      totalUnits: 5,
+      occupiedUnits: 3,
+      units: [
+        {
+          id: 4001,
+          name: 'H1',
+          sqm: 15,
+          monthlyRent: 400,
+          status: 'Ocupada'
+        },
+        {
+          id: 4002,
+          name: 'H2',
+          sqm: 12,
+          monthlyRent: 350,
+          status: 'Ocupada'
+        },
+        {
+          id: 4003,
+          name: 'H3',
+          sqm: 14,
+          monthlyRent: 380,
+          status: 'Libre'
+        },
+        {
+          id: 4004,
+          name: 'H4',
+          sqm: 16,
+          monthlyRent: 420,
+          status: 'Ocupada'
+        },
+        {
+          id: 4005,
+          name: 'H5',
+          sqm: 13,
+          monthlyRent: 360,
+          status: 'Libre'
+        }
+      ]
     }
   ],
 
@@ -166,25 +225,31 @@ export const mockData = {
       id: 1,
       propertyId: 1,
       bank: 'BBVA',
+      product: 'Hipoteca estándar',
       originalAmount: 140000,
-      currentBalance: 98750,
+      pendingCapital: 98750,
       interestRate: 2.85,
+      interestType: 'variable',
       monthlyPayment: 658,
       remainingMonths: 156,
       startDate: '2020-03-15',
-      endDate: '2033-03-15'
+      endDate: '2033-03-15',
+      nextRevision: '2024-03-15'
     },
     {
       id: 2,
       propertyId: 2,
       bank: 'Santander',
+      product: 'Hipoteca estándar',
       originalAmount: 75000,
-      currentBalance: 62400,
+      pendingCapital: 62400,
       interestRate: 3.15,
+      interestType: 'variable',
       monthlyPayment: 445,
       remainingMonths: 142,
       startDate: '2021-09-20',
-      endDate: '2033-07-20'
+      endDate: '2033-07-20',
+      nextRevision: '2024-09-20'
     }
   ],
 
@@ -335,7 +400,11 @@ export const mockData = {
       category: 'Seguros',
       status: 'Validada',
       hasOcr: true,
-      isDeductible: true
+      isDeductible: true,
+      // HITO 7: Fiscal information
+      expenseFamily: 'operational_fixed',
+      fiscalTreatment: 'deductible',
+      rentalAffectation: 100
     },
     {
       id: 2,
@@ -348,7 +417,11 @@ export const mockData = {
       category: 'Mantenimiento',
       status: 'Pendiente',
       hasOcr: false,
-      isDeductible: true
+      isDeductible: true,
+      // HITO 7: Fiscal information
+      expenseFamily: 'maintenance',
+      fiscalTreatment: 'deductible',
+      rentalAffectation: 100
     },
     {
       id: 3,
@@ -357,11 +430,25 @@ export const mockData = {
       provider: 'Iberdrola',
       concept: 'Suministro eléctrico',
       amount: 89,
-      propertyId: 2,
+      propertyId: 4, // Multi-unit property
       category: 'Suministros',
       status: 'Error',
       hasOcr: true,
-      isDeductible: true
+      isDeductible: true,
+      // HITO 7: Fiscal information and allocation
+      expenseFamily: 'operational_variable',
+      fiscalTreatment: 'deductible',
+      rentalAffectation: 100,
+      allocation: {
+        method: 'occupied',
+        distribution: {
+          4001: { percentage: 33.33, amount: 29.66 },
+          4002: { percentage: 33.33, amount: 29.66 },
+          4004: { percentage: 33.34, amount: 29.68 }
+        },
+        excludedUnits: [4003, 4005],
+        allocatedAt: '2024-01-12T15:30:00'
+      }
     },
     {
       id: 4,
@@ -374,7 +461,41 @@ export const mockData = {
       category: 'Mantenimiento',
       status: 'Listo para asignar',
       hasOcr: true,
-      isDeductible: true
+      isDeductible: true,
+      // HITO 7: Fiscal information
+      expenseFamily: 'maintenance',
+      fiscalTreatment: 'deductible',
+      rentalAffectation: 100
+    },
+    {
+      id: 5,
+      uploadDate: '2024-01-08',
+      fileName: 'factura_reforma.pdf',
+      provider: 'Construcciones López',
+      concept: 'Reforma baño completo',
+      amount: 3500,
+      propertyId: 4,
+      category: 'Mejoras',
+      status: 'Validada',
+      hasOcr: true,
+      isDeductible: false,
+      // HITO 7: Fiscal information - Capitalizable expense
+      expenseFamily: 'improvement',
+      fiscalTreatment: 'capitalizable',
+      rentalAffectation: 100,
+      amortizationYears: 10,
+      amortizationStartDate: '2024-01-08',
+      allocation: {
+        method: 'sqm',
+        distribution: {
+          4001: { percentage: 21.43, amount: 750.05 },
+          4002: { percentage: 17.14, amount: 599.90 },
+          4003: { percentage: 20.00, amount: 700.00 },
+          4004: { percentage: 22.86, amount: 800.10 },
+          4005: { percentage: 18.57, amount: 649.95 }
+        },
+        allocatedAt: '2024-01-08T12:00:00'
+      }
     }
   ],
 
@@ -487,6 +608,243 @@ export const mockData = {
     ivaProvision: 0,
     estimatedAnnualNet: 38400,
     estimatedAnnualExpenses: 29400
+  },
+
+  // HITO 6: Provider classification rules
+  providerRules: [
+    {
+      id: 1,
+      providerContains: 'Endesa',
+      category: 'Suministros',
+      propertyId: null, // null means no specific property assignment
+      active: true,
+      deductible: true,
+      order: 1
+    },
+    {
+      id: 2,
+      providerContains: 'Iberdrola',
+      category: 'Suministros',
+      propertyId: null,
+      active: true,
+      deductible: true,
+      order: 2
+    },
+    {
+      id: 3,
+      providerContains: 'Comunidad',
+      category: 'Gastos comunidad',
+      propertyId: 'auto', // auto-assign to property with "Comunidad" in contracts
+      active: true,
+      deductible: true,
+      order: 3
+    },
+    {
+      id: 4,
+      providerContains: 'Administrador',
+      category: 'Gastos comunidad',
+      propertyId: 'auto',
+      active: true,
+      deductible: true,
+      order: 4
+    },
+    {
+      id: 5,
+      providerContains: 'Mapfre',
+      category: 'Seguros',
+      propertyId: null,
+      active: true,
+      deductible: true,
+      order: 5
+    }
+  ],
+
+  // HITO 6: Sweep configuration
+  sweepConfig: {
+    hubAccountId: 2, // Cuenta Ahorro Inmuebles as default hub
+    autoSweepEnabled: false,
+    movementMatchingDays: 3 // ±3 days for movement-invoice matching
+  },
+
+  // HITO 6: Predicted charges and income (next 90 days)
+  predictedItems: [
+    {
+      id: 1,
+      type: 'charge',
+      description: 'Cuota hipoteca BBVA',
+      amount: 658,
+      dueDate: '2024-01-28',
+      propertyId: 1,
+      recurringType: 'monthly',
+      source: 'loan'
+    },
+    {
+      id: 2,
+      type: 'charge',
+      description: 'Cuota hipoteca Santander',
+      amount: 445,
+      dueDate: '2024-01-20',
+      propertyId: 2,
+      recurringType: 'monthly',
+      source: 'loan'
+    },
+    {
+      id: 3,
+      type: 'income',
+      description: 'Alquiler María García',
+      amount: 1200,
+      dueDate: '2024-02-01',
+      propertyId: 1,
+      recurringType: 'monthly',
+      source: 'contract'
+    },
+    {
+      id: 4,
+      type: 'income',
+      description: 'Alquiler João Silva',
+      amount: 850,
+      dueDate: '2024-02-15',
+      propertyId: 2,
+      recurringType: 'monthly',
+      source: 'contract'
+    },
+    {
+      id: 5,
+      type: 'charge',
+      description: 'IBI Valencia',
+      amount: 245,
+      dueDate: '2024-01-30',
+      propertyId: 3,
+      recurringType: 'yearly',
+      source: 'property'
+    }
+  ],
+
+  // HITO 6: Alerts system
+  alerts: [
+    {
+      id: 1,
+      type: 'low_balance',
+      severity: 'critical',
+      title: 'Saldo bajo en Cuenta Gastos Inmuebles',
+      description: 'La cuenta está por debajo del objetivo (€3.240 < €5.000)',
+      accountId: 3,
+      suggestedAmount: 1760,
+      actions: ['move_money', 'postpone', 'dismiss'],
+      createdAt: '2024-01-15T10:00:00',
+      dismissed: false
+    },
+    {
+      id: 2,
+      type: 'upcoming_charge',
+      severity: 'high',
+      title: 'Cargo de hipoteca próximo',
+      description: 'Cuota hipoteca Santander (€445) - 5 días',
+      dueDate: '2024-01-20',
+      amount: 445,
+      propertyId: 2,
+      actions: ['prepare_funds', 'postpone', 'dismiss'],
+      createdAt: '2024-01-15T09:00:00',
+      dismissed: false
+    },
+    {
+      id: 3,
+      type: 'unpaid_invoice',
+      severity: 'low',
+      title: 'Factura sin cargo',
+      description: 'Factura Fontanería García pendiente sin movimiento asociado',
+      documentId: 2,
+      actions: ['create_predicted_charge', 'postpone', 'dismiss'],
+      createdAt: '2024-01-14T16:00:00',
+      dismissed: false
+    }
+  ],
+
+  // HITO 7: Multi-unit demo data
+  units: [
+    // Units for property 4 (will be added as multi-unit demo)
+    {
+      id: 4001,
+      propertyId: 4,
+      name: 'H1',
+      sqm: 15,
+      monthlyRent: 400,
+      status: 'Ocupada'
+    },
+    {
+      id: 4002,
+      propertyId: 4,
+      name: 'H2',
+      sqm: 12,
+      monthlyRent: 350,
+      status: 'Ocupada'
+    },
+    {
+      id: 4003,
+      propertyId: 4,
+      name: 'H3',
+      sqm: 14,
+      monthlyRent: 380,
+      status: 'Libre'
+    },
+    {
+      id: 4004,
+      propertyId: 4,
+      name: 'H4',
+      sqm: 16,
+      monthlyRent: 420,
+      status: 'Ocupada'
+    },
+    {
+      id: 4005,
+      propertyId: 4,
+      name: 'H5',
+      sqm: 13,
+      monthlyRent: 360,
+      status: 'Libre'
+    }
+  ],
+
+  unitContracts: [
+    {
+      id: 1001,
+      unitId: 4001,
+      type: 'Alquiler',
+      tenant: 'Ana Rodríguez',
+      startDate: '2024-01-01',
+      endDate: '2024-12-31',
+      monthlyAmount: 400,
+      deposit: 800,
+      status: 'Activo'
+    },
+    {
+      id: 1002,
+      unitId: 4002,
+      type: 'Alquiler',
+      tenant: 'Carlos Méndez',
+      startDate: '2024-02-15',
+      endDate: '2025-02-14',
+      monthlyAmount: 350,
+      deposit: 700,
+      status: 'Activo'
+    },
+    {
+      id: 1003,
+      unitId: 4004,
+      type: 'Alquiler',
+      tenant: 'Laura Fernández',
+      startDate: '2023-11-01',
+      endDate: '2024-10-31',
+      monthlyAmount: 420,
+      deposit: 840,
+      status: 'Activo'
+    }
+  ],
+
+  allocationPreferences: {
+    'Endesa_Suministros': { method: 'occupied', lastUsed: '2024-01-15' },
+    'Iberdrola_Suministros': { method: 'occupied', lastUsed: '2024-01-10' },
+    'Mapfre_Seguros': { method: 'total', lastUsed: '2024-01-05' }
   }
 };
 

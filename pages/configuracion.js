@@ -1,11 +1,59 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import store from '../store/index';
 import { mockData } from '../data/mockData';
 
 export default function Page() {
   const [activeSection, setActiveSection] = useState('bancos');
   const [personalToggle, setPersonalToggle] = useState(true);
+  const [storeState, setStoreState] = useState(store.getState());
+  const [mounted, setMounted] = useState(false);
 
-  const { accounts, users } = mockData;
+  // Subscribe to store changes and handle hydration
+  useEffect(() => {
+    setMounted(true);
+    setStoreState(store.getState());
+    const unsubscribe = store.subscribe(setStoreState);
+    return unsubscribe;
+  }, []);
+
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div data-theme="atlas">
+        <header className="header">
+          <div className="container nav">
+            <div className="logo">
+              <div className="logo-mark">
+                <div className="bar short"></div>
+                <div className="bar mid"></div>
+                <div className="bar tall"></div>
+              </div>
+              <div>ATLAS</div>
+            </div>
+            <nav className="tabs">
+              <a className="tab" href="/panel">Panel</a>
+              <a className="tab" href="/tesoreria">Tesorería</a>
+              <a className="tab" href="/inmuebles">Inmuebles</a>
+              <a className="tab" href="/documentos">Documentos</a>
+              <a className="tab" href="/proyeccion">Proyección</a>
+              <a className="tab active" href="/configuracion">Configuración</a>
+            </nav>
+            <div className="actions">
+              <button className="btn btn-secondary btn-sm" style={{marginRight: '12px'}}>🔄 Demo</button>
+              <span>🔍</span><span>🔔</span><span>⚙️</span>
+            </div>
+          </div>
+        </header>
+        <main className="container">
+          <h2 style={{color:'var(--navy)', margin:'0 0 24px 0'}}>Configuración</h2>
+          <div>Cargando...</div>
+        </main>
+      </div>
+    );
+  }
+
+  const { accounts = [], users = [] } = mockData;
+  const { sweepConfig = {}, rulesEngineEnabled = true } = storeState;
 
   return (<>
     <header className="header">
@@ -255,6 +303,110 @@ export default function Page() {
       {/* Preferencias & Datos */}
       {activeSection === 'preferencias' && (
         <div className="space-y-4">
+          {/* HITO 6: Automation Preferences */}
+          <div className="card">
+            <h3 style={{margin: '0 0 16px 0'}}>🤖 Automatización & Alertas</h3>
+            <div className="grid-2 gap-6">
+              <div>
+                <label className="flex items-center gap-2 mb-4">
+                  <input 
+                    type="checkbox" 
+                    checked={rulesEngineEnabled || true}
+                    onChange={(e) => store.setState({ rulesEngineEnabled: e.target.checked })}
+                  />
+                  <span className="form-label" style={{margin: 0}}>Motor de reglas activado</span>
+                </label>
+                <div className="text-sm text-gray mb-4">
+                  Clasifica documentos automáticamente y sugiere movimientos entre cuentas
+                </div>
+
+                <label className="flex items-center gap-2 mb-4">
+                  <input 
+                    type="checkbox" 
+                    checked={sweepConfig.showCriticalAlertsInPanel !== false}
+                    onChange={(e) => store.updateSweepConfig({ showCriticalAlertsInPanel: e.target.checked })}
+                  />
+                  <span className="form-label" style={{margin: 0}}>Mostrar alertas críticas en Panel</span>
+                </label>
+                <div className="text-sm text-gray mb-4">
+                  Muestra contador de alertas críticas/altas en la navegación
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label">Ventana de emparejamiento movimiento ↔ factura</label>
+                <select 
+                  className="form-control mb-2"
+                  value={sweepConfig.movementMatchingDays || 3}
+                  onChange={(e) => store.updateSweepConfig({ 
+                    movementMatchingDays: parseInt(e.target.value) 
+                  })}
+                >
+                  <option value={1}>±1 día</option>
+                  <option value={3}>±3 días</option>
+                  <option value={7}>±7 días</option>
+                </select>
+                <div className="text-sm text-gray mb-4">
+                  Margen para vincular movimientos con facturas automáticamente
+                </div>
+
+                <button 
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    if (confirm('¿Restablecer reglas por defecto? Se perderán las reglas personalizadas.')) {
+                      store.setState({ 
+                        providerRules: [...mockData.providerRules]
+                      });
+                      
+                      if (typeof window !== 'undefined' && window.showToast) {
+                        window.showToast('Reglas restablecidas a valores por defecto', 'success');
+                      }
+                    }
+                  }}
+                >
+                  Restablecer reglas por defecto
+                </button>
+                <div className="text-sm text-gray mt-1">
+                  Carga 5 reglas base sensatas para clasificación automática
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4" style={{background: '#F9FAFB', borderRadius: '8px'}}>
+              <h4 style={{margin: '0 0 12px 0', fontSize: '16px'}}>Estado del Motor de Reglas</h4>
+              <div className="grid-3 gap-4">
+                <div>
+                  <div className="text-sm text-gray">Reglas activas</div>
+                  <div className="font-semibold">
+                    {storeState.providerRules ? storeState.providerRules.filter(r => r.active).length : 0}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray">Última ejecución</div>
+                  <div className="font-semibold text-sm">
+                    {storeState.lastRulesRun ? 
+                      new Date(storeState.lastRulesRun).toLocaleString('es-ES') : 
+                      'Nunca'
+                    }
+                  </div>
+                </div>
+                <div>
+                  <button 
+                    className="btn btn-primary btn-sm"
+                    onClick={() => {
+                      const changes = store.runRulesEngine();
+                      if (typeof window !== 'undefined' && window.showToast) {
+                        window.showToast(`Motor ejecutado: ${changes.length} cambios aplicados`, 'success');
+                      }
+                    }}
+                  >
+                    Ejecutar ahora
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="card">
             <h3 style={{margin: '0 0 16px 0'}}>Preferencias Generales</h3>
             <div className="grid-2 gap-4">

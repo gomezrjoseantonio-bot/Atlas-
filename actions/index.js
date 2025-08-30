@@ -22,41 +22,96 @@ const showModal = (modalId, data = {}) => {
 // Document/Invoice Actions
 export const processOCR = () => {
   const state = store.getState();
-  const inboxFiles = state.inboxEntries.filter(entry => entry.status === 'Pendiente de procesamiento');
+  const inboxFiles = state.inboxEntries.filter(entry => 
+    entry.status === 'Pendiente de procesamiento' || entry.status === 'Error lectura'
+  );
   
   if (inboxFiles.length === 0) {
     showToast('warning', 'No hay archivos para procesar');
     return;
   }
 
-  // Simulate OCR processing - create pending invoices from inbox entries
-  const newDocuments = inboxFiles.map(file => ({
-    id: Date.now() + Math.random(),
-    fileName: file.fileName,
-    provider: 'Proveedor Desconocido',
-    concept: 'Concepto por determinar',
-    amount: 0,
-    category: 'Otros',
-    propertyId: null,
-    status: 'Pendiente',
-    isDeductible: false,
-    uploadDate: new Date().toISOString(),
-    documentUrl: file.url || null
-  }));
+  // Simulate loading delay
+  setTimeout(() => {
+    // Simulate realistic OCR processing with credible provider/concept/amounts
+    const ocrProviders = ['Iberdrola', 'Gas Natural', 'Mapfre', 'AXA', 'Fontanería García', 'Comunidad Propietarios', 'Telefónica', 'Aqualia'];
+    const ocrConcepts = ['Suministro eléctrico', 'Suministro gas', 'Seguro hogar', 'Reparación', 'Cuota comunidad', 'Telefonía', 'Agua'];
+    const categories = ['Suministros', 'Seguros', 'Mantenimiento', 'Comunidad', 'Comunicaciones'];
 
-  // Add documents to store
-  const currentDocuments = state.documents;
-  store.setState({ 
-    documents: [...currentDocuments, ...newDocuments],
-    inboxEntries: state.inboxEntries.filter(entry => entry.status !== 'Pendiente de procesamiento')
-  });
+    const newDocuments = inboxFiles.map((file, index) => ({
+      id: Date.now() + Math.random() + index,
+      fileName: file.fileName,
+      provider: ocrProviders[Math.floor(Math.random() * ocrProviders.length)],
+      concept: ocrConcepts[Math.floor(Math.random() * ocrConcepts.length)],
+      amount: Math.floor(Math.random() * 300) + 50, // Random amount between 50-350
+      category: categories[Math.floor(Math.random() * categories.length)],
+      propertyId: null,
+      status: 'Pendiente',
+      isDeductible: true,
+      uploadDate: new Date().toISOString(),
+      documentUrl: file.url || null
+    }));
 
-  showToast('success', `${newDocuments.length} facturas procesadas con OCR`);
+    // Update inbox entries status to processed
+    const updatedInboxEntries = state.inboxEntries.map(entry => 
+      inboxFiles.find(f => f.id === entry.id) 
+        ? { ...entry, status: 'Leído', provider: `Detectado: ${newDocuments.find(d => d.fileName === entry.fileName)?.provider}` }
+        : entry
+    );
+
+    // Add documents to store
+    const currentDocuments = state.documents;
+    store.setState({ 
+      documents: [...currentDocuments, ...newDocuments],
+      inboxEntries: updatedInboxEntries
+    });
+
+    showToast('success', `${newDocuments.length} facturas procesadas con OCR`);
+  }, 300);
 };
 
 export const clearUpload = () => {
   store.setState({ inboxEntries: [] });
   showToast('success', 'Archivos de subida limpiados');
+};
+
+export const sendToInvoices = (id) => {
+  const state = store.getState();
+  const inboxEntry = state.inboxEntries.find(entry => entry.id == id);
+  
+  if (!inboxEntry) {
+    showToast('error', 'Archivo no encontrado en Inbox');
+    return;
+  }
+
+  // Simulate sending to invoices with delay
+  setTimeout(() => {
+    // Create new document from inbox entry
+    const newDocument = {
+      id: Date.now() + Math.random(),
+      fileName: inboxEntry.fileName,
+      provider: inboxEntry.provider.replace('Detectado: ', '') || 'Proveedor Desconocido',
+      concept: 'Concepto por determinar',
+      amount: Math.floor(Math.random() * 200) + 50,
+      category: 'Otros',
+      propertyId: null,
+      status: 'Pendiente',
+      isDeductible: true,
+      uploadDate: new Date().toISOString(),
+      documentUrl: inboxEntry.url || null
+    };
+
+    // Add to documents and remove from inbox
+    const currentDocuments = state.documents;
+    const updatedInboxEntries = state.inboxEntries.filter(entry => entry.id != id);
+    
+    store.setState({ 
+      documents: [...currentDocuments, newDocument],
+      inboxEntries: updatedInboxEntries
+    });
+
+    showToast('success', 'Documento enviado a Facturas');
+  }, 300);
 };
 
 export const editInvoice = (id) => {
@@ -97,15 +152,17 @@ export const deleteInvoice = (id) => {
 };
 
 export const validateInvoice = (id) => {
-  const state = store.getState();
-  const invoice = state.documents.find(doc => doc.id == id);
-  if (!invoice) {
-    showToast('error', 'Factura no encontrada');
-    return;
-  }
-  
-  store.updateDocument(parseInt(id), { status: 'Validada' });
-  showToast('success', 'Factura validada');
+  setTimeout(() => {
+    const state = store.getState();
+    const invoice = state.documents.find(doc => doc.id == id);
+    if (!invoice) {
+      showToast('error', 'Factura no encontrada');
+      return;
+    }
+    
+    store.updateDocument(parseInt(id), { status: 'Validada' });
+    showToast('success', 'Factura validada');
+  }, 400);
 };
 
 // Export Actions
@@ -185,12 +242,37 @@ export const dismissAlert = (id) => {
 
 // Additional treasury actions
 export const toggleTreasuryRule = (id) => {
-  // This would toggle a treasury rule in a real implementation
-  showToast('info', `Regla de tesorería ${id} activada/desactivada (simulado)`);
+  setTimeout(() => {
+    const state = store.getState();
+    const treasuryRules = state.treasuryRules.map(rule => 
+      rule.id == id ? { ...rule, active: !rule.active } : rule
+    );
+    store.setState({ treasuryRules });
+    showToast('success', 'Regla de tesorería actualizada');
+  }, 250);
 };
 
 export const editTreasuryRule = (id) => {
   showToast('info', 'Edición de reglas de tesorería disponible próximamente');
+};
+
+export const toggleMovementStatus = (id) => {
+  setTimeout(() => {
+    const state = store.getState();
+    const statusCycle = ['Regla aplicada', 'Pendiente', 'Excepción'];
+    
+    const movements = state.movements.map(movement => {
+      if (movement.id == id) {
+        const currentIndex = statusCycle.indexOf(movement.status);
+        const nextIndex = (currentIndex + 1) % statusCycle.length;
+        return { ...movement, status: statusCycle[nextIndex] };
+      }
+      return movement;
+    });
+    
+    store.setState({ movements });
+    showToast('success', 'Estado del movimiento actualizado');
+  }, 200);
 };
 
 export const registerIncome = () => {
@@ -283,6 +365,40 @@ export const deleteProperty = (id) => {
   
   store.setState({ properties, documents });
   showToast('success', 'Inmueble eliminado');
+};
+
+export const togglePropertyStatus = (id) => {
+  setTimeout(() => {
+    const state = store.getState();
+    const properties = state.properties.map(property => {
+      if (property.id == id) {
+        const newStatus = property.status === 'Ocupado' ? 'Disponible' : 'Ocupado';
+        const occupancy = newStatus === 'Ocupado' ? 100 : 0;
+        return { 
+          ...property, 
+          status: newStatus, 
+          occupancy,
+          tenant: newStatus === 'Ocupado' ? 'Nuevo inquilino' : null,
+          contractStart: newStatus === 'Ocupado' ? new Date().toISOString().split('T')[0] : null,
+          contractEnd: newStatus === 'Ocupado' ? new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0] : null
+        };
+      }
+      return property;
+    });
+    
+    store.setState({ properties });
+    showToast('success', 'Estado del inmueble actualizado');
+  }, 300);
+};
+
+export const addPropertyExpense = (id) => {
+  const state = store.getState();
+  const property = state.properties.find(prop => prop.id == id);
+  if (!property) {
+    showToast('error', 'Inmueble no encontrado');
+    return;
+  }
+  showModal('addPropertyExpense', { property });
 };
 
 export const createLoan = () => {
@@ -382,4 +498,84 @@ export const loadDemo = () => {
   
   // Refresh the page to reflect changes
   setTimeout(() => window.location.reload(), 1000);
+};
+
+// HITO 7: Multi-unit property actions
+
+export const togglePropertyMultiUnit = (propertyId, element) => {
+  const state = store.getState();
+  const property = state.properties.find(p => p.id == propertyId);
+  
+  if (!property) {
+    showToast('error', 'Inmueble no encontrado');
+    return;
+  }
+
+  const isChecked = element.querySelector('input[type="checkbox"]').checked;
+  
+  if (isChecked && !property.multiUnit) {
+    // Enabling multi-unit - show setup wizard
+    showModal('multi-unit-setup', { propertyId: propertyId, property: property });
+  } else if (!isChecked && property.multiUnit) {
+    // Disabling multi-unit - confirm and convert back to single unit
+    if (confirm('¿Estás seguro de que quieres desactivar Multi-unidad? Se perderán los datos de unidades individuales.')) {
+      store.togglePropertyMultiUnit(propertyId, false);
+      showToast('success', 'Multi-unidad desactivado');
+    } else {
+      // Revert checkbox state
+      element.querySelector('input[type="checkbox"]').checked = true;
+    }
+  }
+};
+
+export const managePropertyUnits = (propertyId) => {
+  const state = store.getState();
+  const property = state.properties.find(p => p.id == propertyId);
+  
+  if (!property || !property.multiUnit) {
+    showToast('error', 'Este inmueble no tiene Multi-unidad activado');
+    return;
+  }
+
+  showModal('manage-units', { propertyId: propertyId, property: property });
+};
+
+export const setupMultiUnit = (propertyId, config) => {
+  const state = store.getState();
+  const property = state.properties.find(p => p.id == propertyId);
+  
+  if (!property) {
+    showToast('error', 'Inmueble no encontrado');
+    return;
+  }
+
+  try {
+    store.setupMultiUnit(propertyId, config);
+    showToast('success', `Multi-unidad configurado con ${config.unitCount} unidades`);
+  } catch (error) {
+    showToast('error', `Error configurando Multi-unidad: ${error.message}`);
+  }
+};
+
+// HITO 7: Document allocation action
+export const allocateDocument = (documentId) => {
+  const state = store.getState();
+  const document = state.documents.find(d => d.id == documentId);
+  
+  if (!document) {
+    showToast('error', 'Documento no encontrado');
+    return;
+  }
+
+  const property = state.properties.find(p => p.id === document.propertyId);
+  if (!property || !property.multiUnit) {
+    showToast('error', 'Este documento no está asignado a un inmueble multi-unidad');
+    return;
+  }
+
+  showModal('document-allocation', { 
+    document: document, 
+    property: property,
+    documentId: documentId 
+  });
 };

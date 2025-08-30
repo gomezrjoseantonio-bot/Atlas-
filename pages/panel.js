@@ -1,17 +1,93 @@
-import { useState } from 'react';
-import { mockData, getTotalPortfolioValue, getTotalMonthlyRent, getOccupancyRate } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import store from '../store/index';
+import { getTotalPortfolioValue, getTotalMonthlyRent, getOccupancyRate } from '../data/mockData';
 
 export default function Page() {
   const [personalMode, setPersonalMode] = useState(false);
+  const [storeState, setStoreState] = useState(store.getState());
+  const [mounted, setMounted] = useState(false);
 
-  const { missingInvoices, personalFinances, accounts } = mockData;
+  // Subscribe to store changes and handle hydration
+  useEffect(() => {
+    setMounted(true);
+    // Force a refresh of store state after mounting
+    setStoreState(store.getState());
+    const unsubscribe = store.subscribe(setStoreState);
+    return unsubscribe;
+  }, []);
+
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div data-theme="atlas">
+        <header className="header">
+          <div className="container nav">
+            <div className="logo">
+              <div className="logo-mark">
+                <div className="bar short"></div>
+                <div className="bar mid"></div>
+                <div className="bar tall"></div>
+              </div>
+              <div>ATLAS</div>
+            </div>
+            <nav className="tabs">
+              <a className="tab active" href="/panel">Panel</a>
+              <a className="tab" href="/tesoreria">Tesorería</a>
+              <a className="tab" href="/inmuebles">Inmuebles</a>
+              <a className="tab" href="/documentos">Documentos</a>
+              <a className="tab" href="/proyeccion">Proyección</a>
+              <a className="tab" href="/configuracion">Configuración</a>
+            </nav>
+            <div className="actions">
+              <span>🔍</span><span>🔔</span><span>⚙️</span>
+            </div>
+          </div>
+        </header>
+        <main className="container">
+          <div className="flex items-center justify-between mb-4">
+            <h2 style={{color:'var(--navy)', margin:0}}>Panel</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">PERSONAL</span>
+              <label className="toggle">
+                <input type="checkbox" />
+                <span className="slider"></span>
+              </label>
+            </div>
+          </div>
+          <div>Cargando...</div>
+        </main>
+      </div>
+    );
+  }
+
+  const { missingInvoices = [], accounts = [], documents = [], properties = [], inboxEntries = [] } = storeState;
+  
+  // Calculate live data
+  const unprocessedInboxEntries = inboxEntries.filter(entry => 
+    entry.status === 'Pendiente de procesamiento' || entry.status === 'Error lectura'
+  );
+  const pendingDocuments = documents.filter(doc => doc.status === 'Pendiente');
+  const totalMissingInvoices = unprocessedInboxEntries.length + pendingDocuments.length;
+  
+  // Personal finances mock data for now
+  const personalFinances = {
+    monthlyNetSalary: 3200,
+    monthlyExpenses: 2450,
+    irpfProvision: 850,
+    ivaProvision: 0,
+    estimatedAnnualNet: 38400,
+    estimatedAnnualExpenses: 29400
+  };
 
   const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return '€0,00';
+    }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
   };
 
   // Calculate consolidated KPIs when PERSONAL is ON
-  const totalAccountBalance = accounts.reduce((sum, acc) => sum + acc.balanceToday, 0);
+  const totalAccountBalance = accounts.reduce((sum, acc) => sum + (acc.balanceToday || 0), 0);
   const totalPatrimony = getTotalPortfolioValue() + totalAccountBalance;
   const monthlyPropertyIncome = getTotalMonthlyRent();
   const monthlyPersonalIncome = personalFinances.monthlyNetSalary;
@@ -38,7 +114,23 @@ export default function Page() {
           <a className="tab" href="/configuracion">Configuración</a>
         </nav>
         <div className="actions">
-          <span>🔍</span><span>🔔</span><span>⚙️</span>
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={() => store.resetDemo()}
+            style={{marginRight: '12px'}}
+          >
+            🔄 Demo
+          </button>
+          <span>🔍</span>
+          <a href="/tesoreria" className="notification-badge">
+            <span>🔔</span>
+            {storeState.alerts && storeState.alerts.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length > 0 && (
+              <span className="badge">
+                {storeState.alerts.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length}
+              </span>
+            )}
+          </a>
+          <span>⚙️</span>
         </div>
       </div>
     </header>
@@ -84,7 +176,7 @@ export default function Page() {
       <div className="card mb-4" style={{borderColor: 'var(--warning)', background: '#FFFBEB'}}>
         <div className="flex items-center justify-between">
           <div>
-            <span className="font-medium" style={{color: 'var(--warning)'}}>{missingInvoices.length} gastos sin factura</span>
+            <span className="font-medium" style={{color: 'var(--warning)'}}>{totalMissingInvoices} gastos sin factura</span>
             <span className="text-gray"> · Recupera deducciones (5 min)</span>
           </div>
           <a href="/documentos" className="btn btn-primary btn-sm">Resolver</a>
@@ -96,7 +188,7 @@ export default function Page() {
         <div>
           <span className="font-medium" style={{color: 'var(--error)'}}>Deducible perdido ahora mismo: </span>
           <span className="font-semibold" style={{color: 'var(--error)'}}>
-            {formatCurrency(missingInvoices.reduce((sum, inv) => sum + inv.amount, 0))}
+            {formatCurrency(pendingDocuments.reduce((sum, doc) => sum + (doc.amount || 0), 0))}
           </span>
         </div>
       </div>
@@ -112,7 +204,7 @@ export default function Page() {
           <div className="grid gap-4">
             <div>
               <div className="text-sm text-gray">Inmuebles en cartera</div>
-              <div className="font-semibold" style={{fontSize: '18px'}}>{mockData.properties.length} propiedades</div>
+              <div className="font-semibold" style={{fontSize: '18px'}}>{properties.length} propiedades</div>
             </div>
             <div>
               <div className="text-sm text-gray">Ocupación media</div>

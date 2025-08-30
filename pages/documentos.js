@@ -12,16 +12,59 @@ export default function Page() {
   const [filterProperty, setFilterProperty] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [storeState, setStoreState] = useState(store.getState());
+  const [mounted, setMounted] = useState(false);
 
-  // Subscribe to store changes
+  // Subscribe to store changes and handle hydration
   useEffect(() => {
+    setMounted(true);
+    // Force a refresh of store state after mounting
+    setStoreState(store.getState());
     const unsubscribe = store.subscribe(setStoreState);
     return unsubscribe;
   }, []);
 
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div data-theme="atlas">
+        <header className="header">
+          <div className="container nav">
+            <div className="logo">
+              <div className="logo-mark">
+                <div className="bar short"></div>
+                <div className="bar mid"></div>
+                <div className="bar tall"></div>
+              </div>
+              <div>ATLAS</div>
+            </div>
+            <nav className="tabs">
+              <a className="tab" href="/panel">Panel</a>
+              <a className="tab" href="/tesoreria">Tesorería</a>
+              <a className="tab" href="/inmuebles">Inmuebles</a>
+              <a className="tab active" href="/documentos">Documentos</a>
+              <a className="tab" href="/proyeccion">Proyección</a>
+              <a className="tab" href="/configuracion">Configuración</a>
+            </nav>
+            <div className="actions">
+              <button className="btn btn-secondary btn-sm" style={{marginRight: '12px'}}>🔄 Demo</button>
+              <span>🔍</span><span>🔔</span><span>⚙️</span>
+            </div>
+          </div>
+        </header>
+        <main className="container">
+          <h2 style={{color:'var(--navy)', margin:'0 0 24px 0'}}>Documentos</h2>
+          <div>Cargando...</div>
+        </main>
+      </div>
+    );
+  }
+
   const { documents = [], inboxEntries = [], missingInvoices = [], properties = [] } = storeState;
 
   const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return '€0,00';
+    }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
   };
 
@@ -54,28 +97,47 @@ export default function Page() {
     // Simulate file upload - add files to inbox
     const files = Array.from(e.dataTransfer.files);
     files.forEach(file => {
-      store.addInboxEntry({
+      const entry = {
         fileName: file.name,
-        fileSize: file.size,
+        fileSize: `${(file.size / 1024).toFixed(1)}KB`,
         status: 'Pendiente de procesamiento',
         provider: 'Pendiente OCR',
-        url: null
-      });
+        hasOcr: false
+      };
+      store.addInboxEntry(entry);
     });
+    
+    if (files.length > 0) {
+      // Show toast using the event system
+      const event = new CustomEvent('atlas:toast', {
+        detail: { type: 'success', message: `${files.length} archivo(s) añadido(s) al Inbox` }
+      });
+      document.dispatchEvent(event);
+    }
   };
 
   const handleFileSelect = (e) => {
     // Simulate file selection - add files to inbox
     const files = Array.from(e.target.files);
     files.forEach(file => {
-      store.addInboxEntry({
+      const entry = {
         fileName: file.name,
-        fileSize: file.size,
+        fileSize: `${(file.size / 1024).toFixed(1)}KB`,
         status: 'Pendiente de procesamiento',
         provider: 'Pendiente OCR',
-        url: null
-      });
+        hasOcr: false
+      };
+      store.addInboxEntry(entry);
     });
+    
+    if (files.length > 0) {
+      // Show toast using the event system
+      const event = new CustomEvent('atlas:toast', {
+        detail: { type: 'success', message: `${files.length} archivo(s) añadido(s) al Inbox` }
+      });
+      document.dispatchEvent(event);
+    }
+    
     e.target.value = ''; // Reset input
   };
 
@@ -270,11 +332,11 @@ export default function Page() {
                             >
                               Ver
                             </button>
-                            {entry.status === 'Listo para asignar' && (
+                            {(entry.status === 'Leído' || entry.status === 'Listo para asignar') && (
                               <button 
                                 className="btn btn-primary btn-sm"
-                                data-action="invoice:process-ocr"
-                                data-extra={JSON.stringify({entryId: entry.id})}
+                                data-action="inbox:send-to-invoices"
+                                data-id={entry.id}
                               >
                                 Enviar a Facturas
                               </button>
@@ -442,7 +504,20 @@ export default function Page() {
                           />
                         </td>
                         <td>{doc.uploadDate}</td>
-                        <td className="font-semibold">{doc.provider}</td>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{doc.provider}</span>
+                            {doc.ruleApplied && (
+                              <span 
+                                className="chip success" 
+                                style={{fontSize: '10px', padding: '2px 6px'}}
+                                title={`Regla aplicada: ${doc.provider} → ${doc.category}`}
+                              >
+                                Regla aplicada
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td>{doc.concept}</td>
                         <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
                           {formatCurrency(doc.amount)}
@@ -622,7 +697,7 @@ export default function Page() {
           {/* Invoices Table */}
           <div className="card mb-4">
             <h3 style={{margin: '0 0 16px 0'}}>Facturas</h3>
-            {mockInvoices.length > 0 ? (
+            {documents.length > 0 ? (
               <table className="table">
                 <thead>
                   <tr>
@@ -640,7 +715,7 @@ export default function Page() {
                   </tr>
                 </thead>
                 <tbody>
-                  {mockInvoices.map(invoice => (
+                  {documents.map(invoice => (
                     <tr key={invoice.id}>
                       <td>
                         <input 
@@ -673,7 +748,11 @@ export default function Page() {
                           <option>Avda. Constitución 45</option>
                         </select>
                       </td>
-                      <td>{getStatusChip(invoice.status, invoice.statusText)}</td>
+                      <td>
+                        <span className={`chip ${getStatusChipClass(invoice.status)}`}>
+                          {invoice.status}
+                        </span>
+                      </td>
                       <td>
                         <div className="flex gap-1">
                           <button 
@@ -784,37 +863,97 @@ export default function Page() {
             </div>
 
             <div className="card mb-4">
-              {missingInvoices.map(item => (
-                <div key={item.id} className="flex items-center justify-between p-3" style={{borderBottom: '1px solid var(--border)'}}>
-                  <div className="flex-1">
-                    <div className="font-medium">{item.provider}</div>
-                    <div className="text-sm text-gray">{item.date} • €{item.amount} • {item.property}</div>
+              {missingInvoices.map(item => {
+                // Check if this invoice would match any provider rule
+                const matchingRule = storeState.providerRules?.find(rule => 
+                  rule.active && item.provider.toLowerCase().includes(rule.providerContains.toLowerCase())
+                );
+                
+                return (
+                  <div key={item.id} className="flex items-center justify-between p-3" style={{borderBottom: '1px solid var(--border)'}}>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{item.provider}</span>
+                        {matchingRule && (
+                          <span 
+                            className="chip success" 
+                            style={{fontSize: '10px', padding: '2px 6px'}}
+                            title={`Se aplicará regla: ${matchingRule.providerContains} → ${matchingRule.category}`}
+                          >
+                            Regla disponible
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray">{item.date} • €{item.amount} • {item.concept}</div>
+                      {item.propertyId && (
+                        <div className="text-xs text-gray">
+                          {properties.find(p => p.id === item.propertyId)?.address}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => {
+                          // Simulate attaching document
+                          setTimeout(() => {
+                            // Create a new document entry
+                            const newDoc = {
+                              provider: item.provider,
+                              concept: item.concept,
+                              amount: item.amount,
+                              propertyId: item.propertyId,
+                              status: 'Validada',
+                              category: matchingRule ? matchingRule.category : 'Servicios',
+                              ruleApplied: !!matchingRule,
+                              ruleId: matchingRule?.id
+                            };
+                            store.addDocument(newDoc);
+                            
+                            // Remove from missing invoices
+                            const updatedMissing = storeState.missingInvoices.filter(mi => mi.id !== item.id);
+                            store.setState({ missingInvoices: updatedMissing });
+                            
+                            // Show notification
+                            if (typeof window !== 'undefined' && window.showToast) {
+                              window.showToast(
+                                matchingRule 
+                                  ? `Documento adjuntado y regla aplicada: ${matchingRule.category}`
+                                  : 'Documento adjuntado', 
+                                'success'
+                              );
+                            }
+                          }, 500); // Simulate processing delay
+                        }}
+                      >
+                        📎 Adjuntar
+                      </button>
+                      <button 
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => {
+                          // Simulate requesting duplicate
+                          if (typeof window !== 'undefined' && window.showToast) {
+                            window.showToast(`Duplicado solicitado a ${item.provider}`, 'success');
+                          }
+                        }}
+                      >
+                        📧 Pedir duplicado
+                      </button>
+                      <button 
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => {
+                          // Simulate uploading photo
+                          if (typeof window !== 'undefined' && window.showToast) {
+                            window.showToast('Función de cámara simulada', 'info');
+                          }
+                        }}
+                      >
+                        📸 Subir foto
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button 
-                      className="btn btn-secondary btn-sm"
-                      data-action="invoice:attach-document"
-                      data-id={item.id}
-                    >
-                      📎 Adjuntar
-                    </button>
-                    <button 
-                      className="btn btn-secondary btn-sm"
-                      data-action="invoice:request-duplicate"
-                      data-id={item.id}
-                    >
-                      📧 Pedir duplicado
-                    </button>
-                    <button 
-                      className="btn btn-secondary btn-sm"
-                      data-action="invoice:upload-photo"
-                      data-id={item.id}
-                    >
-                      📸 Subir foto
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="flex gap-2 justify-end">

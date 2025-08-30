@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { mockData, getTotalPortfolioValue, getTotalMonthlyRent, getPortfolioRentability, getOccupancyRate } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import store from '../store/index';
+import { getTotalPortfolioValue, getTotalMonthlyRent, getPortfolioRentability, getOccupancyRate } from '../data/mockData';
 
 export default function Page() {
   const [selectedProperty, setSelectedProperty] = useState(null);
@@ -8,10 +9,64 @@ export default function Page() {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [filterYear, setFilterYear] = useState('2024');
   const [filterMonth, setFilterMonth] = useState('all');
+  const [storeState, setStoreState] = useState(store.getState());
+  const [mounted, setMounted] = useState(false);
 
-  const { properties, contracts, loans } = mockData;
+  // Subscribe to store changes and handle hydration
+  useEffect(() => {
+    setMounted(true);
+    // Force a refresh of store state after mounting
+    setStoreState(store.getState());
+    const unsubscribe = store.subscribe(setStoreState);
+    return unsubscribe;
+  }, []);
+
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div data-theme="atlas">
+        <header className="header">
+          <div className="container nav">
+            <div className="logo">
+              <div className="logo-mark">
+                <div className="bar short"></div>
+                <div className="bar mid"></div>
+                <div className="bar tall"></div>
+              </div>
+              <div>ATLAS</div>
+            </div>
+            <nav className="tabs">
+              <a className="tab" href="/panel">Panel</a>
+              <a className="tab" href="/tesoreria">Tesorería</a>
+              <a className="tab active" href="/inmuebles">Inmuebles</a>
+              <a className="tab" href="/documentos">Documentos</a>
+              <a className="tab" href="/proyeccion">Proyección</a>
+              <a className="tab" href="/configuracion">Configuración</a>
+            </nav>
+            <div className="actions">
+              <button className="btn btn-secondary btn-sm" style={{marginRight: '12px'}}>🔄 Demo</button>
+              <span>🔍</span><span>🔔</span><span>⚙️</span>
+            </div>
+          </div>
+        </header>
+        <main className="container">
+          <div className="flex items-center justify-between mb-4">
+            <h2 style={{color:'var(--navy)', margin:0}}>Inmuebles</h2>
+          </div>
+          <div>Cargando...</div>
+        </main>
+      </div>
+    );
+  }
+
+  const { properties, loans } = storeState;
+  // Get contracts from mockData for now since they're not in store
+  const contracts = [];
 
   const formatCurrency = (amount) => {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      return '€0,00';
+    }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
   };
 
@@ -148,10 +203,56 @@ export default function Page() {
                     <div className="font-semibold">{property.address}</div>
                     <div className="text-sm text-gray">{property.city} · {property.type}</div>
                   </div>
-                  <span className={`chip ${property.status === 'Ocupado' ? 'success' : 'warning'}`}>
-                    {property.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`chip ${property.status === 'Ocupado' || property.status === 'Parcialmente ocupado' ? 'success' : 'warning'}`}>
+                      {property.status}
+                    </span>
+                  </div>
                 </div>
+
+                {/* HITO 7: Multi-unit switch */}
+                <div className="flex items-center justify-between mb-3 p-2" style={{background: '#fff', borderRadius: '6px', border: '1px solid #E5E7EB'}}>
+                  <div>
+                    <div className="text-sm font-semibold">Multi-unidad</div>
+                    <div className="text-xs text-gray">Gestionar por habitaciones</div>
+                  </div>
+                  <label className="switch">
+                    <input 
+                      type="checkbox" 
+                      checked={property.multiUnit || false}
+                      data-action="property:toggle-multi-unit"
+                      data-id={property.id}
+                      onChange={() => {}}
+                    />
+                    <span className="slider"></span>
+                  </label>
+                </div>
+
+                {/* Show units info if multi-unit is enabled */}
+                {property.multiUnit && property.units && (
+                  <div className="mb-3 p-2" style={{background: '#F0F9FF', borderRadius: '6px'}}>
+                    <div className="text-sm font-semibold mb-2">🏠 Unidades ({property.occupiedUnits || 0}/{property.totalUnits || property.units.length})</div>
+                    <div className="flex flex-wrap gap-1">
+                      {property.units.map(unit => (
+                        <span 
+                          key={unit.id} 
+                          className={`chip btn-sm ${unit.status === 'Ocupada' ? 'success' : 'warning'}`}
+                          style={{fontSize: '11px', padding: '2px 6px'}}
+                        >
+                          {unit.name}
+                        </span>
+                      ))}
+                    </div>
+                    <button 
+                      className="btn btn-primary btn-sm mt-2"
+                      data-action="property:manage-units"
+                      data-id={property.id}
+                      style={{fontSize: '11px', padding: '4px 8px'}}
+                    >
+                      Gestionar unidades
+                    </button>
+                  </div>
+                )}
                 
                 <div className="grid-3 gap-3 mb-3">
                   <div>
@@ -172,7 +273,7 @@ export default function Page() {
                   </div>
                 </div>
 
-                {property.tenant && (
+                {property.tenant && !property.multiUnit && (
                   <div className="mb-3">
                     <div className="text-sm text-gray">Inquilino</div>
                     <div className="font-semibold">{property.tenant}</div>
@@ -225,17 +326,36 @@ export default function Page() {
                       {property.rentability}%
                     </td>
                     <td>
-                      <span className={`chip ${property.status === 'Ocupado' ? 'success' : 'warning'}`}>
+                      <button 
+                        className={`chip ${property.status === 'Ocupado' ? 'success' : 'warning'}`}
+                        data-action="property:toggle-status"
+                        data-id={property.id}
+                        style={{
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '4px 8px'
+                        }}
+                      >
                         {property.status}
-                      </span>
+                      </button>
                     </td>
                     <td>
-                      <button 
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => setSelectedProperty(property)}
-                      >
-                        Ver detalle
-                      </button>
+                      <div className="flex gap-2">
+                        <button 
+                          className="btn btn-secondary btn-sm"
+                          data-action="property:view-detail"
+                          data-id={property.id}
+                        >
+                          Ver detalle
+                        </button>
+                        <button 
+                          className="btn btn-primary btn-sm"
+                          data-action="property:add-expense"
+                          data-id={property.id}
+                        >
+                          Añadir gasto
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

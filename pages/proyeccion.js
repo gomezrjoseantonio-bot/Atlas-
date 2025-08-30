@@ -1,14 +1,65 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import store from '../store/index';
 import { mockData } from '../data/mockData';
 
 export default function Page() {
   const [selectedScenario, setSelectedScenario] = useState('base');
   const [timeframe, setTimeframe] = useState('12');
   const [activeTab, setActiveTab] = useState('inmuebles');
+  const [storeState, setStoreState] = useState(store.getState());
+  const [mounted, setMounted] = useState(false);
 
-  const { projectionScenarios, personalFinances, properties } = mockData;
+  // Subscribe to store changes and handle hydration
+  useEffect(() => {
+    setMounted(true);
+    setStoreState(store.getState());
+    const unsubscribe = store.subscribe(setStoreState);
+    return unsubscribe;
+  }, []);
+
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div data-theme="atlas">
+        <header className="header">
+          <div className="container nav">
+            <div className="logo">
+              <div className="logo-mark">
+                <div className="bar short"></div>
+                <div className="bar mid"></div>
+                <div className="bar tall"></div>
+              </div>
+              <div>ATLAS</div>
+            </div>
+            <nav className="tabs">
+              <a className="tab" href="/panel">Panel</a>
+              <a className="tab" href="/tesoreria">Tesorería</a>
+              <a className="tab" href="/inmuebles">Inmuebles</a>
+              <a className="tab" href="/documentos">Documentos</a>
+              <a className="tab active" href="/proyeccion">Proyección</a>
+              <a className="tab" href="/configuracion">Configuración</a>
+            </nav>
+            <div className="actions">
+              <button className="btn btn-secondary btn-sm" style={{marginRight: '12px'}}>🔄 Demo</button>
+              <span>🔍</span><span>🔔</span><span>⚙️</span>
+            </div>
+          </div>
+        </header>
+        <main className="container">
+          <h2 style={{color:'var(--navy)', margin:'0 0 24px 0'}}>Proyección</h2>
+          <div>Cargando...</div>
+        </main>
+      </div>
+    );
+  }
+
+  const { properties, predictedItems, loans } = storeState;
+  const { projectionScenarios, personalFinances } = mockData;
 
   const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return '€0';
+    }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 0})}`;
   };
 
@@ -44,14 +95,39 @@ export default function Page() {
       
       const projectedRent = currentMonthlyRent * (1 + monthlyRentGrowth * i) * (scenario.occupancyRate / 100);
       const projectedExpenses = currentMonthlyExpenses * (1 + monthlyExpenseGrowth * i);
-      const netIncome = projectedRent - projectedExpenses;
+      
+      // Add predicted items for this month
+      const monthDate = new Date(2024, i - 1);
+      const monthPredictedIncome = (predictedItems || [])
+        .filter(item => {
+          const itemDate = new Date(item.dueDate);
+          return item.type === 'income' && 
+                 itemDate.getFullYear() === monthDate.getFullYear() && 
+                 itemDate.getMonth() === monthDate.getMonth();
+        })
+        .reduce((sum, item) => sum + item.amount, 0);
+        
+      const monthPredictedExpenses = (predictedItems || [])
+        .filter(item => {
+          const itemDate = new Date(item.dueDate);
+          return item.type === 'charge' && 
+                 itemDate.getFullYear() === monthDate.getFullYear() && 
+                 itemDate.getMonth() === monthDate.getMonth();
+        })
+        .reduce((sum, item) => sum + item.amount, 0);
+      
+      const totalRent = projectedRent + monthPredictedIncome;
+      const totalExpenses = projectedExpenses + monthPredictedExpenses;
+      const netIncome = totalRent - totalExpenses;
       
       forecast.push({
         month: i,
         monthName: new Date(2024, i - 1).toLocaleDateString('es-ES', { month: 'short' }),
-        rent: projectedRent,
-        expenses: projectedExpenses,
-        net: netIncome
+        rent: totalRent,
+        expenses: totalExpenses,
+        net: netIncome,
+        predictedIncome: monthPredictedIncome,
+        predictedExpenses: monthPredictedExpenses
       });
     }
     
@@ -92,8 +168,8 @@ export default function Page() {
   };
 
   const calculateDSCR = (netIncome, debtPayments) => {
-    // Mock debt payments calculation
-    const monthlyDebtPayments = 1103; // Sum of mortgage payments from mockData
+    // Calculate debt payments from loans
+    const monthlyDebtPayments = loans.reduce((sum, loan) => sum + loan.monthlyPayment, 0);
     return netIncome / monthlyDebtPayments;
   };
 
@@ -263,6 +339,21 @@ export default function Page() {
               </div>
             </div>
             
+            {/* Predicted Items Note */}
+            {predictedItems && predictedItems.length > 0 && (
+              <div className="card mb-4" style={{background: '#F0F9FF', borderColor: 'var(--teal)'}}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span>🔮</span>
+                  <span className="font-semibold">Incluye previstos</span>
+                </div>
+                <div className="text-sm text-gray">
+                  La proyección incluye {predictedItems.filter(item => item.type === 'income').length} ingresos previstos 
+                  y {predictedItems.filter(item => item.type === 'charge').length} cargos previstos 
+                  de los próximos {timeframe} meses basados en contratos y préstamos.
+                </div>
+              </div>
+            )}
+            
             {/* Mini Chart Placeholder */}
             <div style={{
               height: '200px', 
@@ -369,15 +460,30 @@ export default function Page() {
               </div>
             </div>
 
+            {/* Predicted Items Note for Consolidated */}
+            {predictedItems && predictedItems.length > 0 && (
+              <div className="card mb-4" style={{background: '#F0F9FF', borderColor: 'var(--teal)'}}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span>🔮</span>
+                  <span className="font-semibold">Incluye previstos de cartera</span>
+                </div>
+                <div className="text-sm text-gray">
+                  La proyección consolidada incluye {predictedItems.filter(item => item.type === 'income').length} ingresos 
+                  y {predictedItems.filter(item => item.type === 'charge').length} cargos previstos, 
+                  incluyendo cuotas de préstamos y revisiones de tipo automáticas.
+                </div>
+              </div>
+            )}
+
             {/* DSCR and Investment Capacity */}
             <div className="grid-2 gap-4">
               <div className="card" style={{background: '#F9FAFB'}}>
                 <div className="text-sm text-gray">DSCR (Debt Service Coverage)</div>
                 <div className="font-semibold" style={{fontSize: '18px'}}>
-                  {calculateDSCR(consolidatedForecast[0]?.totalNet || 0, 1103).toFixed(2)}x
+                  {calculateDSCR(consolidatedForecast[0]?.totalNet || 0).toFixed(2)}x
                 </div>
-                <div className={`chip ${calculateDSCR(consolidatedForecast[0]?.totalNet || 0, 1103) > 1.25 ? 'success' : 'warning'}`}>
-                  {calculateDSCR(consolidatedForecast[0]?.totalNet || 0, 1103) > 1.25 ? 'Saludable' : 'Atención'}
+                <div className={`chip ${calculateDSCR(consolidatedForecast[0]?.totalNet || 0) > 1.25 ? 'success' : 'warning'}`}>
+                  {calculateDSCR(consolidatedForecast[0]?.totalNet || 0) > 1.25 ? 'Saludable' : 'Atención'}
                 </div>
               </div>
               <div className="card" style={{background: '#F9FAFB'}}>

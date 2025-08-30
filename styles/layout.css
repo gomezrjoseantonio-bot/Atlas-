@@ -32,6 +32,32 @@ body {
 .tab.active { color: var(--navy); border-color: var(--teal); }
 .tab:hover { color: var(--navy); }
 .actions { margin-left: auto; display: flex; gap: 12px; font-size: 18px; }
+
+/* Notification badge for alerts */
+.notification-badge {
+  position: relative;
+  display: inline-block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.notification-badge .badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: var(--error);
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 .main { padding: 24px 0; }
 
 /* Cards */
@@ -441,3 +467,70 @@ body {
     margin: 16px;
   }
 }
+
+/* HITO 7: Switch Component */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #E5E7EB;
+  transition: .4s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+input:checked + .slider {
+  background-color: var(--teal);
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+/* Allocation chips for HITO 7 */
+.allocation-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  background: #EEF2FF;
+  color: var(--navy);
+  border: 1px solid var(--border);
+}
+
+.allocation-chip.occupied { background: #D1FAE5; color: var(--success); }
+.allocation-chip.total { background: #F3F4F6; color: var(--gray); }
+.allocation-chip.sqm { background: #FEF3C7; color: var(--warning); }
+.allocation-chip.custom { background: #DBEAFE; color: #2563EB; }
+.allocation-chip.specific { background: #FCE7F3; color: #BE185D; }
+.allocation-chip.no-divide { background: #F5F5F5; color: var(--gray); }

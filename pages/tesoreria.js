@@ -8,14 +8,54 @@ export default function Page() {
   const [selectedMovement, setSelectedMovement] = useState(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [storeState, setStoreState] = useState(store.getState());
+  const [mounted, setMounted] = useState(false);
 
-  // Subscribe to store changes
+  // Subscribe to store changes and handle hydration
   useEffect(() => {
+    setMounted(true);
+    // Force a refresh of store state after mounting
+    setStoreState(store.getState());
     const unsubscribe = store.subscribe(setStoreState);
     return unsubscribe;
   }, []);
 
-  const { accounts, movements, alerts, treasuryRules, scheduledPayments } = storeState;
+  // Don't render until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div data-theme="atlas">
+        <header className="header">
+          <div className="container nav">
+            <div className="logo">
+              <div className="logo-mark">
+                <div className="bar short"></div>
+                <div className="bar mid"></div>
+                <div className="bar tall"></div>
+              </div>
+              <div>ATLAS</div>
+            </div>
+            <nav className="tabs">
+              <a className="tab" href="/panel">Panel</a>
+              <a className="tab active" href="/tesoreria">Tesorería</a>
+              <a className="tab" href="/inmuebles">Inmuebles</a>
+              <a className="tab" href="/documentos">Documentos</a>
+              <a className="tab" href="/proyeccion">Proyección</a>
+              <a className="tab" href="/configuracion">Configuración</a>
+            </nav>
+            <div className="actions">
+              <button className="btn btn-secondary btn-sm" style={{marginRight: '12px'}}>🔄 Demo</button>
+              <span>🔍</span><span>🔔</span><span>⚙️</span>
+            </div>
+          </div>
+        </header>
+        <main className="container">
+          <h2 style={{color:'var(--navy)', margin:'0 0 24px 0'}}>Tesorería</h2>
+          <div>Cargando...</div>
+        </main>
+      </div>
+    );
+  }
+
+  const { accounts = [], movements = [], alerts = [], treasuryRules = [], scheduledPayments = [] } = storeState;
 
   const getHealthStatus = (health) => {
     const healthMap = {
@@ -196,9 +236,18 @@ export default function Page() {
                     <span className="chip">{movement.category}</span>
                   </td>
                   <td>
-                    <span className={`chip ${getStatusChipClass(movement.status)}`}>
+                    <button 
+                      className={`chip ${getStatusChipClass(movement.status)}`}
+                      data-action="movement:toggle-status"
+                      data-id={movement.id}
+                      style={{
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '4px 8px'
+                      }}
+                    >
                       {movement.status}
-                    </span>
+                    </button>
                   </td>
                   <td>
                     {!movement.hasDocument && (
@@ -221,9 +270,146 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Rules & Sweeps */}
+      {/* HITO 6: Alert Center */}
       <div className="card mb-4">
-        <h3 style={{margin: '0 0 16px 0'}}>Reglas & Sweeps</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 style={{margin: '0'}}>Centro de Alertas</h3>
+          <div className="flex items-center gap-2">
+            <select className="form-control" style={{minWidth: '150px'}}>
+              <option value="all">Todas</option>
+              <option value="critical">Críticas</option>
+              <option value="next_7_days">Próximos 7 días</option>
+            </select>
+            <button 
+              className="btn btn-primary btn-sm"
+              onClick={() => store.runRulesEngine()}
+            >
+              ⚙️ Aplicar reglas ahora
+            </button>
+          </div>
+        </div>
+        
+        {alerts && alerts.length > 0 ? (
+          <div className="grid gap-3">
+            {alerts.filter(alert => !alert.dismissed).map(alert => {
+              const getSeverityIcon = (severity) => {
+                switch(severity) {
+                  case 'critical': return '🚨';
+                  case 'high': return '⚠️';
+                  case 'medium': return '🔔';
+                  case 'low': return 'ℹ️';
+                  default: return '📋';
+                }
+              };
+              
+              const getSeverityChip = (severity) => {
+                switch(severity) {
+                  case 'critical': return 'error';
+                  case 'high': return 'warning';
+                  case 'medium': return 'warning';
+                  case 'low': return 'success';
+                  default: return 'secondary';
+                }
+              };
+              
+              return (
+                <div key={alert.id} className="card" style={{background: '#F9FAFB', border: alert.severity === 'critical' ? '2px solid var(--error)' : '1px solid #E5E7EB'}}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3 flex-1">
+                      <span style={{fontSize: '20px'}}>{getSeverityIcon(alert.severity)}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold">{alert.title}</span>
+                          <span className={`chip ${getSeverityChip(alert.severity)}`}>
+                            {alert.severity}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray mb-3">{alert.description}</div>
+                        <div className="flex items-center gap-2">
+                          {alert.actions && alert.actions.includes('move_money') && (
+                            <button 
+                              className="btn btn-primary btn-sm"
+                              data-action="treasury:transfer"
+                              data-extra={JSON.stringify({
+                                fromAccountId: alert.fromAccountId,
+                                toAccountId: alert.accountId,
+                                amount: alert.suggestedAmount
+                              })}
+                            >
+                              Mover ahora
+                            </button>
+                          )}
+                          {alert.actions && alert.actions.includes('prepare_funds') && (
+                            <button className="btn btn-secondary btn-sm">
+                              Preparar fondos
+                            </button>
+                          )}
+                          {alert.actions && alert.actions.includes('open_contract') && (
+                            <button className="btn btn-secondary btn-sm">
+                              Abrir contrato
+                            </button>
+                          )}
+                          <button 
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => store.updateAlert(alert.id, { dismissed: true })}
+                          >
+                            Descartar
+                          </button>
+                          <button 
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => {
+                              const postponedUntil = new Date();
+                              postponedUntil.setDate(postponedUntil.getDate() + 7);
+                              store.updateAlert(alert.id, { 
+                                postponedUntil: postponedUntil.toISOString() 
+                              });
+                            }}
+                          >
+                            Posponer 7 días
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center text-gray py-4">
+            ✅ No hay alertas pendientes
+          </div>
+        )}
+      </div>
+
+      {/* Enhanced Rules & Sweeps */}
+      <div className="card mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 style={{margin: '0'}}>Reglas & Sweeps</h3>
+          <a href="/tesoreria/reglas" className="btn btn-secondary btn-sm">
+            ⚙️ Configurar reglas
+          </a>
+        </div>
+        
+        {/* Provider Rules Summary */}
+        <div className="mb-4">
+          <h4 style={{margin: '0 0 12px 0', fontSize: '16px'}}>Reglas por Proveedor</h4>
+          <div className="grid gap-2">
+            {storeState.providerRules && storeState.providerRules.filter(r => r.active).slice(0, 3).map(rule => (
+              <div key={rule.id} className="flex items-center justify-between p-2" style={{background: '#F9FAFB', borderRadius: '4px'}}>
+                <span className="text-sm">
+                  Si proveedor contiene "<strong>{rule.providerContains}</strong>" → <span className="chip">{rule.category}</span>
+                </span>
+                <span className="chip success">Activa</span>
+              </div>
+            ))}
+            {(!storeState.providerRules || storeState.providerRules.filter(r => r.active).length === 0) && (
+              <div className="text-sm text-gray">No hay reglas activas configuradas</div>
+            )}
+          </div>
+        </div>
+        
+        {/* Treasury Rules */}
         <div className="table-responsive">
           <table className="table">
             <thead>
@@ -273,16 +459,70 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Alerts Calendar */}
+      {/* Enhanced Alerts Calendar - Predicted Items */}
       <div className="card mb-4">
-        <h3 style={{margin: '0 0 16px 0'}}>Alertas · Cargos Previstos</h3>
+        <h3 style={{margin: '0 0 16px 0'}}>Cargos e Ingresos Previstos</h3>
         <div className="grid gap-3">
+          {/* Show predicted items from next 90 days */}
+          {storeState.predictedItems && storeState.predictedItems
+            .filter(item => {
+              const dueDate = new Date(item.dueDate);
+              const now = new Date();
+              const diffDays = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+              return diffDays >= 0 && diffDays <= 90;
+            })
+            .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+            .slice(0, 10)
+            .map(item => {
+              const dueDate = new Date(item.dueDate);
+              const now = new Date();
+              const daysLeft = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+              const badge = getDaysLeftBadge(daysLeft);
+              const property = mockData.properties.find(p => p.id === item.propertyId);
+              
+              return (
+                <div key={item.id} className="card" style={{
+                  background: '#F9FAFB',
+                  borderLeft: `4px solid ${item.type === 'income' ? 'var(--success)' : 'var(--warning)'}`
+                }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <span style={{fontSize: '20px'}}>
+                        {item.type === 'income' ? '💰' : '💳'}
+                      </span>
+                      <div className="flex-1">
+                        <div className="font-semibold">{item.description}</div>
+                        {property && (
+                          <div className="text-sm text-gray">{property.address}</div>
+                        )}
+                        <div className="text-sm text-gray">Vencimiento: {item.dueDate}</div>
+                        <div className="text-xs text-gray">
+                          {item.recurringType} · {item.source}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-semibold" style={{
+                        fontSize: '16px',
+                        color: item.type === 'income' ? 'var(--success)' : 'var(--error)'
+                      }}>
+                        {item.type === 'income' ? '+' : ''}€{item.amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}
+                      </div>
+                      <span className={`chip ${badge.class}`}>{badge.text}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          }
+          
+          {/* Legacy scheduled payments */}
           {scheduledPayments.map(payment => {
             const badge = getDaysLeftBadge(payment.daysLeft);
             const property = mockData.properties.find(p => p.id === payment.propertyId);
             
             return (
-              <div key={payment.id} className="card" style={{background: '#F9FAFB'}}>
+              <div key={`legacy_${payment.id}`} className="card" style={{background: '#F9FAFB'}}>
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="font-semibold">{payment.description}</div>
