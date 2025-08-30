@@ -111,6 +111,65 @@ export const mockData = {
       contractStart: null,
       contractEnd: null,
       status: 'Disponible'
+    },
+    {
+      id: 4,
+      address: 'Calle Alcalá 78, 4ºA',
+      city: 'Madrid',
+      type: 'Piso compartido',
+      purchaseDate: '2022-05-15',
+      purchasePrice: 220000,
+      currentValue: 235000,
+      monthlyRent: 1910, // Sum of all unit rents
+      monthlyExpenses: 250,
+      netProfit: 1660,
+      rentability: 8.5,
+      occupancy: 60, // 3 out of 5 units occupied
+      tenant: 'Varios inquilinos',
+      contractStart: '2024-01-01',
+      contractEnd: '2024-12-31',
+      status: 'Parcialmente ocupado',
+      // HITO 7: Multi-unit properties
+      multiUnit: true,
+      totalUnits: 5,
+      occupiedUnits: 3,
+      units: [
+        {
+          id: 4001,
+          name: 'H1',
+          sqm: 15,
+          monthlyRent: 400,
+          status: 'Ocupada'
+        },
+        {
+          id: 4002,
+          name: 'H2',
+          sqm: 12,
+          monthlyRent: 350,
+          status: 'Ocupada'
+        },
+        {
+          id: 4003,
+          name: 'H3',
+          sqm: 14,
+          monthlyRent: 380,
+          status: 'Libre'
+        },
+        {
+          id: 4004,
+          name: 'H4',
+          sqm: 16,
+          monthlyRent: 420,
+          status: 'Ocupada'
+        },
+        {
+          id: 4005,
+          name: 'H5',
+          sqm: 13,
+          monthlyRent: 360,
+          status: 'Libre'
+        }
+      ]
     }
   ],
 
@@ -341,7 +400,11 @@ export const mockData = {
       category: 'Seguros',
       status: 'Validada',
       hasOcr: true,
-      isDeductible: true
+      isDeductible: true,
+      // HITO 7: Fiscal information
+      expenseFamily: 'operational_fixed',
+      fiscalTreatment: 'deductible',
+      rentalAffectation: 100
     },
     {
       id: 2,
@@ -354,7 +417,11 @@ export const mockData = {
       category: 'Mantenimiento',
       status: 'Pendiente',
       hasOcr: false,
-      isDeductible: true
+      isDeductible: true,
+      // HITO 7: Fiscal information
+      expenseFamily: 'maintenance',
+      fiscalTreatment: 'deductible',
+      rentalAffectation: 100
     },
     {
       id: 3,
@@ -363,11 +430,25 @@ export const mockData = {
       provider: 'Iberdrola',
       concept: 'Suministro eléctrico',
       amount: 89,
-      propertyId: 2,
+      propertyId: 4, // Multi-unit property
       category: 'Suministros',
       status: 'Error',
       hasOcr: true,
-      isDeductible: true
+      isDeductible: true,
+      // HITO 7: Fiscal information and allocation
+      expenseFamily: 'operational_variable',
+      fiscalTreatment: 'deductible',
+      rentalAffectation: 100,
+      allocation: {
+        method: 'occupied',
+        distribution: {
+          4001: { percentage: 33.33, amount: 29.66 },
+          4002: { percentage: 33.33, amount: 29.66 },
+          4004: { percentage: 33.34, amount: 29.68 }
+        },
+        excludedUnits: [4003, 4005],
+        allocatedAt: '2024-01-12T15:30:00'
+      }
     },
     {
       id: 4,
@@ -380,7 +461,41 @@ export const mockData = {
       category: 'Mantenimiento',
       status: 'Listo para asignar',
       hasOcr: true,
-      isDeductible: true
+      isDeductible: true,
+      // HITO 7: Fiscal information
+      expenseFamily: 'maintenance',
+      fiscalTreatment: 'deductible',
+      rentalAffectation: 100
+    },
+    {
+      id: 5,
+      uploadDate: '2024-01-08',
+      fileName: 'factura_reforma.pdf',
+      provider: 'Construcciones López',
+      concept: 'Reforma baño completo',
+      amount: 3500,
+      propertyId: 4,
+      category: 'Mejoras',
+      status: 'Validada',
+      hasOcr: true,
+      isDeductible: false,
+      // HITO 7: Fiscal information - Capitalizable expense
+      expenseFamily: 'improvement',
+      fiscalTreatment: 'capitalizable',
+      rentalAffectation: 100,
+      amortizationYears: 10,
+      amortizationStartDate: '2024-01-08',
+      allocation: {
+        method: 'sqm',
+        distribution: {
+          4001: { percentage: 21.43, amount: 750.05 },
+          4002: { percentage: 17.14, amount: 599.90 },
+          4003: { percentage: 20.00, amount: 700.00 },
+          4004: { percentage: 22.86, amount: 800.10 },
+          4005: { percentage: 18.57, amount: 649.95 }
+        },
+        allocatedAt: '2024-01-08T12:00:00'
+      }
     }
   ],
 
@@ -643,7 +758,94 @@ export const mockData = {
       createdAt: '2024-01-14T16:00:00',
       dismissed: false
     }
-  ]
+  ],
+
+  // HITO 7: Multi-unit demo data
+  units: [
+    // Units for property 4 (will be added as multi-unit demo)
+    {
+      id: 4001,
+      propertyId: 4,
+      name: 'H1',
+      sqm: 15,
+      monthlyRent: 400,
+      status: 'Ocupada'
+    },
+    {
+      id: 4002,
+      propertyId: 4,
+      name: 'H2',
+      sqm: 12,
+      monthlyRent: 350,
+      status: 'Ocupada'
+    },
+    {
+      id: 4003,
+      propertyId: 4,
+      name: 'H3',
+      sqm: 14,
+      monthlyRent: 380,
+      status: 'Libre'
+    },
+    {
+      id: 4004,
+      propertyId: 4,
+      name: 'H4',
+      sqm: 16,
+      monthlyRent: 420,
+      status: 'Ocupada'
+    },
+    {
+      id: 4005,
+      propertyId: 4,
+      name: 'H5',
+      sqm: 13,
+      monthlyRent: 360,
+      status: 'Libre'
+    }
+  ],
+
+  unitContracts: [
+    {
+      id: 1001,
+      unitId: 4001,
+      type: 'Alquiler',
+      tenant: 'Ana Rodríguez',
+      startDate: '2024-01-01',
+      endDate: '2024-12-31',
+      monthlyAmount: 400,
+      deposit: 800,
+      status: 'Activo'
+    },
+    {
+      id: 1002,
+      unitId: 4002,
+      type: 'Alquiler',
+      tenant: 'Carlos Méndez',
+      startDate: '2024-02-15',
+      endDate: '2025-02-14',
+      monthlyAmount: 350,
+      deposit: 700,
+      status: 'Activo'
+    },
+    {
+      id: 1003,
+      unitId: 4004,
+      type: 'Alquiler',
+      tenant: 'Laura Fernández',
+      startDate: '2023-11-01',
+      endDate: '2024-10-31',
+      monthlyAmount: 420,
+      deposit: 840,
+      status: 'Activo'
+    }
+  ],
+
+  allocationPreferences: {
+    'Endesa_Suministros': { method: 'occupied', lastUsed: '2024-01-15' },
+    'Iberdrola_Suministros': { method: 'occupied', lastUsed: '2024-01-10' },
+    'Mapfre_Seguros': { method: 'total', lastUsed: '2024-01-05' }
+  }
 };
 
 // Helper functions for data manipulation

@@ -499,3 +499,60 @@ export const loadDemo = () => {
   // Refresh the page to reflect changes
   setTimeout(() => window.location.reload(), 1000);
 };
+
+// HITO 7: Multi-unit property actions
+
+export const togglePropertyMultiUnit = (propertyId, element) => {
+  const state = store.getState();
+  const property = state.properties.find(p => p.id == propertyId);
+  
+  if (!property) {
+    showToast('error', 'Inmueble no encontrado');
+    return;
+  }
+
+  const isChecked = element.querySelector('input[type="checkbox"]').checked;
+  
+  if (isChecked && !property.multiUnit) {
+    // Enabling multi-unit - show setup wizard
+    showModal('multi-unit-setup', { propertyId: propertyId, property: property });
+  } else if (!isChecked && property.multiUnit) {
+    // Disabling multi-unit - confirm and convert back to single unit
+    if (confirm('¿Estás seguro de que quieres desactivar Multi-unidad? Se perderán los datos de unidades individuales.')) {
+      store.togglePropertyMultiUnit(propertyId, false);
+      showToast('success', 'Multi-unidad desactivado');
+    } else {
+      // Revert checkbox state
+      element.querySelector('input[type="checkbox"]').checked = true;
+    }
+  }
+};
+
+export const managePropertyUnits = (propertyId) => {
+  const state = store.getState();
+  const property = state.properties.find(p => p.id == propertyId);
+  
+  if (!property || !property.multiUnit) {
+    showToast('error', 'Este inmueble no tiene Multi-unidad activado');
+    return;
+  }
+
+  showModal('manage-units', { propertyId: propertyId, property: property });
+};
+
+export const setupMultiUnit = (propertyId, config) => {
+  const state = store.getState();
+  const property = state.properties.find(p => p.id == propertyId);
+  
+  if (!property) {
+    showToast('error', 'Inmueble no encontrado');
+    return;
+  }
+
+  try {
+    store.setupMultiUnit(propertyId, config);
+    showToast('success', `Multi-unidad configurado con ${config.unitCount} unidades`);
+  } catch (error) {
+    showToast('error', `Error configurando Multi-unidad: ${error.message}`);
+  }
+};

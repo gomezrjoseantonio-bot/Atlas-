@@ -200,10 +200,56 @@ export default function Page() {
                     <div className="font-semibold">{property.address}</div>
                     <div className="text-sm text-gray">{property.city} · {property.type}</div>
                   </div>
-                  <span className={`chip ${property.status === 'Ocupado' ? 'success' : 'warning'}`}>
-                    {property.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`chip ${property.status === 'Ocupado' || property.status === 'Parcialmente ocupado' ? 'success' : 'warning'}`}>
+                      {property.status}
+                    </span>
+                  </div>
                 </div>
+
+                {/* HITO 7: Multi-unit switch */}
+                <div className="flex items-center justify-between mb-3 p-2" style={{background: '#fff', borderRadius: '6px', border: '1px solid #E5E7EB'}}>
+                  <div>
+                    <div className="text-sm font-semibold">Multi-unidad</div>
+                    <div className="text-xs text-gray">Gestionar por habitaciones</div>
+                  </div>
+                  <label className="switch">
+                    <input 
+                      type="checkbox" 
+                      checked={property.multiUnit || false}
+                      data-action="property:toggle-multi-unit"
+                      data-id={property.id}
+                      onChange={() => {}}
+                    />
+                    <span className="slider"></span>
+                  </label>
+                </div>
+
+                {/* Show units info if multi-unit is enabled */}
+                {property.multiUnit && property.units && (
+                  <div className="mb-3 p-2" style={{background: '#F0F9FF', borderRadius: '6px'}}>
+                    <div className="text-sm font-semibold mb-2">🏠 Unidades ({property.occupiedUnits || 0}/{property.totalUnits || property.units.length})</div>
+                    <div className="flex flex-wrap gap-1">
+                      {property.units.map(unit => (
+                        <span 
+                          key={unit.id} 
+                          className={`chip btn-sm ${unit.status === 'Ocupada' ? 'success' : 'warning'}`}
+                          style={{fontSize: '11px', padding: '2px 6px'}}
+                        >
+                          {unit.name}
+                        </span>
+                      ))}
+                    </div>
+                    <button 
+                      className="btn btn-primary btn-sm mt-2"
+                      data-action="property:manage-units"
+                      data-id={property.id}
+                      style={{fontSize: '11px', padding: '4px 8px'}}
+                    >
+                      Gestionar unidades
+                    </button>
+                  </div>
+                )}
                 
                 <div className="grid-3 gap-3 mb-3">
                   <div>
@@ -224,7 +270,7 @@ export default function Page() {
                   </div>
                 </div>
 
-                {property.tenant && (
+                {property.tenant && !property.multiUnit && (
                   <div className="mb-3">
                     <div className="text-sm text-gray">Inquilino</div>
                     <div className="font-semibold">{property.tenant}</div>

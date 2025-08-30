@@ -155,6 +155,17 @@ class ActionBridge {
         case 'property:add-expense':
           actions.addPropertyExpense(id);
           break;
+        
+        // HITO 7: Multi-unit property actions
+        case 'property:toggle-multi-unit':
+          actions.togglePropertyMultiUnit(id, element);
+          break;
+        case 'property:manage-units':
+          actions.managePropertyUnits(id);
+          break;
+        case 'property:setup-multi-unit':
+          actions.setupMultiUnit(id, extraData);
+          break;
 
         // Demo actions
         case 'demo:load':

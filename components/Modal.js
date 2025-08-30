@@ -67,7 +67,10 @@ function getModalTitle(modalType) {
     linkLoanProperty: 'Vincular Préstamo a Inmueble',
     propertyPL: 'Análisis P&L - Inmueble',
     propertyDetail: 'Detalle del Inmueble',
-    addPropertyExpense: 'Añadir Gasto de Explotación'
+    addPropertyExpense: 'Añadir Gasto de Explotación',
+    // HITO 7: Multi-unit modals
+    'multi-unit-setup': 'Configurar Multi-unidad',
+    'manage-units': 'Gestionar Unidades'
   };
   return titles[modalType] || 'Modal';
 }
@@ -100,6 +103,11 @@ function renderModalContent(modalType, data, closeModal, showToast) {
       return <PropertyDetailContent property={data.property} onClose={closeModal} />;
     case 'addPropertyExpense':
       return <AddPropertyExpenseForm property={data.property} onClose={closeModal} showToast={showToast} />;
+    // HITO 7: Multi-unit modals
+    case 'multi-unit-setup':
+      return <MultiUnitSetupForm property={data.property} propertyId={data.propertyId} onClose={closeModal} showToast={showToast} />;
+    case 'manage-units':
+      return <ManageUnitsContent property={data.property} propertyId={data.propertyId} onClose={closeModal} showToast={showToast} />;
     default:
       return <div>Contenido del modal no encontrado</div>;
   }
@@ -703,6 +711,396 @@ function PropertyPLContent({ property, onClose }) {
           </div>
         ))}
       </div>
+
+      <div className="modal-actions">
+        <button className="btn btn-primary" onClick={onClose}>Cerrar</button>
+      </div>
+    </div>
+  );
+}
+
+
+// HITO 7: Multi-unit setup wizard
+function MultiUnitSetupForm({ property, propertyId, onClose, showToast }) {
+  const [step, setStep] = useState(1);
+  const [setupData, setSetupData] = useState({
+    unitCount: 3,
+    unitNames: ["H1", "H2", "H3", "H4", "H5"],
+    unitSqm: [null, null, null, null, null],
+    unitRents: [0, 0, 0, 0, 0],
+    unitStatuses: ["Libre", "Libre", "Libre", "Libre", "Libre"]
+  });
+
+  const handleNext = () => {
+    if (step < 3) {
+      setStep(step + 1);
+    } else {
+      // Complete setup
+      const config = {
+        unitCount: setupData.unitCount,
+        unitNames: setupData.unitNames.slice(0, setupData.unitCount),
+        unitSqm: setupData.unitSqm.slice(0, setupData.unitCount),
+        unitRents: setupData.unitRents.slice(0, setupData.unitCount)
+      };
+
+      try {
+        store.setupMultiUnit(propertyId, config);
+        showToast("success", `Multi-unidad configurado con ${setupData.unitCount} unidades`);
+        onClose();
+        // Refresh the page to show changes
+        setTimeout(() => window.location.reload(), 1000);
+      } catch (error) {
+        showToast("error", `Error configurando Multi-unidad: ${error.message}`);
+      }
+    }
+  };
+
+  const handlePrevious = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    }
+  };
+
+  const updateUnitField = (index, field, value) => {
+    const newData = { ...setupData };
+    newData[field][index] = value;
+    setSetupData(newData);
+  };
+
+  return (
+    <div className="multi-unit-wizard">
+      <div className="wizard-progress mb-4">
+        <div className="flex items-center gap-4">
+          <div className={`step ${step >= 1 ? "active" : ""}`}>1. Estructura</div>
+          <div className={`step ${step >= 2 ? "active" : ""}`}>2. Rentas</div>
+          <div className={`step ${step >= 3 ? "active" : ""}`}>3. Confirmación</div>
+        </div>
+      </div>
+
+      {step === 1 && (
+        <div className="wizard-step">
+          <h4>Estructura de Unidades</h4>
+          <p>Configura la estructura básica del inmueble</p>
+          
+          <div className="form-group">
+            <label>Número de unidades:</label>
+            <select 
+              value={setupData.unitCount}
+              onChange={(e) => setSetupData({...setupData, unitCount: parseInt(e.target.value)})}
+            >
+              <option value={2}>2 unidades</option>
+              <option value={3}>3 unidades</option>
+              <option value={4}>4 unidades</option>
+              <option value={5}>5 unidades</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Nombres de las unidades:</label>
+            {Array.from({length: setupData.unitCount}).map((_, index) => (
+              <div key={index} className="flex gap-2 mb-2">
+                <input 
+                  type="text"
+                  value={setupData.unitNames[index]}
+                  onChange={(e) => updateUnitField(index, "unitNames", e.target.value)}
+                  placeholder={`H${index + 1}`}
+                  style={{flex: 1}}
+                />
+                <input 
+                  type="number"
+                  value={setupData.unitSqm[index] || ""}
+                  onChange={(e) => updateUnitField(index, "unitSqm", parseFloat(e.target.value) || null)}
+                  placeholder="m²"
+                  style={{width: "80px"}}
+                />
+              </div>
+            ))}
+            <div className="text-sm text-gray">Los m² son opcionales pero permiten prorrateo por superficie</div>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="wizard-step">
+          <h4>Rentas por Unidad</h4>
+          <p>Establece la renta mensual y estado inicial de cada unidad</p>
+          
+          {Array.from({length: setupData.unitCount}).map((_, index) => (
+            <div key={index} className="form-group">
+              <label>{setupData.unitNames[index]}:</label>
+              <div className="flex gap-2">
+                <input 
+                  type="number"
+                  value={setupData.unitRents[index]}
+                  onChange={(e) => updateUnitField(index, "unitRents", parseFloat(e.target.value) || 0)}
+                  placeholder="€/mes"
+                  style={{flex: 1}}
+                />
+                <select 
+                  value={setupData.unitStatuses[index]}
+                  onChange={(e) => updateUnitField(index, "unitStatuses", e.target.value)}
+                  style={{width: "120px"}}
+                >
+                  <option value="Libre">Libre</option>
+                  <option value="Ocupada">Ocupada</option>
+                </select>
+              </div>
+            </div>
+          ))}
+          
+          <div className="mt-3 p-3" style={{background: "#F0F9FF", borderRadius: "6px"}}>
+            <div className="text-sm">
+              <strong>Total renta mensual:</strong> €{setupData.unitRents.slice(0, setupData.unitCount).reduce((sum, rent) => sum + rent, 0).toLocaleString("es-ES")}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="wizard-step">
+          <h4>Confirmación</h4>
+          <p>Revisa la configuración antes de aplicar los cambios</p>
+          
+          <div className="config-summary">
+            <div className="mb-3">
+              <strong>Inmueble:</strong> {property.address}
+            </div>
+            <div className="mb-3">
+              <strong>Número de unidades:</strong> {setupData.unitCount}
+            </div>
+            <div className="mb-3">
+              <strong>Configuración de unidades:</strong>
+              <div style={{marginTop: "8px"}}>
+                {Array.from({length: setupData.unitCount}).map((_, index) => (
+                  <div key={index} className="flex justify-between p-2" style={{background: "#F9FAFB", marginBottom: "4px", borderRadius: "4px"}}>
+                    <span>{setupData.unitNames[index]}</span>
+                    <span>{setupData.unitSqm[index] ? `${setupData.unitSqm[index]}m²` : "Sin m²"}</span>
+                    <span>€{setupData.unitRents[index]}/mes</span>
+                    <span className={`chip ${setupData.unitStatuses[index] === "Ocupada" ? "success" : "warning"}`}>
+                      {setupData.unitStatuses[index]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="alert" style={{background: "#FEF3C7", padding: "12px", borderRadius: "6px", border: "1px solid #F59E0B"}}>
+            <strong>⚠️ Importante:</strong> Esta acción convertirá el inmueble a Multi-unidad. 
+            Los contratos y gastos existentes se mantendrán a nivel de inmueble hasta que los reasignes a unidades específicas.
+          </div>
+        </div>
+      )}
+
+      <div className="modal-actions">
+        {step > 1 && (
+          <button type="button" className="btn btn-secondary" onClick={handlePrevious}>
+            Anterior
+          </button>
+        )}
+        <button type="button" className="btn btn-secondary" onClick={onClose}>
+          Cancelar
+        </button>
+        <button type="button" className="btn btn-primary" onClick={handleNext}>
+          {step === 3 ? "Configurar Multi-unidad" : "Siguiente"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// HITO 7: Manage units content
+function ManageUnitsContent({ property, propertyId, onClose, showToast }) {
+  const [activeTab, setActiveTab] = useState("units");
+  const state = store.getState();
+  
+  const units = property.units || [];
+  const unitContracts = state.unitContracts.filter(contract => 
+    units.some(unit => unit.id === contract.unitId)
+  );
+
+  return (
+    <div className="manage-units">
+      <div className="property-header mb-4">
+        <h4>{property.address}</h4>
+        <div className="text-sm text-gray">
+          Multi-unidad: {units.length} unidades · 
+          Ocupadas: {units.filter(u => u.status === "Ocupada").length}
+        </div>
+      </div>
+
+      <div className="tabs mb-4">
+        <button 
+          className={`btn btn-sm ${activeTab === "units" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setActiveTab("units")}
+        >
+          Unidades
+        </button>
+        <button 
+          className={`btn btn-sm ${activeTab === "contracts" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setActiveTab("contracts")}
+        >
+          Contratos
+        </button>
+        <button 
+          className={`btn btn-sm ${activeTab === "kpis" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setActiveTab("kpis")}
+        >
+          KPIs
+        </button>
+      </div>
+
+      {activeTab === "units" && (
+        <div className="units-tab">
+          <div className="table-responsive">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Unidad</th>
+                  <th>m²</th>
+                  <th>Renta/Mes</th>
+                  <th>Estado</th>
+                  <th>Ocupación %</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {units.map(unit => (
+                  <tr key={unit.id}>
+                    <td><strong>{unit.name}</strong></td>
+                    <td>{unit.sqm || "-"}</td>
+                    <td>€{unit.monthlyRent.toLocaleString("es-ES")}</td>
+                    <td>
+                      <span className={`chip ${unit.status === "Ocupada" ? "success" : "warning"}`}>
+                        {unit.status}
+                      </span>
+                    </td>
+                    <td>
+                      {unit.status === "Ocupada" ? "100%" : "0%"}
+                    </td>
+                    <td>
+                      <button className="btn btn-secondary btn-sm">
+                        Editar
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "contracts" && (
+        <div className="contracts-tab">
+          <div className="mb-3">
+            <button className="btn btn-primary btn-sm">
+              + Nuevo contrato
+            </button>
+          </div>
+          <div className="table-responsive">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Unidad</th>
+                  <th>Inquilino</th>
+                  <th>Inicio</th>
+                  <th>Fin</th>
+                  <th>Renta</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unitContracts.map(contract => {
+                  const unit = units.find(u => u.id === contract.unitId);
+                  return (
+                    <tr key={contract.id}>
+                      <td><strong>{unit?.name}</strong></td>
+                      <td>{contract.tenant}</td>
+                      <td>{contract.startDate}</td>
+                      <td>{contract.endDate}</td>
+                      <td>€{contract.monthlyAmount.toLocaleString("es-ES")}</td>
+                      <td>
+                        <span className={`chip ${contract.status === "Activo" ? "success" : "warning"}`}>
+                          {contract.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {unitContracts.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="text-center text-gray">
+                      No hay contratos por unidad registrados
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "kpis" && (
+        <div className="kpis-tab">
+          <div className="grid-3 gap-4 mb-4">
+            <div className="card" style={{background: "#F9FAFB"}}>
+              <div className="text-sm text-gray">Ingresos Totales</div>
+              <div className="font-semibold" style={{fontSize: "18px", color: "var(--success)"}}>
+                €{units.reduce((sum, unit) => sum + unit.monthlyRent, 0).toLocaleString("es-ES")}/mes
+              </div>
+            </div>
+            <div className="card" style={{background: "#F9FAFB"}}>
+              <div className="text-sm text-gray">Ocupación Media</div>
+              <div className="font-semibold" style={{fontSize: "18px", color: "var(--teal)"}}>
+                {((units.filter(u => u.status === "Ocupada").length / units.length) * 100).toFixed(1)}%
+              </div>
+            </div>
+            <div className="card" style={{background: "#F9FAFB"}}>
+              <div className="text-sm text-gray">Unidades Activas</div>
+              <div className="font-semibold" style={{fontSize: "18px", color: "var(--navy)"}}>
+                {units.filter(u => u.status === "Ocupada").length}/{units.length}
+              </div>
+            </div>
+          </div>
+
+          <div className="units-breakdown">
+            <h5>Desglose por Unidad</h5>
+            {units.map(unit => {
+              const unitContract = unitContracts.find(c => c.unitId === unit.id && c.status === "Activo");
+              return (
+                <div key={unit.id} className="unit-card mb-3 p-3" style={{background: "#F9FAFB", borderRadius: "6px"}}>
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
+                      <strong>{unit.name}</strong>
+                      {unit.sqm && <span className="text-sm text-gray ml-2">{unit.sqm}m²</span>}
+                    </div>
+                    <span className={`chip ${unit.status === "Ocupada" ? "success" : "warning"}`}>
+                      {unit.status}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <div>
+                      <div className="text-sm text-gray">Renta mensual</div>
+                      <div className="font-semibold">€{unit.monthlyRent.toLocaleString("es-ES")}</div>
+                    </div>
+                    {unitContract && (
+                      <div>
+                        <div className="text-sm text-gray">Inquilino</div>
+                        <div className="font-semibold">{unitContract.tenant}</div>
+                      </div>
+                    )}
+                    <div>
+                      <div className="text-sm text-gray">Ingresos anuales</div>
+                      <div className="font-semibold">€{(unit.monthlyRent * 12).toLocaleString("es-ES")}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="modal-actions">
         <button className="btn btn-primary" onClick={onClose}>Cerrar</button>
