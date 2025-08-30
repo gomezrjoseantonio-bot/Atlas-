@@ -19,7 +19,7 @@ export default function Page() {
     return unsubscribe;
   }, []);
 
-  const { documents, inboxEntries, missingInvoices, properties } = storeState;
+  const { documents = [], inboxEntries = [], missingInvoices = [], properties = [] } = storeState;
 
   const formatCurrency = (amount) => {
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
@@ -770,7 +770,7 @@ export default function Page() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 style={{margin: 0}}>🚀 Cierre rápido — te faltan {mockMissingInvoices.length} facturas</h3>
+              <h3 style={{margin: 0}}>🚀 Cierre rápido — te faltan {missingInvoices.length} facturas</h3>
               <button 
                 onClick={() => setShowQuickClose(false)}
                 className="btn btn-secondary btn-sm"
@@ -784,7 +784,7 @@ export default function Page() {
             </div>
 
             <div className="card mb-4">
-              {mockMissingInvoices.map(item => (
+              {missingInvoices.map(item => (
                 <div key={item.id} className="flex items-center justify-between p-3" style={{borderBottom: '1px solid var(--border)'}}>
                   <div className="flex-1">
                     <div className="font-medium">{item.provider}</div>
