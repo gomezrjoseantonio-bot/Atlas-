@@ -524,11 +524,13 @@ class AtlasStore {
   }
 
   showRulesAppliedToast(changes) {
-    // This would trigger toast notifications in the UI
-    if (typeof window !== 'undefined' && window.showToast) {
-      changes.forEach(change => {
-        window.showToast(`Regla aplicada: ${change.description}`, 'success');
-      });
+    // Show a single summary toast instead of multiple individual ones
+    if (typeof window !== 'undefined' && window.showToast && changes.length > 0) {
+      if (changes.length === 1) {
+        window.showToast(`Regla aplicada: ${changes[0].description}`, 'success');
+      } else {
+        window.showToast(`Motor de reglas: ${changes.length} cambios aplicados`, 'success');
+      }
     }
   }
 
@@ -880,12 +882,13 @@ const store = new AtlasStore();
 if (typeof window !== 'undefined') {
   store.load();
   
-  // HITO 6: Auto-run rules engine when app loads
-  setTimeout(() => {
-    if (store.getState().rulesEngineEnabled !== false) {
-      store.runRulesEngine();
-    }
-  }, 2000); // Increased delay to ensure everything is loaded including toast system
+  // HITO 6: Auto-run rules engine when app loads - DISABLED for deployment stability
+  // Users can manually trigger rules via "Aplicar reglas ahora" button
+  // setTimeout(() => {
+  //   if (store.getState().rulesEngineEnabled !== false) {
+  //     store.runRulesEngine();
+  //   }
+  // }, 2000);
 }
 
 export default store;
