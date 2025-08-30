@@ -21,6 +21,8 @@ class AtlasStore {
       alerts: [],
       missingInvoices: [],
       users: [],
+      treasuryRules: [],
+      scheduledPayments: [],
       lastUpdate: new Date().toISOString()
     };
   }
@@ -91,6 +93,8 @@ class AtlasStore {
       alerts: [...mockData.alerts],
       missingInvoices: [...mockData.missingInvoices],
       users: [...mockData.users],
+      treasuryRules: [...mockData.treasuryRules],
+      scheduledPayments: [...mockData.scheduledPayments],
       lastUpdate: new Date().toISOString()
     };
     this.save();

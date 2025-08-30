@@ -59,11 +59,14 @@ function getModalTitle(modalType) {
     viewInvoice: 'Ver Factura',
     assignProperty: 'Asignar Inmueble',
     treasuryTransfer: 'Mover Dinero',
+    registerIncome: 'Registrar Ingreso',
+    assignMovementDocument: 'Asignar Documento a Movimiento',
     amortizeLoan: 'Amortizar Préstamo',
     editLoan: 'Editar Préstamo',
     createLoan: 'Crear Nuevo Préstamo',
     linkLoanProperty: 'Vincular Préstamo a Inmueble',
-    propertyPL: 'Análisis P&L - Inmueble'
+    propertyPL: 'Análisis P&L - Inmueble',
+    propertyDetail: 'Detalle del Inmueble'
   };
   return titles[modalType] || 'Modal';
 }
@@ -78,6 +81,10 @@ function renderModalContent(modalType, data, closeModal, showToast) {
       return <AssignPropertyForm invoice={data.invoice} properties={data.properties} onClose={closeModal} showToast={showToast} />;
     case 'treasuryTransfer':
       return <TreasuryTransferForm accounts={data.accounts} onClose={closeModal} showToast={showToast} />;
+    case 'registerIncome':
+      return <RegisterIncomeForm accounts={data.accounts} onClose={closeModal} showToast={showToast} />;
+    case 'assignMovementDocument':
+      return <AssignMovementDocumentForm movementId={data.movementId} documents={data.documents} onClose={closeModal} showToast={showToast} />;
     case 'amortizeLoan':
       return <AmortizeLoanForm loan={data.loan} onClose={closeModal} showToast={showToast} />;
     case 'editLoan':
@@ -88,6 +95,8 @@ function renderModalContent(modalType, data, closeModal, showToast) {
       return <LinkLoanPropertyForm loans={data.loans} properties={data.properties} onClose={closeModal} showToast={showToast} />;
     case 'propertyPL':
       return <PropertyPLContent property={data.property} onClose={closeModal} />;
+    case 'propertyDetail':
+      return <PropertyDetailContent property={data.property} onClose={closeModal} />;
     default:
       return <div>Contenido del modal no encontrado</div>;
   }
@@ -532,6 +541,127 @@ function CreateLoanForm({ properties, onClose, showToast }) {
   );
 }
 
+// Register Income Form
+function RegisterIncomeForm({ accounts, onClose, showToast }) {
+  const [formData, setFormData] = useState({
+    account: '',
+    amount: 0,
+    description: '',
+    date: new Date().toISOString().split('T')[0]
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    // Update account balance
+    store.updateAccountBalance(parseInt(formData.account), formData.amount);
+    
+    // Add movement record
+    store.addMovement({
+      type: 'income',
+      account: parseInt(formData.account),
+      amount: formData.amount,
+      description: formData.description,
+      date: formData.date
+    });
+
+    showToast('success', 'Ingreso registrado exitosamente');
+    onClose();
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="modal-form">
+      <div className="form-group">
+        <label>Cuenta:</label>
+        <select 
+          value={formData.account}
+          onChange={(e) => setFormData({...formData, account: e.target.value})}
+          required
+        >
+          <option value="">Seleccionar cuenta...</option>
+          {accounts.map(account => (
+            <option key={account.id} value={account.id}>{account.name}</option>
+          ))}
+        </select>
+      </div>
+      <div className="form-group">
+        <label>Importe:</label>
+        <input 
+          type="number" 
+          step="0.01"
+          value={formData.amount}
+          onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value) || 0})}
+          required 
+        />
+      </div>
+      <div className="form-group">
+        <label>Descripción:</label>
+        <input 
+          type="text" 
+          value={formData.description}
+          onChange={(e) => setFormData({...formData, description: e.target.value})}
+          required 
+        />
+      </div>
+      <div className="form-group">
+        <label>Fecha:</label>
+        <input 
+          type="date" 
+          value={formData.date}
+          onChange={(e) => setFormData({...formData, date: e.target.value})}
+          required 
+        />
+      </div>
+      <div className="modal-actions">
+        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+        <button type="submit" className="btn btn-primary">Registrar</button>
+      </div>
+    </form>
+  );
+}
+
+// Assign Movement Document Form
+function AssignMovementDocumentForm({ movementId, documents, onClose, showToast }) {
+  const [selectedDocument, setSelectedDocument] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    if (!selectedDocument) {
+      showToast('error', 'Selecciona un documento');
+      return;
+    }
+
+    // This would link the document to the movement in a real implementation
+    showToast('success', 'Documento asignado al movimiento (simulado)');
+    onClose();
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="modal-form">
+      <div className="form-group">
+        <label>Seleccionar documento:</label>
+        <select 
+          value={selectedDocument}
+          onChange={(e) => setSelectedDocument(e.target.value)}
+          required
+        >
+          <option value="">Seleccionar documento...</option>
+          {documents.map(doc => (
+            <option key={doc.id} value={doc.id}>
+              {doc.provider} - {doc.concept} - €{doc.amount.toFixed(2)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="modal-actions">
+        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+        <button type="submit" className="btn btn-primary">Asignar</button>
+      </div>
+    </form>
+  );
+}
+
 // Link Loan to Property Form
 function LinkLoanPropertyForm({ loans, properties, onClose, showToast }) {
   const [assignments, setAssignments] = useState(
@@ -585,6 +715,21 @@ function PropertyPLContent({ property, onClose }) {
     <div className="property-pl">
       <p><strong>Inmueble:</strong> {property.name}</p>
       <p>Análisis P&L detallado disponible en próximas versiones</p>
+      <div className="modal-actions">
+        <button className="btn btn-primary" onClick={onClose}>Cerrar</button>
+      </div>
+    </div>
+  );
+}
+
+// Property Detail Content
+function PropertyDetailContent({ property, onClose }) {
+  return (
+    <div className="property-detail">
+      <p><strong>Inmueble:</strong> {property.name}</p>
+      <p><strong>Dirección:</strong> {property.address || 'No especificada'}</p>
+      <p><strong>Tipo:</strong> {property.type || 'No especificado'}</p>
+      <p>Vista detallada del inmueble disponible en próximas versiones</p>
       <div className="modal-actions">
         <button className="btn btn-primary" onClick={onClose}>Cerrar</button>
       </div>

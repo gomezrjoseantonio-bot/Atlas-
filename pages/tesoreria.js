@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import store from '../store/index';
 import { mockData } from '../data/mockData';
 
 export default function Page() {
@@ -6,8 +7,15 @@ export default function Page() {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedMovement, setSelectedMovement] = useState(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [storeState, setStoreState] = useState(store.getState());
 
-  const { accounts, movements, treasuryRules, scheduledPayments } = mockData;
+  // Subscribe to store changes
+  useEffect(() => {
+    const unsubscribe = store.subscribe(setStoreState);
+    return unsubscribe;
+  }, []);
+
+  const { accounts, movements, alerts, treasuryRules, scheduledPayments } = storeState;
 
   const getHealthStatus = (health) => {
     const healthMap = {
@@ -67,6 +75,13 @@ export default function Page() {
           <a className="tab" href="/configuracion">Configuración</a>
         </nav>
         <div className="actions">
+          <button 
+            className="btn btn-secondary btn-sm"
+            data-action="demo:load"
+            style={{marginRight: '12px'}}
+          >
+            🔄 Demo
+          </button>
           <span>🔍</span><span>🔔</span><span>⚙️</span>
         </div>
       </div>
@@ -134,10 +149,8 @@ export default function Page() {
 
                 <button 
                   className="btn btn-primary btn-sm"
-                  onClick={() => {
-                    setSelectedAccount(account);
-                    setShowTransferModal(true);
-                  }}
+                  data-action="treasury:transfer"
+                  data-extra={JSON.stringify({accountId: account.id})}
                 >
                   Mover dinero
                 </button>
@@ -191,10 +204,8 @@ export default function Page() {
                     {!movement.hasDocument && (
                       <button 
                         className="btn btn-secondary btn-sm"
-                        onClick={() => {
-                          setSelectedMovement(movement);
-                          setShowDocumentModal(true);
-                        }}
+                        data-action="movement:assign-document"
+                        data-id={movement.id}
                       >
                         Asignar documento
                       </button>
@@ -240,16 +251,20 @@ export default function Page() {
                       <input 
                         type="checkbox" 
                         checked={rule.active}
-                        onChange={() => {
-                          // Mock toggle functionality
-                          console.log(`Toggle rule ${rule.id}`);
-                        }}
+                        data-action="treasury:toggle-rule"
+                        data-id={rule.id}
                       />
                       <span className="slider"></span>
                     </label>
                   </td>
                   <td>
-                    <button className="btn btn-secondary btn-sm">Editar</button>
+                    <button 
+                      className="btn btn-secondary btn-sm"
+                      data-action="treasury:edit-rule"
+                      data-id={rule.id}
+                    >
+                      Editar
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -343,7 +358,12 @@ export default function Page() {
       <div className="card mb-4">
         <div className="flex items-center justify-between mb-4">
           <h3 style={{margin: 0}}>Movimientos Recientes</h3>
-          <button className="btn btn-secondary btn-sm">Ver todos</button>
+          <button 
+            className="btn btn-secondary btn-sm"
+            data-action="movements:view-all"
+          >
+            Ver todos
+          </button>
         </div>
         <table className="table">
           <thead>
@@ -386,9 +406,24 @@ export default function Page() {
         <div className="card">
           <h3 style={{margin: '0 0 16px 0'}}>Acciones Rápidas</h3>
           <div className="grid gap-2">
-            <button className="btn btn-primary">💰 Registrar ingreso</button>
-            <button className="btn btn-secondary">🏦 Conectar nueva cuenta</button>
-            <button className="btn btn-secondary">📊 Generar informe</button>
+            <button 
+              className="btn btn-primary"
+              data-action="treasury:register-income"
+            >
+              💰 Registrar ingreso
+            </button>
+            <button 
+              className="btn btn-secondary"
+              data-action="treasury:connect-account"
+            >
+              🏦 Conectar nueva cuenta
+            </button>
+            <button 
+              className="btn btn-secondary"
+              data-action="treasury:generate-report"
+            >
+              📊 Generar informe
+            </button>
           </div>
         </div>
 

@@ -183,6 +183,42 @@ export const dismissAlert = (id) => {
   showToast('success', 'Alerta descartada');
 };
 
+// Additional treasury actions
+export const toggleTreasuryRule = (id) => {
+  // This would toggle a treasury rule in a real implementation
+  showToast('info', `Regla de tesorería ${id} activada/desactivada (simulado)`);
+};
+
+export const editTreasuryRule = (id) => {
+  showToast('info', 'Edición de reglas de tesorería disponible próximamente');
+};
+
+export const registerIncome = () => {
+  showModal('registerIncome', { accounts: store.getState().accounts });
+};
+
+export const connectAccount = () => {
+  showToast('info', 'Conexión de nueva cuenta disponible próximamente');
+};
+
+export const generateTreasuryReport = () => {
+  showToast('info', 'Generación de informes disponible próximamente');
+};
+
+// Movement actions
+export const movementAction = (action, id) => {
+  switch (action) {
+    case 'movement:assign-document':
+      showModal('assignMovementDocument', { movementId: id, documents: store.getState().documents });
+      break;
+    case 'movements:view-all':
+      showToast('info', 'Vista completa de movimientos disponible próximamente');
+      break;
+    default:
+      showToast('warning', `Acción de movimiento ${action} no implementada`);
+  }
+};
+
 // Loan Actions
 export const amortizeLoan = (id) => {
   const state = store.getState();
@@ -222,6 +258,16 @@ export const viewPropertyPL = (id) => {
     return;
   }
   showModal('propertyPL', { property });
+};
+
+export const viewPropertyDetail = (id) => {
+  const state = store.getState();
+  const property = state.properties.find(prop => prop.id == id);
+  if (!property) {
+    showToast('error', 'Inmueble no encontrado');
+    return;
+  }
+  showModal('propertyDetail', { property });
 };
 
 export const deleteProperty = (id) => {

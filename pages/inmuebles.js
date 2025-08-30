@@ -43,6 +43,13 @@ export default function Page() {
           <a className="tab" href="/configuracion">Configuración</a>
         </nav>
         <div className="actions">
+          <button 
+            className="btn btn-secondary btn-sm"
+            data-action="demo:load"
+            style={{marginRight: '12px'}}
+          >
+            🔄 Demo
+          </button>
           <span>🔍</span><span>🔔</span><span>⚙️</span>
         </div>
       </div>
@@ -87,6 +94,14 @@ export default function Page() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Sub-navigation */}
+      <div className="flex gap-4 mb-6">
+        <a href="/inmuebles" className="tab active">Cartera</a>
+        <a href="/inmuebles/contratos" className="tab">Contratos</a>
+        <a href="/inmuebles/prestamos" className="tab">Préstamos</a>
+        <a href="/inmuebles/analisis" className="tab">Análisis</a>
       </div>
 
       {/* Portfolio KPIs */}
@@ -166,7 +181,8 @@ export default function Page() {
 
                 <button 
                   className="btn btn-secondary btn-sm"
-                  onClick={() => setSelectedProperty(property)}
+                  data-action="property:view-detail"
+                  data-id={property.id}
                 >
                   Ver detalle
                 </button>

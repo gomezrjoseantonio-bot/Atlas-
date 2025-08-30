@@ -87,6 +87,28 @@ class ActionBridge {
         case 'treasury:transfer':
           actions.treasuryTransfer(extraData);
           break;
+        case 'treasury:toggle-rule':
+          actions.toggleTreasuryRule(id);
+          break;
+        case 'treasury:edit-rule':
+          actions.editTreasuryRule(id);
+          break;
+        case 'treasury:register-income':
+          actions.registerIncome();
+          break;
+        case 'treasury:connect-account':
+          actions.connectAccount();
+          break;
+        case 'treasury:generate-report':
+          actions.generateTreasuryReport();
+          break;
+
+        // Movement actions
+        case 'movement:assign-document':
+        case 'movements:view-all':
+          actions.movementAction(normalizedAction, id);
+          break;
+
         case 'alert:add':
           actions.addAlert(extraData);
           break;
@@ -114,6 +136,9 @@ class ActionBridge {
         // Property actions
         case 'property:view-pl':
           actions.viewPropertyPL(id);
+          break;
+        case 'property:view-detail':
+          actions.viewPropertyDetail(id);
           break;
         case 'property:delete':
           actions.deleteProperty(id);
