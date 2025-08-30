@@ -2,21 +2,9 @@ import { useState, useEffect } from 'react';
 import store from '../../store/index';
 
 export default function AnalisisPage() {
-  const [storeState, setStoreState] = useState(() => {
-    // Initialize with store state immediately
-    let currentState = store.getState();
-    const hasData = currentState.accounts?.length > 0 || 
-                   currentState.properties?.length > 0 || 
-                   currentState.documents?.length > 0;
-    
-    if (!hasData) {
-      console.log('Component init: No data detected, forcing demo data');
-      store.resetDemo();
-      currentState = store.getState();
-    }
-    
-    return currentState;
-  });const [selectedProperty, setSelectedProperty] = useState(null);
+  const [storeState, setStoreState] = useState(store.getState());
+  const [mounted, setMounted] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState(null);
   const [analysisType, setAnalysisType] = useState('profitability');
   const [timeRange, setTimeRange] = useState('12m');
 
@@ -170,7 +158,7 @@ export default function AnalisisPage() {
         {analysisType === 'profitability' && (
           <div className="card mb-6">
             <h3 style={{margin: '0 0 16px 0'}}>💰 Análisis de Rentabilidad</h3>
-            (
+            {mounted && (
               <div className="table-responsive">
                 <table className="table">
                   <thead>
@@ -223,13 +211,15 @@ export default function AnalisisPage() {
                   </tbody>
                 </table>
               </div>
+            )}
           </div>
         )}
 
         {analysisType === 'valuation' && (
           <div className="card mb-6">
             <h3 style={{margin: '0 0 16px 0'}}>📈 Análisis de Valoración</h3>
-            <div className="table-responsive">
+            {mounted && (
+              <div className="table-responsive">
                 <table className="table">
                   <thead>
                     <tr>
@@ -285,6 +275,7 @@ export default function AnalisisPage() {
                   </tbody>
                 </table>
               </div>
+            )}
           </div>
         )}
 

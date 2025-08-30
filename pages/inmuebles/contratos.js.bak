@@ -2,21 +2,10 @@ import { useState, useEffect } from 'react';
 import store from '../../store/index';
 
 export default function ContratosPage() {
-  const [storeState, setStoreState] = useState(() => {
-    // Initialize with store state immediately
-    let currentState = store.getState();
-    const hasData = currentState.accounts?.length > 0 || 
-                   currentState.properties?.length > 0 || 
-                   currentState.documents?.length > 0;
-    
-    if (!hasData) {
-      console.log('Component init: No data detected, forcing demo data');
-      store.resetDemo();
-      currentState = store.getState();
-    }
-    
-    return currentState;
-  });  // Subscribe to store changes
+  const [storeState, setStoreState] = useState(store.getState());
+  const [mounted, setMounted] = useState(false);
+
+  // Subscribe to store changes
   useEffect(() => {
     setMounted(true);
     const unsubscribe = store.subscribe(setStoreState);
@@ -165,13 +154,14 @@ export default function ContratosPage() {
             </div>
           </div>
           
-          <div className="table-responsive">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Inmueble</th>
-                  <th>Tipo</th>
-                  <th>Inquilino/Aseguradora</th>
+          {mounted && (
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Inmueble</th>
+                    <th>Tipo</th>
+                    <th>Inquilino/Aseguradora</th>
                     <th>Inicio</th>
                     <th>Fin</th>
                     <th style={{textAlign: 'right'}}>Importe mensual</th>
@@ -233,8 +223,15 @@ export default function ContratosPage() {
                 </tbody>
               </table>
             </div>
+          )}
 
-          {contracts.length === 0 && (
+          {!mounted && (
+            <div className="text-center py-8">
+              <div className="text-gray">Cargando contratos...</div>
+            </div>
+          )}
+
+          {mounted && contracts.length === 0 && (
             <div className="text-center py-8">
               <div className="text-gray mb-4">No hay contratos registrados</div>
               <button 

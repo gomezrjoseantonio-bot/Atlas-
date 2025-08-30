@@ -5,68 +5,29 @@ import { mockData } from '../data/mockData';
 export default function Page() {
   const [activeSection, setActiveSection] = useState('bancos');
   const [personalToggle, setPersonalToggle] = useState(true);
-  const [storeState, setStoreState] = useState(store.getState());
-  const [mounted, setMounted] = useState(false);
-
-  // Subscribe to store changes and handle hydration
-  useEffect(() => {
-    setMounted(true);
-    
-    // Ensure store has data immediately
+  const [storeState, setStoreState] = useState(() => {
+    // Initialize with store state immediately
     let currentState = store.getState();
     const hasData = currentState.accounts?.length > 0 || 
                    currentState.properties?.length > 0 || 
                    currentState.documents?.length > 0;
     
     if (!hasData) {
-      console.log('Component mount: No data detected, forcing demo data');
+      console.log('Configuracion init: No data detected, forcing demo data');
       store.resetDemo();
       currentState = store.getState();
     }
     
-    setStoreState(currentState);
+    return currentState;
+  });
+
+  // Subscribe to store changes
+  useEffect(() => {
     const unsubscribe = store.subscribe(setStoreState);
-    
     return () => {
       unsubscribe();
     };
   }, []);
-
-  // Don't render until mounted to avoid hydration issues
-  if (!mounted) {
-    return (
-      <div data-theme="atlas">
-        <header className="header">
-          <div className="container nav">
-            <div className="logo">
-              <div className="logo-mark">
-                <div className="bar short"></div>
-                <div className="bar mid"></div>
-                <div className="bar tall"></div>
-              </div>
-              <div>ATLAS</div>
-            </div>
-            <nav className="tabs">
-              <a className="tab" href="/panel">Panel</a>
-              <a className="tab" href="/tesoreria">Tesorería</a>
-              <a className="tab" href="/inmuebles">Inmuebles</a>
-              <a className="tab" href="/documentos">Documentos</a>
-              <a className="tab" href="/proyeccion">Proyección</a>
-              <a className="tab active" href="/configuracion">Configuración</a>
-            </nav>
-            <div className="actions">
-              <button className="btn btn-secondary btn-sm" style={{marginRight: '12px'}}>🔄 Demo</button>
-              <span>🔍</span><span>🔔</span><span>⚙️</span>
-            </div>
-          </div>
-        </header>
-        <main className="container">
-          <h2 style={{color:'var(--navy)', margin:'0 0 24px 0'}}>Configuración</h2>
-          <div>Cargando...</div>
-        </main>
-      </div>
-    );
-  }
 
   const { accounts = [], users = [] } = mockData;
   const { sweepConfig = {}, rulesEngineEnabled = true } = storeState;

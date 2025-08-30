@@ -4,76 +4,29 @@ import { getTotalPortfolioValue, getTotalMonthlyRent, getOccupancyRate } from '.
 
 export default function Page() {
   const [personalMode, setPersonalMode] = useState(false);
-  const [storeState, setStoreState] = useState(store.getState());
-  const [mounted, setMounted] = useState(false);
-
-  // Subscribe to store changes and handle hydration
-  useEffect(() => {
-    setMounted(true);
-    
-    // Ensure store has data immediately
+  const [storeState, setStoreState] = useState(() => {
+    // Initialize with store state immediately
     let currentState = store.getState();
     const hasData = currentState.accounts?.length > 0 || 
                    currentState.properties?.length > 0 || 
                    currentState.documents?.length > 0;
     
     if (!hasData) {
-      console.log('Component mount: No data detected, forcing demo data');
+      console.log('Panel init: No data detected, forcing demo data');
       store.resetDemo();
       currentState = store.getState();
     }
     
-    setStoreState(currentState);
+    return currentState;
+  });
+
+  // Subscribe to store changes
+  useEffect(() => {
     const unsubscribe = store.subscribe(setStoreState);
-    
     return () => {
       unsubscribe();
     };
   }, []);
-
-  // Don't render until mounted to avoid hydration issues
-  if (!mounted) {
-    return (
-      <div data-theme="atlas">
-        <header className="header">
-          <div className="container nav">
-            <div className="logo">
-              <div className="logo-mark">
-                <div className="bar short"></div>
-                <div className="bar mid"></div>
-                <div className="bar tall"></div>
-              </div>
-              <div>ATLAS</div>
-            </div>
-            <nav className="tabs">
-              <a className="tab active" href="/panel">Panel</a>
-              <a className="tab" href="/tesoreria">Tesorería</a>
-              <a className="tab" href="/inmuebles">Inmuebles</a>
-              <a className="tab" href="/documentos">Documentos</a>
-              <a className="tab" href="/proyeccion">Proyección</a>
-              <a className="tab" href="/configuracion">Configuración</a>
-            </nav>
-            <div className="actions">
-              <span>🔍</span><span>🔔</span><span>⚙️</span>
-            </div>
-          </div>
-        </header>
-        <main className="container">
-          <div className="flex items-center justify-between mb-4">
-            <h2 style={{color:'var(--navy)', margin:0}}>Panel</h2>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">PERSONAL</span>
-              <label className="toggle">
-                <input type="checkbox" />
-                <span className="slider"></span>
-              </label>
-            </div>
-          </div>
-          <div>Cargando...</div>
-        </main>
-      </div>
-    );
-  }
 
   const { missingInvoices = [], accounts = [], documents = [], properties = [], inboxEntries = [] } = storeState;
   
