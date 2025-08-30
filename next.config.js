@@ -6,13 +6,22 @@ const nextConfig = {
     unoptimized: true
   },
   webpack: (config, { isServer }) => {
-    // Help with Tesseract.js worker loading
+    // Enhanced webpack configuration for better Tesseract.js support
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
         path: false,
         crypto: false,
+        stream: false,
+        util: false,
+      };
+      
+      // Ensure proper handling of workers and WebAssembly
+      config.output.webassemblyModuleFilename = 'static/wasm/[modulehash].wasm';
+      config.experiments = {
+        ...config.experiments,
+        asyncWebAssembly: true,
       };
     }
     

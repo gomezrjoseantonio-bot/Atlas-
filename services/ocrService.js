@@ -15,8 +15,8 @@ class OCRService {
       try {
         // Dynamic import to avoid SSR issues
         this.pdfjsLib = await import('pdfjs-dist');
-        // Use CDN worker for now to avoid compatibility issues
-        this.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.149/build/pdf.worker.min.js';
+        // Use local worker if available, fallback to CDN
+        this.pdfjsLib.GlobalWorkerOptions.workerSrc = '/ocr/pdf.worker.min.js';
       } catch (error) {
         console.warn('PDF.js not available, PDF processing disabled:', error);
         return null;
@@ -50,10 +50,10 @@ class OCRService {
         console.log('Development mode detected - enabling detailed OCR logging');
       }
       
-      // Create worker with minimal configuration for maximum compatibility
+      // Simplified worker configuration - let Tesseract.js handle asset loading
       console.log('Creating Tesseract worker with basic configuration...');
       
-      // Use a simple approach - let Tesseract.js handle defaults
+      // Create worker with simpler options for maximum compatibility
       this.worker = await Tesseract.createWorker(['spa', 'eng'], 1, {
         logger: (m) => {
           if (isDev) {
@@ -108,9 +108,9 @@ class OCRService {
 
   async processDocument(file, onProgress = null) {
     try {
-      console.log(`Starting simplified OCR processing for file: ${file.name} (${file.type})`);
+      console.log(`Starting OCR processing for file: ${file.name} (${file.type})`);
       
-      // Try initialization first
+      // Initialize worker if needed
       if (!this.isInitialized) {
         if (onProgress) {
           onProgress({
@@ -122,32 +122,32 @@ class OCRService {
         try {
           await this.initialize();
         } catch (initError) {
-          console.warn('Primary OCR initialization failed, trying fallback approach:', initError);
+          console.warn('Bilingual OCR initialization failed, trying English-only fallback:', initError);
           
-          // Fallback: Try creating a worker with even simpler configuration
           if (onProgress) {
             onProgress({
               type: 'initialization',
-              status: 'Probando configuración alternativa...'
+              status: 'Intentando configuración alternativa...'
             });
           }
           
           try {
+            // Fallback to English-only worker
             this.worker = await Tesseract.createWorker('eng');
             this.isInitialized = true;
             console.log('Fallback OCR initialization successful (English only)');
           } catch (fallbackError) {
             console.error('All OCR initialization attempts failed:', fallbackError);
-            throw new Error('No se pudo inicializar el OCR. Verifique la conexión a internet.');
+            throw new Error('No se pudo inicializar el OCR. Intente recargar la página.');
           }
         }
       }
 
       const fileType = file.type || this.getFileTypeFromName(file.name);
       
-      // Add overall timeout for document processing (3 minutes)
+      // Simplified processing with 90-second timeout
       const processTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Document processing timeout after 3 minutes')), 180000);
+        setTimeout(() => reject(new Error('Processing timeout after 90 seconds')), 90000);
       });
       
       let processingPromise;
@@ -156,7 +156,7 @@ class OCRService {
       } else if (fileType.startsWith('image/')) {
         processingPromise = this.processImage(file, onProgress);
       } else {
-        throw new Error(`Unsupported file type: ${fileType}`);
+        throw new Error(`Tipo de archivo no soportado: ${fileType}`);
       }
       
       return await Promise.race([processingPromise, processTimeout]);
@@ -166,15 +166,13 @@ class OCRService {
       // Provide user-friendly error messages
       let userMessage = error.message;
       if (error.message.includes('timeout')) {
-        userMessage = 'El procesamiento OCR tardó demasiado. Intente con una imagen más pequeña.';
-      } else if (error.message.includes('Failed to initialize')) {
-        userMessage = 'No se pudo inicializar el OCR. Verifique su conexión a internet.';
-      } else if (error.message.includes('Unsupported file')) {
-        userMessage = 'Formato de archivo no soportado. Use PDF, JPG, PNG o HEIC.';
+        userMessage = 'El procesamiento tardó demasiado. Intente con una imagen más pequeña.';
+      } else if (error.message.includes('inicializar')) {
+        userMessage = 'Error al inicializar OCR. Recargue la página e intente de nuevo.';
       }
       
-      // Clean up worker on critical errors
-      if (error.message.includes('timeout') || error.message.includes('Failed to initialize')) {
+      // Clean up worker on errors
+      if (error.message.includes('timeout') || error.message.includes('inicializar')) {
         await this.terminate();
       }
       
@@ -187,7 +185,7 @@ class OCRService {
   async processPDF(file, onProgress = null) {
     const pdfjsLib = await this.initializePDFJS();
     if (!pdfjsLib) {
-      throw new Error('PDF.js not available for PDF processing');
+      throw new Error('PDF.js no disponible para procesar PDFs');
     }
 
     try {
@@ -210,7 +208,7 @@ class OCRService {
         }
 
         const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: 2.0 }); // Higher resolution for better OCR
+        const viewport = page.getViewport({ scale: 1.5 }); // Moderate resolution for better performance
         
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
@@ -227,9 +225,9 @@ class OCRService {
           canvas.toBlob(resolve, 'image/png');
         });
 
-        // Add timeout for individual page OCR processing (90 seconds)
+        // Shorter timeout for individual pages (60 seconds)
         const pageTimeout = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error(`Page ${pageNum} OCR timeout after 90 seconds`)), 90000);
+          setTimeout(() => reject(new Error(`Timeout procesando página ${pageNum}`)), 60000);
         });
         
         const recognizePromise = this.worker.recognize(blob);
@@ -272,9 +270,9 @@ class OCRService {
     console.log(`Processing image: ${file.name}`);
     
     try {
-      // Add timeout for image OCR processing (90 seconds)
+      // Shorter timeout for images (60 seconds)
       const imageTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Image OCR timeout after 90 seconds')), 90000);
+        setTimeout(() => reject(new Error('Timeout procesando imagen')), 60000);
       });
       
       const recognizePromise = this.worker.recognize(file);
@@ -315,11 +313,13 @@ class OCRService {
     try {
       console.log('Extracting data from OCR text:', text.substring(0, 200) + '...');
 
-      // Extract date patterns (DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY)
+      // Enhanced date patterns for Spanish documents
       const datePatterns = [
-        /(\d{1,2})[\/\-\.]\s*(\d{1,2})[\/\-\.]\s*(\d{4})/g,
-        /(\d{4})[\/\-\.]\s*(\d{1,2})[\/\-\.]\s*(\d{1,2})/g,
-        /(\d{1,2})\s+de\s+\w+\s+de\s+(\d{4})/gi // Spanish format: "14 de agosto de 2025"
+        /(\d{1,2})\s+de\s+\w+\s+de\s+(\d{4})/gi, // "14 de agosto de 2025"
+        /(\d{1,2})[\/\-\.]\s*(\d{1,2})[\/\-\.]\s*(\d{4})/g, // DD/MM/YYYY
+        /(\d{4})[\/\-\.]\s*(\d{1,2})[\/\-\.]\s*(\d{1,2})/g, // YYYY/MM/DD
+        /fecha[:\s]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})/gi, // "Fecha: DD/MM/YYYY"
+        /emisi[óo]n[:\s]+(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{4})/gi // "Emisión: DD/MM/YYYY"
       ];
       
       for (const pattern of datePatterns) {
@@ -330,20 +330,25 @@ class OCRService {
         }
       }
 
-      // Extract amounts - improved patterns for Spanish invoices
+      // Enhanced amount patterns specifically for utility bills like WEKIWI
       const amountPatterns = [
-        // Look for "TOTAL FACTURA" and similar
+        // Enhanced patterns for utility bills
         /total\s+factura[:\s]*€?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/gi,
         /total[:\s]*€?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/gi,
         /importe[:\s]*€?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/gi,
-        // Amount followed by €
+        // Specific patterns for energy bills
+        /por\s+(?:potencia|energia)\s+[^€]*€?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/gi,
+        /potencia\s+contratada[^€]*€?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/gi,
+        /energia\s+consumida[^€]*€?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/gi,
+        // General amount patterns
         /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*€/g,
         // IVA patterns
         /iva\s+\d+%[:\s]*€?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/gi,
+        /impuesto\s+el[ée]ctrico[:\s]*€?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/gi,
         // Base patterns
         /base[:\s]*€?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/gi,
-        // Potencia/Energia patterns for utility bills
-        /por\s+(?:potencia|energia)\s+[^€]*€?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/gi
+        // Equipment rental patterns
+        /alquiler\s+de\s+equipo[:\s]*€?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/gi
       ];
 
       const amounts = [];
@@ -351,12 +356,8 @@ class OCRService {
         const matches = [...text.matchAll(pattern)];
         matches.forEach(match => {
           const amount = match[1] || match[0];
-          // Convert Spanish number format to standard
-          const normalizedAmount = parseFloat(
-            amount.replace(/[.,](\d{2})$/, '.$1') // Last comma/dot with 2 digits is decimal
-                  .replace(/[.,]/g, '') // Remove thousands separators
-                  .replace(/\.(\d{2})$/, '.$1') // Restore decimal point
-          );
+          // Enhanced Spanish number format conversion
+          const normalizedAmount = this.parseSpanishAmount(amount);
           if (!isNaN(normalizedAmount) && normalizedAmount > 0) {
             amounts.push({
               value: normalizedAmount,
@@ -370,13 +371,14 @@ class OCRService {
       // Sort amounts by value descending
       amounts.sort((a, b) => b.value - a.value);
       
-      // Try to identify total, base, and IVA based on context
+      // Enhanced identification based on context
       const totalMatch = amounts.find(a => 
         a.context.toLowerCase().includes('total') || 
         a.context.toLowerCase().includes('factura')
       );
       const ivaMatch = amounts.find(a => 
-        a.context.toLowerCase().includes('iva')
+        a.context.toLowerCase().includes('iva') ||
+        a.context.toLowerCase().includes('impuesto')
       );
       const baseMatch = amounts.find(a => 
         a.context.toLowerCase().includes('base') ||
@@ -400,18 +402,19 @@ class OCRService {
         extractedData.base = extractedData.total - extractedData.iva;
       }
 
-      // Extract provider/company name - improved patterns
+      // Enhanced provider/company detection
       const providerPatterns = [
-        // Look for company names at the beginning
+        // Specific utility companies
+        /wekiwi/gi,
+        /endesa/gi,
+        /iberdrola/gi,
+        /naturgy/gi,
+        /repsol/gi,
+        // Company name patterns
         /^([A-Z][a-zA-ZÀ-ÿ\s,\.]+(?:S\.?L\.?|S\.?A\.?|C\.?B\.?))/gm,
-        // Look for specific patterns
         /([A-Z][a-zA-ZÀ-ÿ\s]+)\s+S\.?L\.?/gi,
         /([A-Z][a-zA-ZÀ-ÿ\s]+)\s+S\.?A\.?/gi,
-        // CIF pattern
-        /cif[:\s]*[a-z]\d{8}[:\s]*([^\n\r]+)/gi,
-        // NIF pattern  
-        /nif[:\s]*\d{8}[a-z][:\s]*([^\n\r]+)/gi,
-        // Look for lines that might be company names (all caps or title case)
+        // Document header patterns
         /^([A-Z\s]{4,})/gm
       ];
 
@@ -420,28 +423,34 @@ class OCRService {
         if (matches.length > 0) {
           const match = matches[0];
           let providerName = (match[1] || match[0]).trim();
-          // Clean up the provider name
           providerName = providerName.replace(/[:\n\r]+/g, ' ').trim();
-          if (providerName.length > 3 && providerName.length < 50) {
+          if (providerName.length > 2 && providerName.length < 50) {
             extractedData.provider = providerName;
             break;
           }
         }
       }
 
-      // Extract concept/description - improved patterns
+      // Enhanced concept extraction for utility bills
       const conceptPatterns = [
-        /(?:concepto|descripción|servicios?)[:\s]*([^\n\r]+)/gi,
-        /(?:suministro|consumo)[:\s]*([^\n\r]+)/gi,
         /periodo\s+de\s+consumo[:\s]*([^\n\r]+)/gi,
-        // Look for lines that describe the service
-        /(?:de|del|para)\s+([^\n\r]{15,})/gi
+        /suministro[:\s]*([^\n\r]+)/gi,
+        /factura[:\s]+de[:\s]*([^\n\r]+)/gi,
+        /(?:concepto|descripción|servicios?)[:\s]*([^\n\r]+)/gi,
+        // Look for service descriptions
+        /(?:electricidad|gas|agua|telefon[íi]a|internet)[^\n\r]*/gi
       ];
 
       for (const pattern of conceptPatterns) {
         const conceptMatch = text.match(pattern);
         if (conceptMatch && conceptMatch[1]) {
           const concept = conceptMatch[1].trim();
+          if (concept.length > 5 && concept.length < 100) {
+            extractedData.concept = concept;
+            break;
+          }
+        } else if (conceptMatch && conceptMatch[0]) {
+          const concept = conceptMatch[0].trim();
           if (concept.length > 5 && concept.length < 100) {
             extractedData.concept = concept;
             break;
@@ -456,6 +465,33 @@ class OCRService {
     }
 
     return extractedData;
+  }
+
+  // Helper method to parse Spanish amount formatting
+  parseSpanishAmount(amount) {
+    try {
+      // Handle Spanish number format: 1.234,56 or 1234,56
+      let normalized = amount.toString();
+      
+      // Remove currency symbols
+      normalized = normalized.replace(/[€$]/g, '');
+      
+      // If there's a comma followed by exactly 2 digits at the end, it's decimal
+      if (/,\d{2}$/.test(normalized)) {
+        // Replace the decimal comma with a dot
+        normalized = normalized.replace(/,(\d{2})$/, '.$1');
+        // Remove thousands separators (dots and commas before the decimal)
+        normalized = normalized.replace(/[.,](?=\d{3})/g, '');
+      } else {
+        // No decimal part, remove all separators
+        normalized = normalized.replace(/[.,]/g, '');
+      }
+      
+      return parseFloat(normalized);
+    } catch (error) {
+      console.warn('Error parsing Spanish amount:', amount, error);
+      return NaN;
+    }
   }
 
   getFileTypeFromName(fileName) {
