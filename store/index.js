@@ -902,32 +902,30 @@ class AtlasStore {
 // Create singleton instance
 const store = new AtlasStore();
 
+// Always ensure we have demo data immediately, regardless of environment
+console.log('Initializing store with demo data');
+store.resetDemo();
+
 // Initialize store on first import
 if (typeof window !== 'undefined') {
-  store.load();
-  
-  // Double-check that store has data after loading - if not, force demo data
-  const state = store.getState();
-  const hasData = state.accounts?.length > 0 || 
-                 state.properties?.length > 0 || 
-                 state.documents?.length > 0;
-  
-  if (!hasData) {
-    console.log('Store still empty after load, forcing demo data');
-    store.resetDemo();
-  }
-  
-  // HITO 6: Auto-run rules engine when app loads - DISABLED for deployment stability
-  // Users can manually trigger rules via "Aplicar reglas ahora" button
-  // setTimeout(() => {
-  //   if (store.getState().rulesEngineEnabled !== false) {
-  //     store.runRulesEngine();
-  //   }
-  // }, 2000);
+  // In browser environment, try to load from localStorage but keep demo as fallback
+  setTimeout(() => {
+    store.load();
+    
+    // Double-check that store has data after loading - if not, force demo data
+    const state = store.getState();
+    const hasData = state.accounts?.length > 0 || 
+                   state.properties?.length > 0 || 
+                   state.documents?.length > 0;
+    
+    if (!hasData) {
+      console.log('Store still empty after load, forcing demo data');
+      store.resetDemo();
+    }
+  }, 100); // Small delay to allow DOM to be ready
 } else {
-  // If window is not available (SSR), load demo data immediately
-  console.log('Window not available, loading demo data for SSR');
-  store.resetDemo();
+  // If window is not available (SSR), we already have demo data loaded
+  console.log('Window not available, demo data already loaded for SSR');
 }
 
 export default store;

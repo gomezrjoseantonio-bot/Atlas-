@@ -17,27 +17,23 @@ export default function Page() {
   // Subscribe to store changes and handle hydration
   useEffect(() => {
     setMounted(true);
-    // Force a refresh of store state after mounting
-    setStoreState(store.getState());
+    
+    // Ensure store has data immediately
+    let currentState = store.getState();
+    const hasData = currentState.accounts?.length > 0 || 
+                   currentState.properties?.length > 0 || 
+                   currentState.documents?.length > 0;
+    
+    if (!hasData) {
+      console.log('Component mount: No data detected, forcing demo data');
+      store.resetDemo();
+      currentState = store.getState();
+    }
+    
+    setStoreState(currentState);
     const unsubscribe = store.subscribe(setStoreState);
     
-    // Safety timeout - if we're still in loading state after 3 seconds, 
-    // ensure we have data by resetting to demo data
-    const safetyTimeout = setTimeout(() => {
-      const currentState = store.getState();
-      const hasData = currentState.accounts?.length > 0 || 
-                     currentState.properties?.length > 0 || 
-                     currentState.documents?.length > 0;
-      
-      if (!hasData) {
-        console.log('Safety timeout: No data detected, forcing demo data');
-        store.resetDemo();
-        setStoreState(store.getState());
-      }
-    }, 3000);
-    
     return () => {
-      clearTimeout(safetyTimeout);
       unsubscribe();
     };
   }, []);
