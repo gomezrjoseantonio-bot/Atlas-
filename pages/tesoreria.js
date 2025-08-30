@@ -55,7 +55,7 @@ export default function Page() {
     );
   }
 
-  const { accounts, movements, alerts, treasuryRules, scheduledPayments } = storeState;
+  const { accounts = [], movements = [], alerts = [], treasuryRules = [], scheduledPayments = [] } = storeState;
 
   const getHealthStatus = (health) => {
     const healthMap = {
@@ -289,9 +289,9 @@ export default function Page() {
           </div>
         </div>
         
-        {storeState.alerts && storeState.alerts.length > 0 ? (
+        {alerts && alerts.length > 0 ? (
           <div className="grid gap-3">
-            {storeState.alerts.filter(alert => !alert.dismissed).map(alert => {
+            {alerts.filter(alert => !alert.dismissed).map(alert => {
               const getSeverityIcon = (severity) => {
                 switch(severity) {
                   case 'critical': return '🚨';

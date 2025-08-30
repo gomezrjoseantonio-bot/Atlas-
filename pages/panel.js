@@ -60,10 +60,10 @@ export default function Page() {
     );
   }
 
-  const { missingInvoices, accounts, documents, properties } = storeState;
+  const { missingInvoices = [], accounts = [], documents = [], properties = [], inboxEntries = [] } = storeState;
   
   // Calculate live data
-  const unprocessedInboxEntries = storeState.inboxEntries.filter(entry => 
+  const unprocessedInboxEntries = inboxEntries.filter(entry => 
     entry.status === 'Pendiente de procesamiento' || entry.status === 'Error lectura'
   );
   const pendingDocuments = documents.filter(doc => doc.status === 'Pendiente');
@@ -87,7 +87,7 @@ export default function Page() {
   };
 
   // Calculate consolidated KPIs when PERSONAL is ON
-  const totalAccountBalance = accounts.reduce((sum, acc) => sum + acc.balanceToday, 0);
+  const totalAccountBalance = accounts.reduce((sum, acc) => sum + (acc.balanceToday || 0), 0);
   const totalPatrimony = getTotalPortfolioValue() + totalAccountBalance;
   const monthlyPropertyIncome = getTotalMonthlyRent();
   const monthlyPersonalIncome = personalFinances.monthlyNetSalary;
@@ -204,7 +204,7 @@ export default function Page() {
           <div className="grid gap-4">
             <div>
               <div className="text-sm text-gray">Inmuebles en cartera</div>
-              <div className="font-semibold" style={{fontSize: '18px'}}>{storeState.properties.length} propiedades</div>
+              <div className="font-semibold" style={{fontSize: '18px'}}>{properties.length} propiedades</div>
             </div>
             <div>
               <div className="text-sm text-gray">Ocupación media</div>

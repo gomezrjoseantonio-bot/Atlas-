@@ -52,8 +52,8 @@ export default function Page() {
     );
   }
 
-  const { accounts, users } = mockData;
-  const { sweepConfig, rulesEngineEnabled } = storeState;
+  const { accounts = [], users = [] } = mockData;
+  const { sweepConfig = {}, rulesEngineEnabled = true } = storeState;
 
   return (<>
     <header className="header">
