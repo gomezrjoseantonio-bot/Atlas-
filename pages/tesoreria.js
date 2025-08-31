@@ -155,7 +155,7 @@ export default function Page() {
     { key: 'radar', icon: '🎯', label: 'Radar de cuentas' },
     { key: 'movimientos', icon: '💳', label: 'Movimientos' },
     { key: 'alertas', icon: '🚨', label: 'Alertas' },
-    { key: 'proyeccion', icon: '📊', label: 'Proyección' }
+    { key: 'proyeccion', icon: '📊', label: 'Previsión' }
   ];
 
   // Calculate totals for header query
@@ -561,95 +561,53 @@ export default function Page() {
               })}
             </div>
           </div>
-
-          {/* Balance Summary */}
-          <div className="grid mb-4">
-            <div className="card">
-              <h3 style={{margin: '0 0 16px 0'}}>Resumen de Saldos</h3>
-              <div className="grid-3 gap-4">
-                <div>
-                  <div className="text-sm text-gray">Saldo Total</div>
-                  <div className="font-semibold" style={{fontSize: '20px', color: 'var(--accent)'}}>
-                    €{accounts.reduce((sum, acc) => sum + acc.balance, 0).toLocaleString('es-ES', {minimumFractionDigits: 2})}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray">Ingresos del Mes</div>
-                  <div className="font-semibold" style={{fontSize: '20px', color: 'var(--success)'}}>
-                    €8.450,00
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm text-gray">Gastos del Mes</div>
-                  <div className="font-semibold" style={{fontSize: '20px', color: 'var(--error)'}}>
-                    €3.240,50
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <h3 style={{margin: '0 0 16px 0'}}>Flujo de Caja</h3>
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm">Enero 2024</span>
-                  <span className="font-semibold text-success">+€5.209,50</span>
-                </div>
-                <div className="bg-gray-200" style={{height: '8px', borderRadius: '4px', background: '#E5E7EB'}}>
-                  <div 
-                    style={{
-                      width: '72%', 
-                      height: '100%', 
-                      background: 'linear-gradient(90deg, var(--error), var(--warning), var(--success))', 
-                      borderRadius: '4px'
-                    }}
-                  ></div>
-                </div>
-              </div>
-              <div className="text-sm text-gray">
-                Flujo positivo respecto al mes anterior (+15.2%)
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
       {/* Quick Actions - Show on all tabs */}
-      <div className="grid gap-4">
-        <div className="card">
-          <h3 style={{margin: '0 0 16px 0'}}>Acciones Rápidas</h3>
-          <div className="grid gap-2">
-            <button 
-              className="btn btn-primary"
-              onClick={() => {
-                if (window.showToast) {
-                  window.showToast('Registro de ingreso próximamente', 'info');
-                }
-              }}
-            >
-              💰 Registrar ingreso
-            </button>
-            <button 
-              className="btn btn-secondary"
-              onClick={() => {
-                if (window.showToast) {
-                  window.showToast('Conexión de cuenta próximamente', 'info');
-                }
-              }}
-            >
-              🏦 Conectar nueva cuenta
-            </button>
-            <button 
-              className="btn btn-secondary"
-              onClick={() => {
-                if (window.showToast) {
-                  window.showToast('Generación de informe próximamente', 'info');
-                }
-              }}
-            >
-              📊 Generar informe
-            </button>
-          </div>
+      <div className="card">
+        <h3 style={{margin: '0 0 16px 0', color: 'var(--accent)'}}>Acciones Rápidas</h3>
+        <div className="grid-4 gap-2">
+          <button 
+            className="btn btn-outline"
+            onClick={() => {
+              if (window.showToast) {
+                window.showToast('Registro de ingreso próximamente', 'info');
+              }
+            }}
+          >
+            💰 Registrar ingreso
+          </button>
+          <button 
+            className="btn btn-outline"
+            onClick={() => {
+              if (window.showToast) {
+                window.showToast('Conexión de cuenta próximamente', 'info');
+              }
+            }}
+          >
+            🏦 Conectar nueva cuenta
+          </button>
+          <button 
+            className="btn btn-outline"
+            onClick={() => {
+              if (window.showToast) {
+                window.showToast('Generación de informe próximamente', 'info');
+              }
+            }}
+          >
+            📊 Generar informe
+          </button>
+          <button 
+            className="btn btn-outline"
+            onClick={() => {
+              if (window.showToast) {
+                window.showToast('Configurar alertas próximamente', 'info');
+              }
+            }}
+          >
+            ⚙️ Configurar alertas
+          </button>
         </div>
       </div>
 

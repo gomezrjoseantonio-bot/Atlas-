@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import store from '../../store/index';
 import { mockData } from '../../data/mockData';
+import Header from '../../components/Header';
 
 export default function PrestamosPage() {
   const [showAmortizeModal, setShowAmortizeModal] = useState(false);
@@ -182,33 +183,16 @@ export default function PrestamosPage() {
   const totalDebt = (loans || []).reduce((sum, loan) => sum + (loan.pendingCapital || 0), 0);
   const totalMonthlyPayment = (loans || []).reduce((sum, loan) => sum + (loan.monthlyPayment || 0), 0);
 
-  return (<>
-    <header className="header">
-      <div className="container nav">
-        <div className="logo">
-          <div className="logo-mark">
-            <div className="bar short"></div>
-            <div className="bar mid"></div>
-            <div className="bar tall"></div>
-          </div>
-          <div>ATLAS</div>
-        </div>
-        <nav className="tabs">
-          <a className="tab" href="/panel">Panel</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
-          <a className="tab active" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/documentos">Documentos</a>
-          <a className="tab" href="/proyeccion">Proyección</a>
-          <a className="tab" href="/configuracion">Configuración</a>
-        </nav>
-        <div className="actions">
-          <span>🔍</span><span>🔔</span><span>⚙️</span>
-        </div>
-      </div>
-    </header>
+  const alertCount = storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length || 0;
 
-    <main className="main">
-      <div className="container">
+  return (<>
+    <Header 
+      currentTab="inmuebles" 
+      alertCount={alertCount}
+      onDemoReset={() => store.resetDemo()}
+    />
+
+    <main className="container">
         <div className="flex items-center justify-between mb-6">
           <h1 style={{margin: 0}}>Préstamos</h1>
           <div className="flex gap-2">
@@ -407,7 +391,6 @@ export default function PrestamosPage() {
             </div>
           </div>
         )}
-      </div>
     </main>
 
     {/* Amortization Modal */}
