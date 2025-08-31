@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import store from '../../store/index';
 import { mockData } from '../../data/mockData';
 import Header from '../../components/Header';
+import { BarChart3Icon, TrendingUpIcon } from '../../components/icons';
 
 export default function AnalisisPage() {
   const [storeState, setStoreState] = useState(() => {
@@ -108,6 +109,8 @@ export default function AnalisisPage() {
       currentTab="inmuebles" 
       alertCount={alertCount}
       onDemoReset={() => store.resetDemo()}
+      showInmueblesSubTabs={true}
+      currentInmueblesTab="analisis"
     />
 
     <main className="container">
@@ -137,17 +140,12 @@ export default function AnalisisPage() {
           </div>
         </div>
 
-        {/* Sub-navigation */}
-        <div className="flex gap-4 mb-6">
-          <a href="/inmuebles" className="tab">Cartera</a>
-          <a href="/inmuebles/contratos" className="tab">Contratos</a>
-          <a href="/inmuebles/prestamos" className="tab">Préstamos</a>
-          <a href="/inmuebles/analisis" className="tab active">Análisis</a>
-        </div>
-
         {/* Portfolio Summary KPIs */}
         <div className="card mb-6">
-          <h3 style={{margin: '0 0 16px 0'}}>📊 Resumen Cartera</h3>
+          <h3 style={{margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px'}}>
+            <BarChart3Icon size={20} color="var(--accent)" />
+            Resumen Cartera
+          </h3>
           <div className="grid-4 gap-4">
             <div>
               <div className="text-sm text-gray">Valor total cartera</div>
@@ -249,7 +247,10 @@ export default function AnalisisPage() {
 
         {analysisType === 'valuation' && (
           <div className="card mb-6">
-            <h3 style={{margin: '0 0 16px 0'}}>📈 Análisis de Valoración</h3>
+            <h3 style={{margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px'}}>
+              <TrendingUpIcon size={20} color="var(--accent)" />
+              Análisis de Valoración
+            </h3>
             {portfolioAnalysis.length > 0 ? (
               <div className="table-responsive">
                 <table className="table">

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import store from '../../store/index';
 import { mockData } from '../../data/mockData';
 import Header from '../../components/Header';
+import { RefreshCwIcon, PlusIcon } from '../../components/icons';
 
 export default function PrestamosPage() {
   const [showAmortizeModal, setShowAmortizeModal] = useState(false);
@@ -190,6 +191,8 @@ export default function PrestamosPage() {
       currentTab="inmuebles" 
       alertCount={alertCount}
       onDemoReset={() => store.resetDemo()}
+      showInmueblesSubTabs={true}
+      currentInmueblesTab="prestamos"
     />
 
     <main className="container">
@@ -200,13 +203,15 @@ export default function PrestamosPage() {
               className="btn btn-secondary"
               data-action="demo:load"
             >
-              🔄 Cargar Datos Demo
+              <RefreshCwIcon size={14} style={{marginRight: '4px'}} />
+              Cargar Datos Demo
             </button>
             <button 
               className="btn btn-primary"
               onClick={() => setShowNewLoanModal(true)}
             >
-              ➕ Nuevo préstamo
+              <PlusIcon size={14} style={{marginRight: '4px'}} />
+              Nuevo préstamo
             </button>
           </div>
         </div>
@@ -365,7 +370,8 @@ export default function PrestamosPage() {
                 className="btn btn-primary"
                 onClick={() => setShowNewLoanModal(true)}
               >
-                ➕ Crear primer préstamo
+                <PlusIcon size={14} style={{marginRight: '4px'}} />
+                Crear primer préstamo
               </button>
             </div>
           )}

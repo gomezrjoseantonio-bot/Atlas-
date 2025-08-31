@@ -54,6 +54,8 @@ export default function Page() {
       currentTab="inmuebles" 
       alertCount={alertCount}
       onDemoReset={() => store.resetDemo()}
+      showInmueblesSubTabs={true}
+      currentInmueblesTab="cartera"
     />
 
     <main className="container">
@@ -95,14 +97,6 @@ export default function Page() {
             </button>
           </div>
         </div>
-      </div>
-
-      {/* Sub-navigation */}
-      <div className="flex gap-4 mb-6">
-        <a href="/inmuebles" className="tab active">Cartera</a>
-        <a href="/inmuebles/contratos" className="tab">Contratos</a>
-        <a href="/inmuebles/prestamos" className="tab">Préstamos</a>
-        <a href="/inmuebles/analisis" className="tab">Análisis</a>
       </div>
 
       {/* Portfolio KPIs */}

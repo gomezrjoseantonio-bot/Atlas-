@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import store from '../store/index';
 import { mockData } from '../data/mockData';
 import Header from '../components/Header';
+import { TargetIcon, CreditCardIcon, AlertTriangleIcon, CheckIcon, EuroIcon, ClipboardListIcon, BellIcon, RefreshCwIcon } from '../components/icons';
 
 export default function Page() {
   const [activeSubTab, setActiveSubTab] = useState('radar');
@@ -62,9 +63,9 @@ export default function Page() {
   const getHealthStatus = (health) => {
     const healthMap = {
       'excellent': { chip: 'success', text: 'Excelente', icon: '💚' },
-      'good': { chip: 'success', text: 'Bueno', icon: '✅' },
-      'warning': { chip: 'warning', text: 'Atención', icon: '⚠️' },
-      'error': { chip: 'error', text: 'Problema', icon: '🚨' }
+      'good': { chip: 'success', text: 'Bueno', icon: <CheckIcon size={16} /> },
+      'warning': { chip: 'warning', text: 'Atención', icon: <AlertTriangleIcon size={16} /> },
+      'error': { chip: 'error', text: 'Problema', icon: <AlertTriangleIcon size={16} /> }
     };
     return healthMap[health] || healthMap.good;
   };
@@ -158,9 +159,9 @@ export default function Page() {
 
   // Define sub-tabs for tesoreria
   const subTabs = [
-    { key: 'radar', icon: '🎯', label: 'Radar de cuentas' },
-    { key: 'movimientos', icon: '💳', label: 'Movimientos' },
-    { key: 'alertas', icon: '🚨', label: 'Alertas' },
+    { key: 'radar', icon: <TargetIcon size={16} />, label: 'Radar de cuentas' },
+    { key: 'movimientos', icon: <CreditCardIcon size={16} />, label: 'Movimientos' },
+    { key: 'alertas', icon: <AlertTriangleIcon size={16} />, label: 'Alertas' },
     { key: 'proyeccion', icon: '📊', label: 'Previsión' }
   ];
 
@@ -394,11 +395,11 @@ export default function Page() {
               {filteredAlerts.map(alert => {
                 const getSeverityIcon = (severity) => {
                   switch(severity) {
-                    case 'critical': return '🚨';
-                    case 'high': return '⚠️';
-                    case 'medium': return '🔔';
-                    case 'low': return 'ℹ️';
-                    default: return '📋';
+                    case 'critical': return <AlertTriangleIcon size={16} color="var(--danger)" />;
+                    case 'high': return <AlertTriangleIcon size={16} color="var(--warning)" />;
+                    case 'medium': return <BellIcon size={16} color="var(--warning)" />;
+                    case 'low': return <CheckIcon size={16} color="var(--text-2)" />;
+                    default: return <ClipboardListIcon size={16} />;
                   }
                 };
                 
@@ -453,7 +454,8 @@ export default function Page() {
                                   }
                                 }}
                               >
-                                📋 Abrir contrato
+                                <ClipboardListIcon size={14} style={{marginRight: '4px'}} />
+                                Abrir contrato
                               </button>
                             )}
                             {alert.actions && alert.actions.includes('renew_contract') && (
@@ -466,7 +468,8 @@ export default function Page() {
                                   }
                                 }}
                               >
-                                🔄 Renovar
+                                <RefreshCwIcon size={14} style={{marginRight: '4px'}} />
+                                Renovar
                               </button>
                             )}
                             {alert.actions && alert.actions.includes('mark_paid') && (
@@ -573,8 +576,8 @@ export default function Page() {
                     }}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1">
-                          <span style={{fontSize: '20px'}}>
-                            {item.type === 'income' ? '💰' : '💳'}
+                          <span>
+                            {item.type === 'income' ? <EuroIcon size={20} color="var(--success)" /> : <CreditCardIcon size={20} color="var(--accent)" />}
                           </span>
                           <div className="flex-1">
                             <div className="font-semibold">{item.description}</div>
@@ -644,7 +647,8 @@ export default function Page() {
               }
             }}
           >
-            💰 Registrar ingreso
+            <EuroIcon size={14} style={{marginRight: '4px'}} />
+            Registrar ingreso
           </button>
           <button 
             className="btn btn-outline"

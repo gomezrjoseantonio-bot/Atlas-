@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { SearchIcon, FileTextIcon, RefreshCwIcon, BellIcon, SettingsIcon } from './icons';
 
 export default function Header({ 
   currentTab = '', 
@@ -7,8 +8,19 @@ export default function Header({
   onSubTabChange = null,
   alertCount = 0,
   isInboxPage = false,
-  onDemoReset = null
+  onDemoReset = null,
+  showInmueblesSubTabs = false,
+  currentInmueblesTab = ''
 }) {
+
+  // Define inmuebles subtabs consistently for all inmuebles pages
+  const inmueblesSubTabs = [
+    { key: 'cartera', label: 'Cartera', href: '/inmuebles' },
+    { key: 'contratos', label: 'Contratos', href: '/inmuebles/contratos' },
+    { key: 'prestamos', label: 'Préstamos', href: '/inmuebles/prestamos' },
+    { key: 'gastos', label: 'Gastos', href: '/inmuebles/gastos' },
+    { key: 'analisis', label: 'Análisis', href: '/inmuebles/analisis' }
+  ];
 
   return (
     <header className="header">
@@ -35,13 +47,16 @@ export default function Header({
             style={{
               fontSize: '12px', 
               marginRight: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
               ...(isInboxPage ? {
                 background: 'var(--accent-subtle)', 
                 color: 'var(--accent)'
               } : {})
             }}
           >
-            📄 Subir documentos
+            <FileTextIcon size={12} /> Subir documentos
           </a>
           <button 
             className="btn btn-secondary btn-sm"
@@ -50,9 +65,9 @@ export default function Header({
                 onDemoReset();
               }
             }}
-            style={{marginRight: '12px'}}
+            style={{marginRight: '12px', display: 'flex', alignItems: 'center', gap: '4px'}}
           >
-            🔄 Demo
+            <RefreshCwIcon size={12} /> Demo
           </button>
           <button 
             className="btn btn-secondary btn-sm"
@@ -61,23 +76,46 @@ export default function Header({
                 window.showToast('Búsqueda próximamente disponible', 'info');
               }
             }}
-            style={{marginRight: '12px', background: 'none', border: 'none', fontSize: '18px'}}
+            style={{marginRight: '12px', background: 'none', border: 'none', padding: '4px'}}
           >
-            🔍
+            <SearchIcon size={16} />
           </button>
           <a href="/tesoreria" className="notification-badge">
-            <span>🔔</span>
+            <BellIcon size={16} />
             {alertCount > 0 && (
               <span className="badge">
                 {alertCount}
               </span>
             )}
           </a>
-          <span>⚙️</span>
+          <SettingsIcon size={16} />
         </div>
       </div>
       
-      {/* Sub-navigation if provided */}
+      {/* Inmuebles sub-navigation */}
+      {showInmueblesSubTabs && (
+        <div className="container" style={{ paddingTop: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
+          <div className="flex gap-1">
+            {inmueblesSubTabs.map((tab) => (
+              <a 
+                key={tab.key}
+                href={tab.href}
+                className={`tab ${currentInmueblesTab === tab.key ? 'active' : ''}`}
+                style={{
+                  textDecoration: 'none',
+                  color: currentInmueblesTab === tab.key ? 'var(--accent)' : 'var(--text-2)',
+                  borderBottom: currentInmueblesTab === tab.key ? '2px solid var(--accent)' : 'none',
+                  padding: '8px 16px'
+                }}
+              >
+                {tab.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* General sub-navigation if provided */}
       {subTabs && (
         <div className="container" style={{ paddingTop: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
           <div className="flex gap-1">

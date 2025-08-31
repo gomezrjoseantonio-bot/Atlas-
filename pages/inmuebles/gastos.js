@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import store from '../../store/index';
 import { mockData } from '../../data/mockData';
+import Header from '../../components/Header';
+import { FileTextIcon, AlertTriangleIcon, BarChart3Icon } from '../../components/icons';
 
 export default function GastosPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -88,58 +90,16 @@ export default function GastosPage() {
     pendiente: documents.filter(d => d.status === 'Pendiente').length
   };
 
+  const alertCount = storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length || 0;
+
   return (<>
-    <header className="header">
-      <div className="container nav">
-        <div className="logo">
-          <div className="logo-mark">
-            <div className="bar short"></div>
-            <div className="bar mid"></div>
-            <div className="bar tall"></div>
-          </div>
-          <div>ATLAS</div>
-        </div>
-        <nav className="tabs">
-          <a className="tab" href="/panel">Panel</a>
-          <a className="tab active" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
-          <a className="tab" href="/proyeccion">Proyección</a>
-          <a className="tab" href="/configuracion">Configuración</a>
-        </nav>
-        <div className="actions">
-          <a href="/inbox" className="btn btn-secondary btn-sm" style={{fontSize: '12px', marginRight: '8px'}}>
-            📄 Subir documentos
-          </a>
-          <button 
-            className="btn btn-secondary btn-sm"
-            onClick={() => store.resetDemo()}
-            style={{marginRight: '12px'}}
-          >
-            🔄 Demo
-          </button>
-          <button 
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              if (window.showToast) {
-                window.showToast('Búsqueda próximamente disponible', 'info');
-              }
-            }}
-            style={{marginRight: '12px', background: 'none', border: 'none', fontSize: '18px'}}
-          >
-            🔍
-          </button>
-          <a href="/tesoreria" className="notification-badge">
-            <span>🔔</span>
-            {storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length > 0 && (
-              <span className="badge">
-                {storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length}
-              </span>
-            )}
-          </a>
-          <span>⚙️</span>
-        </div>
-      </div>
-    </header>
+    <Header 
+      currentTab="inmuebles" 
+      alertCount={alertCount}
+      onDemoReset={() => store.resetDemo()}
+      showInmueblesSubTabs={true}
+      currentInmueblesTab="gastos"
+    />
 
     <main className="container">
       <div className="flex items-center justify-between mb-4">
@@ -147,8 +107,9 @@ export default function GastosPage() {
         <button 
           className="btn btn-primary"
           onClick={() => setShowUploadModal(true)}
+          style={{display: 'flex', alignItems: 'center', gap: '6px'}}
         >
-          📄 Subir facturas
+          <FileTextIcon size={16} /> Subir facturas
         </button>
       </div>
 
@@ -160,7 +121,7 @@ export default function GastosPage() {
       <div className="card mb-6" style={{borderColor: 'var(--warning)', background: '#FFFBEB'}}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span style={{fontSize: '20px'}}>💡</span>
+            <AlertTriangleIcon size={20} color="var(--warning)" />
             <div>
               <div className="font-medium text-sm">
                 Las mejoras (CAPEX) no se deducen completas en el año: se amortizan

@@ -152,6 +152,8 @@ export default function ContratosPage() {
     .filter(c => (c.type === 'Alquiler' || c.type === 'Alquiler Habitación' || c.tipo === 'Vivienda_completa' || c.tipo === 'Habitacion') && c.status === 'Activo')
     .reduce((sum, contract) => sum + (contract.monthlyAmount || contract.renta?.importe_base_mes || 0), 0);
 
+  const alertCount = storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length || 0;
+
   // Sub-tabs for navigation
   const subTabs = [
     { key: 'cartera', label: 'Cartera', icon: '🏠' },
@@ -184,10 +186,10 @@ export default function ContratosPage() {
   return (<>
     <Header 
       currentTab="inmuebles"
-      subTabs={subTabs}
-      activeSubTab="contratos"
-      onSubTabChange={handleSubTabChange}
-      onDemoReset={handleDemoReset}
+      alertCount={alertCount}
+      onDemoReset={() => store.resetDemo()}
+      showInmueblesSubTabs={true}
+      currentInmueblesTab="contratos"
     />
 
     <main className="main">
