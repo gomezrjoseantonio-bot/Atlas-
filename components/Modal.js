@@ -1430,7 +1430,8 @@ function DocumentAllocationForm({ document, property, documentId, onClose, showT
 }
 
 
-// H11: Enhanced Loan Creation Wizard (3 steps + 2.5 optional)
+
+// H11: Enhanced Loan Creation Wizard (3 steps)
 function CreateLoanWizard({ properties, onClose, showToast }) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -1441,44 +1442,20 @@ function CreateLoanWizard({ properties, onClose, showToast }) {
     principal_inicial: 0,
     fecha_inicio: new Date().toISOString().split('T')[0],
     plazo_meses: 240,
-    metodo: 'Frances',
-    frecuencia: 'mensual',
-    // Commissions (optional)
-    comision_apertura_pct: 0,
-    comision_apertura_eur: 0,
-    comision_prepago_pct: 0,
-    documento_adjunto: null,
-    
     // Step 2: Interest type
     tna_fijo: 3.0,
-    // Variable
     indice_label: 'Euríbor 12m',
     spread_bps: 150,
     freq_revision_meses: 12,
-    fecha_proxima_revision: '',
     indice_vigente: 3.5,
-    // Mixto
-    mixto_tramo_fijo: { meses: 24, tna_fijo: 2.5 },
-    
-    // Step 2.5: Vinculaciones (optional)
-    plantilla_banco: '',
-    vinculaciones_seleccionadas: [],
-    
-    // Step 3: Proration
-    prorrateo: { 
-      metodo: 'sqm', // sqm, units, percentage, specific, no_divide
-      distribuciones: {} 
-    },
-    
-    // Fiscal
+    // Step 3: Summary
     interes_deducible: true
   });
 
   const [calculatedData, setCalculatedData] = useState({
     cuota_inicial: 0,
     tae_orientativa: 0,
-    fecha_vencimiento: '',
-    cuadro_preview: []
+    fecha_vencimiento: ''
   });
 
   // Step navigation
@@ -1502,25 +1479,18 @@ function CreateLoanWizard({ properties, onClose, showToast }) {
     const { principal_inicial, plazo_meses, tipo, tna_fijo, spread_bps, indice_vigente } = formData;
     
     let efectiveTNA = tipo === 'fijo' ? tna_fijo : (indice_vigente + (spread_bps / 100));
-    if (tipo === 'mixto') {
-      efectiveTNA = formData.mixto_tramo_fijo.tna_fijo; // First period
-    }
     
     const monthlyRate = efectiveTNA / 100 / 12;
     const cuota_inicial = (principal_inicial * monthlyRate * Math.pow(1 + monthlyRate, plazo_meses)) / 
                          (Math.pow(1 + monthlyRate, plazo_meses) - 1);
-    
-    // Simple TAE calculation (without commissions for now)
-    const tae_orientativa = efectiveTNA;
     
     const fecha_vencimiento = new Date(formData.fecha_inicio);
     fecha_vencimiento.setMonth(fecha_vencimiento.getMonth() + plazo_meses);
     
     setCalculatedData({
       cuota_inicial: Math.round(cuota_inicial * 100) / 100,
-      tae_orientativa: Math.round(tae_orientativa * 100) / 100,
-      fecha_vencimiento: fecha_vencimiento.toISOString().split('T')[0],
-      cuadro_preview: [] // Generate first few entries if needed
+      tae_orientativa: Math.round(efectiveTNA * 100) / 100,
+      fecha_vencimiento: fecha_vencimiento.toISOString().split('T')[0]
     });
   };
 
@@ -1534,22 +1504,270 @@ function CreateLoanWizard({ properties, onClose, showToast }) {
       monthlyPayment: calculatedData.cuota_inicial,
       remainingMonths: formData.plazo_meses,
       endDate: calculatedData.fecha_vencimiento,
-      interestRate: formData.tipo === 'fijo' ? formData.tna_fijo : (formData.indice_vigente + (formData.spread_bps / 100))
+      interestRate: formData.tipo === 'fijo' ? formData.tna_fijo : (formData.indice_vigente + (formData.spread_bps / 100)),
+      interestType: formData.tipo,
+      originalAmount: formData.principal_inicial,
+      bank: formData.banco
     };
 
-    const enhancedLoan = store.addLoan(newLoan);
+    store.addLoan(newLoan);
     
-    showToast('success', "Préstamo ${formData.banco} creado correctamente");
+    showToast('success', `Préstamo ${formData.banco} creado correctamente`);
     onClose();
   };
 
   const formatCurrency = (amount) => {
     if (isNaN(amount)) return '—';
-    return "${amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €";
+    return `${amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
   };
 
   return (
     <div className="loan-wizard">
+      {/* Progress indicator */}
+      <div className="wizard-progress mb-4">
+        <div className="flex items-center justify-between">
+          <div className={`step ${step >= 1 ? 'active' : ''}`}>
+            <span className="step-number">1</span>
+            <span className="step-label">Datos base</span>
+          </div>
+          <div className={`step ${step >= 2 ? 'active' : ''}`}>
+            <span className="step-number">2</span>
+            <span className="step-label">Tipo de interés</span>
+          </div>
+          <div className={`step ${step >= 3 ? 'active' : ''}`}>
+            <span className="step-number">3</span>
+            <span className="step-label">Resumen</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Step 1: Basic Data */}
+      {step === 1 && (
+        <div className="wizard-step">
+          <h4>Paso 1: Datos base del préstamo</h4>
+          
+          <div className="grid gap-4">
+            <div className="form-group">
+              <label>Inmueble:</label>
+              <select 
+                value={formData.propertyId}
+                onChange={(e) => setFormData({...formData, propertyId: e.target.value})}
+                className="form-control"
+              >
+                <option value="">Seleccionar inmueble</option>
+                {properties.map(prop => (
+                  <option key={prop.id} value={prop.id}>{prop.address}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid-2 gap-4">
+              <div className="form-group">
+                <label>Banco:</label>
+                <select 
+                  value={formData.banco}
+                  onChange={(e) => setFormData({...formData, banco: e.target.value})}
+                  className="form-control"
+                >
+                  <option value="">Seleccionar banco</option>
+                  <option value="BBVA">BBVA</option>
+                  <option value="Santander">Santander</option>
+                  <option value="ING">ING</option>
+                  <option value="CaixaBank">CaixaBank</option>
+                  <option value="Openbank">Openbank</option>
+                  <option value="EVO Banco">EVO Banco</option>
+                  <option value="Otro">Otro</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Tipo de préstamo:</label>
+                <select 
+                  value={formData.tipo}
+                  onChange={(e) => setFormData({...formData, tipo: e.target.value})}
+                  className="form-control"
+                >
+                  <option value="fijo">Fijo</option>
+                  <option value="variable">Variable</option>
+                  <option value="mixto">Mixto</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid-3 gap-4">
+              <div className="form-group">
+                <label>Principal inicial (€):</label>
+                <input
+                  type="number"
+                  value={formData.principal_inicial}
+                  onChange={(e) => setFormData({...formData, principal_inicial: parseFloat(e.target.value) || 0})}
+                  className="form-control"
+                  min="0"
+                  step="1000"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Fecha inicio:</label>
+                <input
+                  type="date"
+                  value={formData.fecha_inicio}
+                  onChange={(e) => setFormData({...formData, fecha_inicio: e.target.value})}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Plazo (meses):</label>
+                <input
+                  type="number"
+                  value={formData.plazo_meses}
+                  onChange={(e) => setFormData({...formData, plazo_meses: parseInt(e.target.value) || 240})}
+                  className="form-control"
+                  min="12"
+                  max="480"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2: Interest Type */}
+      {step === 2 && (
+        <div className="wizard-step">
+          <h4>Paso 2: Configuración del tipo de interés</h4>
+          
+          {formData.tipo === 'fijo' && (
+            <div className="form-group">
+              <label>TNA Fijo (%):</label>
+              <input
+                type="number"
+                value={formData.tna_fijo}
+                onChange={(e) => setFormData({...formData, tna_fijo: parseFloat(e.target.value) || 0})}
+                className="form-control"
+                min="0"
+                step="0.01"
+                max="10"
+              />
+            </div>
+          )}
+
+          {formData.tipo === 'variable' && (
+            <div className="grid gap-4">
+              <div className="grid-2 gap-4">
+                <div className="form-group">
+                  <label>Índice de referencia:</label>
+                  <select 
+                    value={formData.indice_label}
+                    onChange={(e) => setFormData({...formData, indice_label: e.target.value})}
+                    className="form-control"
+                  >
+                    <option value="Euríbor 12m">Euríbor 12m</option>
+                    <option value="Euríbor 6m">Euríbor 6m</option>
+                    <option value="IRPH">IRPH</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Spread (puntos básicos):</label>
+                  <input
+                    type="number"
+                    value={formData.spread_bps}
+                    onChange={(e) => setFormData({...formData, spread_bps: parseInt(e.target.value) || 0})}
+                    className="form-control"
+                    min="0"
+                    max="500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid-2 gap-4">
+                <div className="form-group">
+                  <label>Frecuencia revisión:</label>
+                  <select 
+                    value={formData.freq_revision_meses}
+                    onChange={(e) => setFormData({...formData, freq_revision_meses: parseInt(e.target.value)})}
+                    className="form-control"
+                  >
+                    <option value="6">6 meses</option>
+                    <option value="12">12 meses</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Índice vigente actual (%):</label>
+                  <input
+                    type="number"
+                    value={formData.indice_vigente}
+                    onChange={(e) => setFormData({...formData, indice_vigente: parseFloat(e.target.value) || 0})}
+                    className="form-control"
+                    min="-1"
+                    step="0.01"
+                    max="10"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {formData.tipo === 'mixto' && (
+            <div className="grid gap-4">
+              <div className="card" style={{background: '#E3F2FD', padding: '16px'}}>
+                <h5 style={{margin: '0 0 12px 0'}}>Configuración Mixta</h5>
+                <p>Los préstamos mixtos combinan un período fijo inicial con un tramo variable posterior.</p>
+                <div className="text-sm text-gray">Funcionalidad completa disponible próximamente</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step 3: Summary */}
+      {step === 3 && (
+        <div className="wizard-step">
+          <h4>Paso 3: Resumen del préstamo</h4>
+          
+          <div className="card" style={{background: '#F0FDF4', border: '1px solid var(--success)'}}>
+            <h5 style={{margin: '0 0 16px 0', color: 'var(--success)'}}>
+              📋 Resumen del préstamo
+            </h5>
+            
+            <div className="grid-2 gap-4">
+              <div>
+                <div className="text-sm text-gray">Banco</div>
+                <div className="font-semibold">{formData.banco}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray">Tipo</div>
+                <div className="font-semibold">{formData.tipo}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray">Principal</div>
+                <div className="font-semibold">{formatCurrency(formData.principal_inicial)}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray">Plazo</div>
+                <div className="font-semibold">{formData.plazo_meses} meses</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray">Cuota mensual estimada</div>
+                <div className="font-semibold" style={{color: 'var(--warning)'}}>{formatCurrency(calculatedData.cuota_inicial)}</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray">TNA efectivo</div>
+                <div className="font-semibold">{calculatedData.tae_orientativa}%</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray">Fecha vencimiento</div>
+                <div className="font-semibold">{new Date(calculatedData.fecha_vencimiento).toLocaleDateString('es-ES')}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation buttons */}
       <div className="flex gap-2 justify-end mt-6">
         <button
           onClick={onClose}
@@ -1568,6 +1786,7 @@ function CreateLoanWizard({ properties, onClose, showToast }) {
         <button
           onClick={handleNext}
           className="btn btn-primary"
+          disabled={step === 1 && (!formData.banco || !formData.principal_inicial)}
         >
           {step === 3 ? 'Crear Préstamo' : 'Siguiente'}
         </button>
