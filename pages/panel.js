@@ -145,13 +145,15 @@ export default function Page() {
         </div>
         <nav className="tabs">
           <a className="tab active" href="/panel">Panel</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
           <a className="tab" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/documentos">Documentos</a>
+          <a className="tab" href="/tesoreria">Tesorería</a>
           <a className="tab" href="/proyeccion">Proyección</a>
           <a className="tab" href="/configuracion">Configuración</a>
         </nav>
         <div className="actions">
+          <a href="/inbox" className="btn btn-secondary btn-sm" style={{fontSize: '12px', marginRight: '8px'}}>
+            📄 Subir documentos
+          </a>
           <button 
             className="btn btn-secondary btn-sm"
             onClick={() => store.resetDemo()}
@@ -186,7 +188,7 @@ export default function Page() {
     <main className="container">
       {/* Header with PERSONAL Switch */}
       <div className="flex items-center justify-between mb-4">
-        <h2 style={{color:'var(--navy)', margin:0}}>Vista Consolidada</h2>
+        <h2 style={{color:'var(--accent)', margin:0}}>Vista Consolidada</h2>
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">PERSONAL</span>
           <label className="toggle">
@@ -201,50 +203,57 @@ export default function Page() {
       </div>
 
       {/* Hero Section with KPIs */}
-      <div className="card mb-4" style={{background: 'linear-gradient(90deg, var(--teal) 0%, var(--navy) 100%)', color: '#fff'}}>
+      <div className="card mb-4" style={{background: 'linear-gradient(90deg, var(--accent) 0%, var(--accent-hover) 100%)', color: '#fff'}}>
         <div className="grid-3 gap-4 mb-4">
           <div>
-            <div className="text-sm" style={{opacity: 0.8}}>Patrimonio Total</div>
-            <div className="font-semibold" style={{fontSize: '24px'}}>{formatCurrency(totalPatrimony)}</div>
+            <div className="text-sm" style={{opacity: 0.8}}>Cash hoy</div>
+            <div className="font-semibold" style={{fontSize: '24px'}}>{formatCurrency(totalAccountBalance)}</div>
+            <a href="/tesoreria" className="text-xs" style={{color: 'rgba(255,255,255,0.8)', textDecoration: 'underline'}}>
+              → Ir a Tesorería
+            </a>
           </div>
           <div>
-            <div className="text-sm" style={{opacity: 0.8}}>Ingresos Mes</div>
-            <div className="font-semibold" style={{fontSize: '24px'}}>{formatCurrency(totalMonthlyIncome)}</div>
+            <div className="text-sm" style={{opacity: 0.8}}>Ingresos vs Gastos (30d)</div>
+            <div className="font-semibold" style={{fontSize: '24px'}}>{formatCurrency(monthlyFlow)}</div>
+            <a href="/inmuebles" className="text-xs" style={{color: 'rgba(255,255,255,0.8)', textDecoration: 'underline'}}>
+              → Ver gastos por activo
+            </a>
           </div>
           <div>
-            <div className="text-sm" style={{opacity: 0.8}}>Gastos Mes</div>
-            <div className="font-semibold" style={{fontSize: '24px'}}>{formatCurrency(totalMonthlyExpenses)}</div>
+            <div className="text-sm" style={{opacity: 0.8}}>DSCR cartera (12m)</div>
+            <div className="font-semibold" style={{fontSize: '24px'}}>1.24</div>
+            <a href="/inmuebles" className="text-xs" style={{color: 'rgba(255,255,255,0.8)', textDecoration: 'underline'}}>
+              → Análisis
+            </a>
           </div>
         </div>
         
-        {/* Flow Bar */}
+        {/* Alertas section */}
         <div className="mb-4">
           <div className="text-sm mb-2" style={{opacity: 0.8}}>
-            {personalMode ? 'Incluye personales' : 'Excluye personales'} · Flujo del mes
+            Alertas activas
           </div>
           <div style={{
-            height: '8px',
-            background: 'rgba(255,255,255,0.2)',
-            borderRadius: '4px',
-            overflow: 'hidden'
+            padding: '8px',
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '6px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
           }}>
-            <div style={{
-              height: '100%',
-              width: '100%',
-              background: flowIsPositive ? '#10B981' : '#EF4444',
-              borderRadius: '4px',
-              position: 'relative'
-            }}>
-              <span style={{
-                position: 'absolute',
-                right: '8px',
-                top: '-20px',
+            <span style={{fontSize: '18px', fontWeight: '600'}}>
+              {activeAlerts.length}
+            </span>
+            <a 
+              href="/tesoreria" 
+              style={{
                 fontSize: '12px',
-                fontWeight: '600'
-              }}>
-                {flowIsPositive ? '+' : ''}{formatCurrency(monthlyFlow)}
-              </span>
-            </div>
+                color: 'rgba(255,255,255,0.8)',
+                textDecoration: 'underline'
+              }}
+            >
+              → Ver alertas
+            </a>
           </div>
         </div>
         
@@ -304,7 +313,7 @@ export default function Page() {
         {/* ATLAS Section */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h3 style={{margin: 0, color: 'var(--navy)'}}>ATLAS · Inmuebles</h3>
+            <h3 style={{margin: 0, color: 'var(--accent)'}}>ATLAS Horizon</h3>
             <span className="chip success">OK</span>
           </div>
           <div className="grid gap-4 mb-4">
@@ -327,8 +336,8 @@ export default function Page() {
         {/* PERSONAL Section - Always visible but conditional content */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h3 style={{margin: 0, color: personalMode ? 'var(--teal)' : 'var(--gray)'}}>
-              PERSONAL · Finanzas
+            <h3 style={{margin: 0, color: personalMode ? 'var(--accent)' : 'var(--text-2)'}}>
+              ATLAS Pulse
             </h3>
             <span className={`chip ${personalMode ? 'success' : 'disabled'}`}>
               {personalMode ? 'OK' : 'OFF'}
@@ -375,7 +384,7 @@ export default function Page() {
       {/* Pulse Chart */}
       <div className="card mb-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 style={{margin: 0, color: 'var(--navy)'}}>Pulso 90 días</h3>
+          <h3 style={{margin: 0, color: 'var(--accent)'}}>Pulso 90 días</h3>
           <span className="text-sm text-gray">Ingresos vs Egresos</span>
         </div>
         {last90Days.length > 0 ? (
@@ -407,8 +416,8 @@ export default function Page() {
       {/* Recent Movements */}
       <div className="card mb-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 style={{margin: 0, color: 'var(--navy)'}}>Movimientos recientes</h3>
-          <a href="/tesoreria" className="text-sm" style={{color: 'var(--teal)'}}>Ver todos</a>
+          <h3 style={{margin: 0, color: 'var(--accent)'}}>Movimientos recientes</h3>
+          <a href="/tesoreria" className="text-sm" style={{color: 'var(--accent)'}}>Ver todos</a>
         </div>
         {recentMovements.length > 0 ? (
           <div className="table-container">
@@ -472,7 +481,7 @@ export default function Page() {
 
       {/* Quick Actions */}
       <div className="card">
-        <h3 style={{margin: '0 0 16px 0', color: 'var(--navy)'}}>Acciones rápidas</h3>
+        <h3 style={{margin: '0 0 16px 0', color: 'var(--accent)'}}>Acciones rápidas</h3>
         <div className="grid-4 gap-2">
           <button 
             className="btn btn-outline"

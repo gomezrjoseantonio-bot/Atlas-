@@ -59,13 +59,15 @@ export default function Page() {
         </div>
         <nav className="tabs">
           <a className="tab" href="/panel">Panel</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
           <a className="tab active" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/documentos">Documentos</a>
+          <a className="tab" href="/tesoreria">Tesorería</a>
           <a className="tab" href="/proyeccion">Proyección</a>
           <a className="tab" href="/configuracion">Configuración</a>
         </nav>
         <div className="actions">
+          <a href="/inbox" className="btn btn-secondary btn-sm" style={{fontSize: '12px', marginRight: '8px'}}>
+            📄 Subir documentos
+          </a>
           <button 
             className="btn btn-secondary btn-sm"
             data-action="demo:load"

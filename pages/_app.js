@@ -14,6 +14,13 @@ export default function MyApp({ Component, pageProps }) {
   const [storeState, setStoreState] = useState(() => store.getState());
   const [showIssueReporter, setShowIssueReporter] = useState(false);
   const [qaPanelCollapsed, setQAPanelCollapsed] = useState(false);
+  const [qaMode, setQAMode] = useState(() => {
+    // Initialize QA mode from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('atlas.qa') === 'true';
+    }
+    return false;
+  });
 
   useEffect(() => {
     // Subscribe to store changes
@@ -31,6 +38,14 @@ export default function MyApp({ Component, pageProps }) {
         document.dispatchEvent(event);
       };
 
+      // Apply theme class to body
+      document.body.className = 'theme-invest';
+
+      // Add global theme utility for QA
+      window.setTheme = (theme) => {
+        document.body.className = theme === 'personal' ? 'theme-personal' : 'theme-invest';
+      };
+
       // Listen for QA panel toggle events
       const handleToggleQAPanel = () => {
         setQAPanelCollapsed(!qaPanelCollapsed);
@@ -44,6 +59,7 @@ export default function MyApp({ Component, pageProps }) {
         actionBridge.destroy();
         document.removeEventListener('atlas:toggleQAPanel', handleToggleQAPanel);
         delete window.showToast;
+        delete window.setTheme;
       };
     }
     
@@ -53,6 +69,13 @@ export default function MyApp({ Component, pageProps }) {
       actionBridge.destroy();
     };
   }, [qaPanelCollapsed]);
+
+  // Persist QA mode in localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('atlas.qa', qaMode.toString());
+    }
+  }, [qaMode]);
 
   const handleLoadSeed = (seedType) => {
     store.loadSeed(seedType);
@@ -67,7 +90,11 @@ export default function MyApp({ Component, pageProps }) {
   };
 
   const handleExitQA = () => {
-    store.toggleQAMode(); // This will turn off QA mode
+    setQAMode(false);
+    // Also turn off store QA mode if it exists
+    if (store.toggleQAMode) {
+      store.toggleQAMode();
+    }
   };
 
   const handleTogglePill = () => {
@@ -95,23 +122,38 @@ export default function MyApp({ Component, pageProps }) {
     store.executeRulesEngine();
   };
 
-  const diagnostics = storeState.qaMode ? store.generateDiagnostics() : null;
+  // QA Theme toggle
+  const handleToggleTheme = () => {
+    const currentTheme = document.body.className;
+    const newTheme = currentTheme === 'theme-invest' ? 'theme-personal' : 'theme-invest';
+    window.setTheme && window.setTheme(newTheme === 'theme-personal' ? 'personal' : 'invest');
+    window.showToast && window.showToast(`Tema cambiado a ${newTheme === 'theme-personal' ? 'Pulse (Turquesa)' : 'Horizon (Navy)'}`, 'info');
+  };
+
+  const diagnostics = (qaMode || storeState.qaMode) ? store.generateDiagnostics() : null;
 
   return (
     <>
+      {/* QA Badge - visible when QA mode is active */}
+      {qaMode && (
+        <div className="qa-badge">
+          QA
+        </div>
+      )}
+
       {/* QA Components - only visible in QA mode */}
       <QABar 
-        qaMode={storeState.qaMode}
+        qaMode={qaMode || storeState.qaMode}
         activeSeed={storeState.activeSeed}
         onCopyDiagnostics={() => store.getDiagnosticsText()}
         onExitQA={handleExitQA}
         diagnostics={diagnostics}
       />
       
-      <BrandValidator qaMode={storeState.qaMode} />
+      <BrandValidator qaMode={qaMode || storeState.qaMode} />
       
       <QAPanel 
-        qaMode={storeState.qaMode}
+        qaMode={qaMode || storeState.qaMode}
         qaEvents={storeState.qaEvents}
         activeSeed={storeState.activeSeed}
         lastSeedReset={storeState.lastSeedReset}
@@ -123,15 +165,16 @@ export default function MyApp({ Component, pageProps }) {
         onGenerateInvoicesWithoutDocs={handleGenerateInvoicesWithoutDocs}
         onSimulateLowBalance={handleSimulateLowBalance}
         onExecuteRulesEngine={handleExecuteRulesEngine}
+        onToggleTheme={handleToggleTheme}
       />
 
       <QAPill 
-        qaMode={storeState.qaMode}
+        qaMode={qaMode || storeState.qaMode}
         onTogglePanel={handleTogglePill}
       />
 
       {/* Main app content - adjust for QA bar */}
-      <div style={{ marginTop: storeState.qaMode ? '32px' : '0' }}>
+      <div style={{ marginTop: (qaMode || storeState.qaMode) ? '32px' : '0' }}>
         <Component {...pageProps} />
       </div>
 

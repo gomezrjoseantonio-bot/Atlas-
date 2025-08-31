@@ -147,13 +147,15 @@ export default function Page() {
         </div>
         <nav className="tabs">
           <a className="tab" href="/panel">Panel</a>
-          <a className="tab active" href="/tesoreria">Tesorería</a>
           <a className="tab" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/documentos">Documentos</a>
+          <a className="tab active" href="/tesoreria">Tesorería</a>
           <a className="tab" href="/proyeccion">Proyección</a>
           <a className="tab" href="/configuracion">Configuración</a>
         </nav>
         <div className="actions">
+          <a href="/inbox" className="btn btn-secondary btn-sm" style={{fontSize: '12px', marginRight: '8px'}}>
+            📄 Subir documentos
+          </a>
           <button 
             className="btn btn-secondary btn-sm"
             data-action="demo:load"
@@ -167,7 +169,7 @@ export default function Page() {
     </header>
 
     <main className="container">
-      <h2 style={{color:'var(--navy)', margin:'0 0 24px 0'}}>Tesorería</h2>
+      <h2 style={{color:'var(--accent)', margin:'0 0 24px 0'}}>Tesorería</h2>
 
       {/* Account Health Radar */}
       <div className="card mb-4">
