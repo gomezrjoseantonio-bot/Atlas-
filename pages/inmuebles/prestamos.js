@@ -6,6 +6,7 @@ export default function PrestamosPage() {
   const [showAmortizeModal, setShowAmortizeModal] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [amortizeAmount, setAmortizeAmount] = useState('');
+  const [showNewLoanModal, setShowNewLoanModal] = useState(false);
   
   const [storeState, setStoreState] = useState(() => {
     // More defensive initialization for deployment environments
@@ -219,7 +220,7 @@ export default function PrestamosPage() {
             </button>
             <button 
               className="btn btn-primary"
-              data-action="loan:create"
+              onClick={() => setShowNewLoanModal(true)}
             >
               ➕ Nuevo préstamo
             </button>
@@ -378,7 +379,7 @@ export default function PrestamosPage() {
               <p style={{margin: '0 0 24px 0'}}>Añade tu primer préstamo para comenzar a gestionar tu financiación inmobiliaria.</p>
               <button 
                 className="btn btn-primary"
-                data-action="loan:create"
+                onClick={() => setShowNewLoanModal(true)}
               >
                 ➕ Crear primer préstamo
               </button>
@@ -488,6 +489,60 @@ export default function PrestamosPage() {
               disabled={!amortizeAmount || parseFloat(amortizeAmount) <= 0}
             >
               ✅ Aplicar amortización
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* New Loan Modal */}
+    {showNewLoanModal && (
+      <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowNewLoanModal(false)}>
+        <div className="modal" style={{maxWidth: '600px'}} onMouseDown={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 style={{margin: 0}}>Crear nuevo préstamo</h3>
+            <button className="btn-close" onClick={() => setShowNewLoanModal(false)}>×</button>
+          </div>
+          
+          <div className="mb-4">
+            <p className="text-sm text-gray mb-4">
+              El asistente completo de préstamos estará disponible próximamente con cálculos del método francés, vinculaciones bancarias y análisis TAE.
+            </p>
+            
+            <div className="card p-4" style={{background: '#F8F9FA', border: '1px solid #E5E7EB'}}>
+              <div className="flex items-center gap-3 mb-3">
+                <span style={{fontSize: '24px'}}>🏦</span>
+                <div>
+                  <div className="font-semibold">Asistente de préstamos</div>
+                  <div className="text-sm text-gray">Configuración completa en 4 pasos</div>
+                </div>
+              </div>
+              <div className="text-xs text-gray">
+                • Configuración básica del préstamo<br/>
+                • Cálculo de intereses y vinculaciones<br/>
+                • Análisis de productos bancarios<br/>
+                • Cuadro de amortización método francés
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button 
+              className="btn btn-secondary"
+              onClick={() => setShowNewLoanModal(false)}
+            >
+              Cerrar
+            </button>
+            <button 
+              className="btn btn-primary"
+              onClick={() => {
+                if (window.showToast) {
+                  window.showToast('Asistente de préstamos próximamente disponible', 'info');
+                }
+                setShowNewLoanModal(false);
+              }}
+            >
+              Continuar con asistente
             </button>
           </div>
         </div>

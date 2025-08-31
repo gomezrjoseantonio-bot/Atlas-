@@ -5,6 +5,7 @@ import { mockData } from '../data/mockData';
 export default function Page() {
   const [activeSection, setActiveSection] = useState('bancos');
   const [personalToggle, setPersonalToggle] = useState(true);
+  const [showNewAccountModal, setShowNewAccountModal] = useState(false);
   const [storeState, setStoreState] = useState(() => {
     // Initialize with store state immediately
     return store.getState();
@@ -37,14 +38,42 @@ export default function Page() {
         </div>
         <nav className="tabs">
           <a className="tab" href="/panel">Panel</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
           <a className="tab" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/documentos">Documentos</a>
+          <a className="tab" href="/tesoreria">Tesorería</a>
           <a className="tab" href="/proyeccion">Proyección</a>
           <a className="tab active" href="/configuracion">Configuración</a>
         </nav>
         <div className="actions">
-          <span>🔍</span><span>🔔</span><span>⚙️</span>
+          <a href="/inbox" className="btn btn-secondary btn-sm" style={{fontSize: '12px', marginRight: '8px'}}>
+            📄 Subir documentos
+          </a>
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={() => store.resetDemo()}
+            style={{marginRight: '12px'}}
+          >
+            🔄 Demo
+          </button>
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              if (window.showToast) {
+                window.showToast('Búsqueda próximamente disponible', 'info');
+              }
+            }}
+            style={{marginRight: '12px', background: 'none', border: 'none', fontSize: '18px'}}
+          >
+            🔍
+          </button>
+          <a href="/tesoreria" className="notification-badge">
+            <span>🔔</span>
+            {storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length > 0 && (
+              <span className="badge">
+                {storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length}
+              </span>
+            )}
+          </a>
+          <span>⚙️</span>
         </div>
       </div>
     </header>
@@ -136,7 +165,12 @@ export default function Page() {
                 </tbody>
               </table>
             </div>
-            <button className="btn btn-primary mt-4">+ Conectar nueva cuenta</button>
+            <button 
+              className="btn btn-primary mt-4"
+              onClick={() => setShowNewAccountModal(true)}
+            >
+              + Conectar nueva cuenta
+            </button>
           </div>
         </div>
       )}
@@ -524,5 +558,72 @@ export default function Page() {
         </div>
       )}
     </main>
+
+    {/* New Account Modal */}
+    {showNewAccountModal && (
+      <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowNewAccountModal(false)}>
+        <div className="modal" style={{maxWidth: '600px'}} onMouseDown={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 style={{margin: 0}}>Conectar nueva cuenta bancaria</h3>
+            <button className="btn-close" onClick={() => setShowNewAccountModal(false)}>×</button>
+          </div>
+          
+          <div className="mb-4">
+            <p className="text-sm text-gray mb-4">
+              Conecta tu cuenta bancaria de forma segura para obtener saldos y movimientos en tiempo real.
+            </p>
+            
+            <div className="grid-2 gap-4">
+              <div className="card p-4 cursor-pointer hover:border-accent transition-colors" 
+                   onClick={() => {
+                     if (window.showToast) {
+                       window.showToast('Conexión bancaria con Open Banking próximamente', 'info');
+                     }
+                     setShowNewAccountModal(false);
+                   }}>
+                <div className="flex items-center gap-3 mb-3">
+                  <span style={{fontSize: '24px'}}>🏦</span>
+                  <div>
+                    <div className="font-semibold">Open Banking</div>
+                    <div className="text-sm text-gray">Conexión automática y segura</div>
+                  </div>
+                </div>
+                <div className="text-xs text-gray">
+                  Compatible con BBVA, Santander, CaixaBank, ING, y más
+                </div>
+              </div>
+              
+              <div className="card p-4 cursor-pointer hover:border-accent transition-colors"
+                   onClick={() => {
+                     if (window.showToast) {
+                       window.showToast('Registro manual próximamente disponible', 'info');
+                     }
+                     setShowNewAccountModal(false);
+                   }}>
+                <div className="flex items-center gap-3 mb-3">
+                  <span style={{fontSize: '24px'}}>✏️</span>
+                  <div>
+                    <div className="font-semibold">Registro manual</div>
+                    <div className="text-sm text-gray">Introduce los datos manualmente</div>
+                  </div>
+                </div>
+                <div className="text-xs text-gray">
+                  Para bancos no compatibles o cuentas offline
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button 
+              className="btn btn-secondary"
+              onClick={() => setShowNewAccountModal(false)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </>);
 }

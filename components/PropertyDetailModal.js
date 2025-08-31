@@ -367,8 +367,8 @@ const PropertyDetailModal = ({ property, onClose }) => {
   );
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth: '900px', maxHeight: '90vh', overflow: 'auto'}} onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{maxWidth: '900px', maxHeight: '90vh', overflow: 'auto'}} onMouseDown={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 style={{margin: 0}}>Detalle del inmueble</h2>
           <button className="btn-close" onClick={onClose}>×</button>
@@ -385,7 +385,32 @@ const PropertyDetailModal = ({ property, onClose }) => {
         {/* Subtab Content */}
         {renderSubtabContent()}
 
-        <div className="flex justify-end mt-6">
+        <div className="flex justify-between mt-6">
+          <div className="flex gap-2">
+            <button 
+              className="btn btn-secondary"
+              onClick={() => {
+                if (window.showToast) {
+                  window.showToast('Edición de inmuebles próximamente disponible', 'info');
+                }
+              }}
+            >
+              ✏️ Editar
+            </button>
+            <button 
+              className="btn btn-secondary"
+              style={{color: 'var(--danger)'}}
+              onClick={() => {
+                if (window.confirm(`¿Estás seguro de que quieres eliminar "${property.address}"?`)) {
+                  if (window.showToast) {
+                    window.showToast('Eliminación de inmuebles próximamente disponible', 'info');
+                  }
+                }
+              }}
+            >
+              🗑️ Eliminar
+            </button>
+          </div>
           <button className="btn btn-secondary" onClick={onClose}>
             Cerrar
           </button>
@@ -394,8 +419,8 @@ const PropertyDetailModal = ({ property, onClose }) => {
 
       {/* Edit Costs Modal */}
       {showEditCostsModal && (
-        <div className="modal-overlay" onClick={() => setShowEditCostsModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowEditCostsModal(false)}>
+          <div className="modal" onMouseDown={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 style={{margin: 0}}>Editar costes de adquisición</h3>
               <button className="btn-close" onClick={() => setShowEditCostsModal(false)}>×</button>

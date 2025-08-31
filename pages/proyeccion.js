@@ -166,7 +166,33 @@ export default function Page() {
           <a href="/inbox" className="btn btn-secondary btn-sm" style={{fontSize: '12px', marginRight: '8px'}}>
             📄 Subir documentos
           </a>
-          <span>🔍</span><span>🔔</span><span>⚙️</span>
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={() => store.resetDemo()}
+            style={{marginRight: '12px'}}
+          >
+            🔄 Demo
+          </button>
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              if (window.showToast) {
+                window.showToast('Búsqueda próximamente disponible', 'info');
+              }
+            }}
+            style={{marginRight: '12px', background: 'none', border: 'none', fontSize: '18px'}}
+          >
+            🔍
+          </button>
+          <a href="/tesoreria" className="notification-badge">
+            <span>🔔</span>
+            {storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length > 0 && (
+              <span className="badge">
+                {storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length}
+              </span>
+            )}
+          </a>
+          <span>⚙️</span>
         </div>
       </div>
     </header>
