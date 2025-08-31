@@ -4,6 +4,7 @@ import { mockData } from '../data/mockData';
 import Header from '../components/Header';
 
 export default function Page() {
+  const [activeSubTab, setActiveSubTab] = useState('radar');
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedMovement, setSelectedMovement] = useState(null);
@@ -137,9 +138,24 @@ export default function Page() {
 
   const alertCount = alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length || 0;
 
+  // Define sub-tabs for tesoreria
+  const subTabs = [
+    { key: 'radar', icon: '🎯', label: 'Radar de cuentas' },
+    { key: 'movimientos', icon: '💳', label: 'Movimientos' },
+    { key: 'alertas', icon: '🚨', label: 'Alertas' },
+    { key: 'proyeccion', icon: '📊', label: 'Proyección' }
+  ];
+
+  // Calculate totals for header query
+  const monthlyIncome = 8450.00; // This could come from calculations
+  const monthlyExpenses = 3240.50; // This could come from calculations
+
   return (<>
     <Header 
       currentTab="tesoreria" 
+      subTabs={subTabs}
+      activeSubTab={activeSubTab}
+      onSubTabChange={setActiveSubTab}
       alertCount={alertCount}
       onDemoReset={() => store.resetDemo()}
     />
@@ -147,564 +163,480 @@ export default function Page() {
     <main className="container">
       <h2 style={{color:'var(--accent)', margin:'0 0 24px 0'}}>Tesorería</h2>
 
-      {/* Account Health Radar */}
-      <div className="card mb-4">
-        <h3 style={{margin: '0 0 16px 0'}}>Radar de Cuentas</h3>
-        <div className="grid gap-4">
-          {accounts.map(account => {
-            const status = getHealthStatus(account.health);
-            const variationT7 = getBalanceVariation(account.balanceToday, account.balanceT7);
-            const variationT30 = getBalanceVariation(account.balanceToday, account.balanceT30);
-            const progressPercentage = getProgressPercentage(account.balanceToday, account.targetBalance);
-            
-            return (
-              <div key={account.id} className="card" style={{background: '#F9FAFB'}}>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <div className="font-semibold">{account.name}</div>
-                    <div className="text-sm text-gray">{account.bank} · {account.iban}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span style={{fontSize: '18px'}}>{status.icon}</span>
-                    <span className={`chip ${status.chip}`}>{status.text}</span>
-                  </div>
-                </div>
-                
-                <div className="grid-3 gap-4 mb-4">
-                  <div>
-                    <div className="text-sm text-gray">Saldo Hoy</div>
-                    <div className="font-semibold" style={{fontSize: '18px'}}>
-                      {formatCurrency(account.balanceToday)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray">T-7</div>
-                    <div className="font-semibold" style={{fontSize: '16px', color: variationT7.isPositive ? 'var(--success)' : 'var(--error)'}}>
-                      {variationT7.isPositive ? '+' : '-'}{variationT7.percentage}%
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray">T-30</div>
-                    <div className="font-semibold" style={{fontSize: '16px', color: variationT30.isPositive ? 'var(--success)' : 'var(--error)'}}>
-                      {variationT30.isPositive ? '+' : '-'}{variationT30.percentage}%
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray">Objetivo: {formatCurrency(account.targetBalance)}</span>
-                    <span className="text-sm font-medium">{progressPercentage.toFixed(0)}%</span>
-                    {hasPartialData && (
-                      <span className="text-xs text-gray" title="Saldo parcial - datos no disponibles para todas las cuentas">⚠️</span>
-                    )}
-                  </div>
-                  <div className="progress-bar">
-                    <div 
-                      className="progress-fill" 
-                      style={{width: `${progressPercentage}%`}}
-                    ></div>
-                  </div>
-                </div>
-
-                <button 
-                  className="btn btn-primary btn-sm"
-                  data-action="treasury:transfer"
-                  data-extra={JSON.stringify({accountId: account.id})}
-                >
-                  Mover dinero
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Movements Inbox */}
-      <div className="card mb-4">
-        <h3 style={{margin: '0 0 16px 0'}}>Movimientos (Inbox)</h3>
-        <div className="table-responsive">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Descripción</th>
-                <th style={{textAlign: 'right'}}>Importe</th>
-                <th>Categoría</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {movements.slice(0, 10).map(movement => (
-                <tr key={movement.id}>
-                  <td>{movement.date}</td>
-                  <td>
-                    <div>{movement.description}</div>
-                    {movement.propertyId && (
-                      <div className="text-sm text-gray">
-                        {mockData.properties.find(p => p.id === movement.propertyId)?.address}
-                      </div>
-                    )}
-                  </td>
-                  <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
-                    <span style={{color: movement.amount > 0 ? 'var(--success)' : 'var(--error)'}}>
-                      €{Math.abs(movement.amount).toLocaleString('es-ES', {minimumFractionDigits: 2})}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="chip">{movement.category}</span>
-                  </td>
-                  <td>
-                    <button 
-                      className={`chip ${getStatusChipClass(movement.status)}`}
-                      data-action="movement:toggle-status"
-                      data-id={movement.id}
-                      style={{
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: '4px 8px'
-                      }}
-                    >
-                      {movement.status}
-                    </button>
-                  </td>
-                  <td>
-                    {!movement.hasDocument && (
-                      <button 
-                        className="btn btn-secondary btn-sm"
-                        data-action="movement:assign-document"
-                        data-id={movement.id}
-                      >
-                        Asignar documento
-                      </button>
-                    )}
-                    {movement.hasDocument && (
-                      <span className="text-sm text-gray">✓ Documentado</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* HITO 6: Alert Center */}
-      <div className="card mb-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 style={{margin: '0'}}>Centro de Alertas</h3>
-          <div className="flex items-center gap-2">
-            <select 
-              className="form-control" 
-              style={{minWidth: '150px'}}
-              value={alertFilter}
-              onChange={(e) => setAlertFilter(e.target.value)}
-            >
-              <option value="all">Todas</option>
-              <option value="critical">Críticas</option>
-              <option value="low_balance">Saldo bajo</option>
-              <option value="review">Revisión requerida</option>
-              <option value="next_7_days">Próximos 7 días</option>
-            </select>
-            <button 
-              className="btn btn-primary btn-sm"
-              onClick={() => store.runRulesEngine()}
-            >
-              ⚙️ Aplicar reglas ahora
-            </button>
+      {/* Query Summary - Above radar de cuentas */}
+      <div className="card mb-4" style={{background: 'linear-gradient(135deg, var(--accent-subtle), #ffffff)'}}>
+        <div className="grid-3 gap-4">
+          <div className="text-center">
+            <div className="text-sm text-gray">Saldo Total</div>
+            <div className="font-semibold" style={{fontSize: '24px', color: 'var(--accent)'}}>
+              {formatCurrency(totalBalance)}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-sm text-gray">Ingresos (30d)</div>
+            <div className="font-semibold" style={{fontSize: '24px', color: 'var(--success)'}}>
+              {formatCurrency(monthlyIncome)}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-sm text-gray">Gastos (30d)</div>
+            <div className="font-semibold" style={{fontSize: '24px', color: 'var(--error)'}}>
+              {formatCurrency(monthlyExpenses)}
+            </div>
           </div>
         </div>
-        
-        {filteredAlerts && filteredAlerts.length > 0 ? (
-          <div className="grid gap-3">
-            {filteredAlerts.map(alert => {
-              const getSeverityIcon = (severity) => {
-                switch(severity) {
-                  case 'critical': return '🚨';
-                  case 'high': return '⚠️';
-                  case 'medium': return '🔔';
-                  case 'low': return 'ℹ️';
-                  default: return '📋';
-                }
-              };
-              
-              const getSeverityChip = (severity) => {
-                switch(severity) {
-                  case 'critical': return 'error';
-                  case 'high': return 'warning';
-                  case 'medium': return 'warning';
-                  case 'low': return 'success';
-                  default: return 'secondary';
-                }
-              };
+      </div>
+
+      {/* Radar de Cuentas Tab */}
+      {activeSubTab === 'radar' && (
+        <div className="card mb-4">
+          <h3 style={{margin: '0 0 16px 0'}}>Radar de Cuentas</h3>
+          <div className="grid gap-4">
+            {accounts.map(account => {
+              const status = getHealthStatus(account.health);
+              const variationT7 = getBalanceVariation(account.balanceToday, account.balanceT7);
+              const variationT30 = getBalanceVariation(account.balanceToday, account.balanceT30);
+              const progressPercentage = getProgressPercentage(account.balanceToday, account.targetBalance);
               
               return (
-                <div key={alert.id} className="card" style={{background: '#F9FAFB', border: alert.severity === 'critical' ? '2px solid var(--error)' : '1px solid #E5E7EB'}}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3 flex-1">
-                      <span style={{fontSize: '20px'}}>{getSeverityIcon(alert.severity)}</span>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold">{alert.title}</span>
-                          <span className={`chip ${getSeverityChip(alert.severity)}`}>
-                            {alert.severity}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray mb-3">{alert.description}</div>
-                        <div className="flex items-center gap-2">
-                          {alert.actions && alert.actions.includes('move_money') && (
-                            <button 
-                              className="btn btn-primary btn-sm"
-                              data-action="treasury:transfer"
-                              data-extra={JSON.stringify({
-                                fromAccountId: alert.fromAccountId,
-                                toAccountId: alert.accountId,
-                                amount: alert.suggestedAmount
-                              })}
-                            >
-                              Mover ahora
-                            </button>
-                          )}
-                          {alert.actions && alert.actions.includes('prepare_funds') && (
-                            <button className="btn btn-secondary btn-sm">
-                              Preparar fondos
-                            </button>
-                          )}
-                          {alert.actions && alert.actions.includes('open_contract') && (
-                            <button className="btn btn-secondary btn-sm">
-                              Abrir contrato
-                            </button>
-                          )}
-                          <button 
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => store.updateAlert(alert.id, { dismissed: true })}
-                          >
-                            Descartar
-                          </button>
-                          <button 
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => {
-                              const postponedUntil = new Date();
-                              postponedUntil.setDate(postponedUntil.getDate() + 7);
-                              store.updateAlert(alert.id, { 
-                                postponedUntil: postponedUntil.toISOString() 
-                              });
-                            }}
-                          >
-                            Posponer 7 días
-                          </button>
-                        </div>
+                <div key={account.id} className="card" style={{background: '#F9FAFB'}}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="font-semibold">{account.name}</div>
+                      <div className="text-sm text-gray">{account.bank} · {account.iban}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span style={{fontSize: '18px'}}>{status.icon}</span>
+                      <span className={`chip ${status.chip}`}>{status.text}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="grid-3 gap-4 mb-4">
+                    <div>
+                      <div className="text-sm text-gray">Saldo Hoy</div>
+                      <div className="font-semibold" style={{fontSize: '18px'}}>
+                        {formatCurrency(account.balanceToday)}
                       </div>
                     </div>
+                    <div>
+                      <div className="text-sm text-gray">T-7</div>
+                      <div className="font-semibold" style={{fontSize: '16px', color: variationT7.isPositive ? 'var(--success)' : 'var(--error)'}}>
+                        {variationT7.isPositive ? '+' : '-'}{variationT7.percentage}%
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray">T-30</div>
+                      <div className="font-semibold" style={{fontSize: '16px', color: variationT30.isPositive ? 'var(--success)' : 'var(--error)'}}>
+                        {variationT30.isPositive ? '+' : '-'}{variationT30.percentage}%
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray">Objetivo: {formatCurrency(account.targetBalance)}</span>
+                      <span className="text-sm font-medium">{progressPercentage.toFixed(0)}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill" 
+                        style={{
+                          width: `${progressPercentage}%`,
+                          background: `linear-gradient(90deg, var(--error), var(--warning), var(--success))`
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div style={{marginTop: '12px'}}>
+                    <button 
+                      className="btn btn-primary btn-sm"
+                      onClick={() => {
+                        setSelectedAccount(account);
+                        setShowTransferModal(true);
+                      }}
+                    >
+                      Realizar traspaso
+                    </button>
                   </div>
                 </div>
               );
             })}
           </div>
-        ) : (
-          <div className="text-center text-gray py-4">
-            ✅ No hay alertas pendientes
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Enhanced Rules & Sweeps */}
-      <div className="card mb-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 style={{margin: '0'}}>Reglas & Sweeps</h3>
-          <a href="/tesoreria/reglas" className="btn btn-secondary btn-sm">
-            ⚙️ Configurar reglas
-          </a>
-        </div>
-        
-        {/* Provider Rules Summary */}
-        <div className="mb-4">
-          <h4 style={{margin: '0 0 12px 0', fontSize: '16px'}}>Reglas por Proveedor</h4>
-          <div className="grid gap-2">
-            {storeState.providerRules && storeState.providerRules.filter(r => r.active).slice(0, 3).map(rule => (
-              <div key={rule.id} className="flex items-center justify-between p-2" style={{background: '#F9FAFB', borderRadius: '4px'}}>
-                <span className="text-sm">
-                  Si proveedor contiene "<strong>{rule.providerContains}</strong>" → <span className="chip">{rule.category}</span>
-                </span>
-                <span className="chip success">Activa</span>
-              </div>
-            ))}
-            {(!storeState.providerRules || storeState.providerRules.filter(r => r.active).length === 0) && (
-              <div className="text-sm text-gray">No hay reglas activas configuradas</div>
-            )}
-          </div>
-        </div>
-        
-        {/* Treasury Rules */}
-        <div className="table-responsive">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Condición</th>
-                <th>Acción</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {treasuryRules.map(rule => (
-                <tr key={rule.id}>
-                  <td className="font-semibold">{rule.name}</td>
-                  <td>{rule.condition}</td>
-                  <td>
-                    <div>{rule.action}</div>
-                    <div className="text-sm text-gray">
-                      {rule.targetAccount} · €{rule.amount.toLocaleString('es-ES')}
-                    </div>
-                  </td>
-                  <td>
-                    <label className="toggle">
-                      <input 
-                        type="checkbox" 
-                        checked={rule.active}
-                        data-action="treasury:toggle-rule"
-                        data-id={rule.id}
-                      />
-                      <span className="slider"></span>
-                    </label>
-                  </td>
-                  <td>
-                    <button 
-                      className="btn btn-secondary btn-sm"
-                      data-action="treasury:edit-rule"
-                      data-id={rule.id}
-                    >
-                      Editar
-                    </button>
-                  </td>
+      {/* Movimientos Tab */}
+      {activeSubTab === 'movimientos' && (
+        <div className="card mb-4">
+          <h3 style={{margin: '0 0 16px 0'}}>Movimientos (Inbox)</h3>
+          <div className="table-responsive">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Descripción</th>
+                  <th style={{textAlign: 'right'}}>Importe</th>
+                  <th>Categoría</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Enhanced Alerts Calendar - Predicted Items */}
-      <div className="card mb-4">
-        <h3 style={{margin: '0 0 16px 0'}}>Cargos e Ingresos Previstos</h3>
-        <div className="grid gap-3">
-          {/* Show predicted items from next 90 days */}
-          {storeState.predictedItems && storeState.predictedItems
-            .filter(item => {
-              const dueDate = new Date(item.dueDate);
-              const now = new Date();
-              const diffDays = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
-              return diffDays >= 0 && diffDays <= 90;
-            })
-            .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-            .slice(0, 10)
-            .map(item => {
-              const dueDate = new Date(item.dueDate);
-              const now = new Date();
-              const daysLeft = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
-              const badge = getDaysLeftBadge(daysLeft);
-              const property = mockData.properties.find(p => p.id === item.propertyId);
-              
-              return (
-                <div key={item.id} className="card" style={{
-                  background: '#F9FAFB',
-                  borderLeft: `4px solid ${item.type === 'income' ? 'var(--success)' : 'var(--warning)'}`
-                }}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <span style={{fontSize: '20px'}}>
-                        {item.type === 'income' ? '💰' : '💳'}
+              </thead>
+              <tbody>
+                {movements.slice(0, 10).map(movement => (
+                  <tr key={movement.id}>
+                    <td>{movement.date}</td>
+                    <td>
+                      <div>{movement.description}</div>
+                      {movement.propertyId && (
+                        <div className="text-sm text-gray">
+                          {mockData.properties.find(p => p.id === movement.propertyId)?.address}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
+                      <span style={{color: movement.amount > 0 ? 'var(--success)' : 'var(--error)'}}>
+                        €{Math.abs(movement.amount).toLocaleString('es-ES', {minimumFractionDigits: 2})}
                       </span>
-                      <div className="flex-1">
-                        <div className="font-semibold">{item.description}</div>
-                        {property && (
-                          <div className="text-sm text-gray">{property.address}</div>
-                        )}
-                        <div className="text-sm text-gray">Vencimiento: {item.dueDate}</div>
-                        <div className="text-xs text-gray">
-                          {item.recurringType} · {item.source}
+                    </td>
+                    <td>
+                      <span className="chip">{movement.category}</span>
+                    </td>
+                    <td>
+                      <button 
+                        className={`chip ${getStatusChipClass(movement.status)}`}
+                        onClick={() => {
+                          // Toggle status functionality
+                          const newStatus = movement.status === 'Pendiente' ? 'Regla aplicada' : 'Pendiente';
+                          console.log(`Toggling status for movement ${movement.id} to ${newStatus}`);
+                        }}
+                        style={{
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '4px 8px'
+                        }}
+                      >
+                        {movement.status}
+                      </button>
+                    </td>
+                    <td>
+                      {!movement.hasDocument && (
+                        <button 
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => {
+                            setSelectedMovement(movement);
+                            setShowDocumentModal(true);
+                          }}
+                        >
+                          Asignar documento
+                        </button>
+                      )}
+                      {movement.hasDocument && (
+                        <span className="text-sm text-gray">✓ Documentado</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Alertas Tab */}
+      {activeSubTab === 'alertas' && (
+        <div className="card mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 style={{margin: '0'}}>Centro de Alertas</h3>
+            <div className="flex items-center gap-2">
+              <select 
+                className="form-control" 
+                style={{minWidth: '150px'}}
+                value={alertFilter}
+                onChange={(e) => setAlertFilter(e.target.value)}
+              >
+                <option value="all">Todas</option>
+                <option value="critical">Críticas</option>
+                <option value="low_balance">Saldo bajo</option>
+                <option value="review">Revisión requerida</option>
+                <option value="next_7_days">Próximos 7 días</option>
+              </select>
+              <button 
+                className="btn btn-primary btn-sm"
+                onClick={() => store.runRulesEngine()}
+              >
+                ⚙️ Aplicar reglas ahora
+              </button>
+            </div>
+          </div>
+          
+          {filteredAlerts && filteredAlerts.length > 0 ? (
+            <div className="grid gap-3">
+              {filteredAlerts.map(alert => {
+                const getSeverityIcon = (severity) => {
+                  switch(severity) {
+                    case 'critical': return '🚨';
+                    case 'high': return '⚠️';
+                    case 'medium': return '🔔';
+                    case 'low': return 'ℹ️';
+                    default: return '📋';
+                  }
+                };
+                
+                const getSeverityChip = (severity) => {
+                  switch(severity) {
+                    case 'critical': return 'error';
+                    case 'high': return 'warning';
+                    case 'medium': return 'warning';
+                    case 'low': return 'success';
+                    default: return 'secondary';
+                  }
+                };
+                
+                return (
+                  <div key={alert.id} className="card" style={{background: '#F9FAFB', border: alert.severity === 'critical' ? '2px solid var(--error)' : '1px solid #E5E7EB'}}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3 flex-1">
+                        <span style={{fontSize: '20px'}}>{getSeverityIcon(alert.severity)}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold">{alert.title}</span>
+                            <span className={`chip ${getSeverityChip(alert.severity)}`}>
+                              {alert.severity}
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray mb-3">{alert.description}</div>
+                          <div className="flex items-center gap-2">
+                            {alert.actions && alert.actions.includes('move_money') && (
+                              <button 
+                                className="btn btn-primary btn-sm"
+                                onClick={() => {
+                                  // Handle move money action
+                                  console.log('Move money action for alert:', alert.id);
+                                }}
+                              >
+                                Mover ahora
+                              </button>
+                            )}
+                            {alert.actions && alert.actions.includes('prepare_funds') && (
+                              <button className="btn btn-secondary btn-sm">
+                                Preparar fondos
+                              </button>
+                            )}
+                            {alert.actions && alert.actions.includes('open_contract') && (
+                              <button className="btn btn-secondary btn-sm">
+                                Abrir contrato
+                              </button>
+                            )}
+                            <button 
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => store.updateAlert(alert.id, { dismissed: true })}
+                            >
+                              Descartar
+                            </button>
+                            <button 
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => {
+                                const postponedUntil = new Date();
+                                postponedUntil.setDate(postponedUntil.getDate() + 7);
+                                store.updateAlert(alert.id, { 
+                                  postponedUntil: postponedUntil.toISOString() 
+                                });
+                              }}
+                            >
+                              Posponer 7 días
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold" style={{
-                        fontSize: '16px',
-                        color: item.type === 'income' ? 'var(--success)' : 'var(--error)'
-                      }}>
-                        {item.type === 'income' ? '+' : ''}€{item.amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center text-gray py-4">
+              ✅ No hay alertas pendientes
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Proyección Tab */}
+      {activeSubTab === 'proyeccion' && (
+        <div className="space-y-4">
+          {/* Enhanced Alerts Calendar - Predicted Items */}
+          <div className="card mb-4">
+            <h3 style={{margin: '0 0 16px 0'}}>Cargos e Ingresos Previstos</h3>
+            <div className="grid gap-3">
+              {/* Show predicted items from next 90 days */}
+              {storeState.predictedItems && storeState.predictedItems
+                .filter(item => {
+                  const dueDate = new Date(item.dueDate);
+                  const now = new Date();
+                  const diffDays = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+                  return diffDays >= 0 && diffDays <= 90;
+                })
+                .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+                .slice(0, 10)
+                .map(item => {
+                  const dueDate = new Date(item.dueDate);
+                  const now = new Date();
+                  const daysLeft = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
+                  const badge = getDaysLeftBadge(daysLeft);
+                  const property = mockData.properties.find(p => p.id === item.propertyId);
+                  
+                  return (
+                    <div key={item.id} className="card" style={{
+                      background: '#F9FAFB',
+                      borderLeft: `4px solid ${item.type === 'income' ? 'var(--success)' : 'var(--warning)'}`
+                    }}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          <span style={{fontSize: '20px'}}>
+                            {item.type === 'income' ? '💰' : '💳'}
+                          </span>
+                          <div className="flex-1">
+                            <div className="font-semibold">{item.description}</div>
+                            {property && (
+                              <div className="text-sm text-gray">{property.address}</div>
+                            )}
+                            <div className="text-sm text-gray">Vencimiento: {item.dueDate}</div>
+                            <div className="text-xs text-gray">
+                              {item.recurringType} · {item.source}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold" style={{
+                            fontSize: '16px',
+                            color: item.type === 'income' ? 'var(--success)' : 'var(--error)'
+                          }}>
+                            {item.type === 'income' ? '+' : ''}€{item.amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}
+                          </div>
+                          <span className={`chip ${badge.class}`}>{badge.text}</span>
+                        </div>
                       </div>
-                      <span className={`chip ${badge.class}`}>{badge.text}</span>
+                    </div>
+                  );
+                })
+              }
+              
+              {/* Legacy scheduled payments */}
+              {scheduledPayments.map(payment => {
+                const badge = getDaysLeftBadge(payment.daysLeft);
+                const property = mockData.properties.find(p => p.id === payment.propertyId);
+                
+                return (
+                  <div key={`legacy_${payment.id}`} className="card" style={{background: '#F9FAFB'}}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="font-semibold">{payment.description}</div>
+                        {property && (
+                          <div className="text-sm text-gray">{property.address}</div>
+                        )}
+                        <div className="text-sm text-gray">Vencimiento: {payment.dueDate}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold" style={{fontSize: '16px'}}>
+                          €{payment.amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}
+                        </div>
+                        <span className={`chip ${badge.class}`}>{badge.text}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })
-          }
-          
-          {/* Legacy scheduled payments */}
-          {scheduledPayments.map(payment => {
-            const badge = getDaysLeftBadge(payment.daysLeft);
-            const property = mockData.properties.find(p => p.id === payment.propertyId);
-            
-            return (
-              <div key={`legacy_${payment.id}`} className="card" style={{background: '#F9FAFB'}}>
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="font-semibold">{payment.description}</div>
-                    {property && (
-                      <div className="text-sm text-gray">{property.address}</div>
-                    )}
-                    <div className="text-sm text-gray">Vencimiento: {payment.dueDate}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold" style={{fontSize: '16px'}}>
-                      €{payment.amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}
-                    </div>
-                    <span className={`chip ${badge.class}`}>{badge.text}</span>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Balance Summary */}
+          <div className="grid mb-4">
+            <div className="card">
+              <h3 style={{margin: '0 0 16px 0'}}>Resumen de Saldos</h3>
+              <div className="grid-3 gap-4">
+                <div>
+                  <div className="text-sm text-gray">Saldo Total</div>
+                  <div className="font-semibold" style={{fontSize: '20px', color: 'var(--accent)'}}>
+                    €{accounts.reduce((sum, acc) => sum + acc.balance, 0).toLocaleString('es-ES', {minimumFractionDigits: 2})}
                   </div>
                 </div>
+                <div>
+                  <div className="text-sm text-gray">Ingresos del Mes</div>
+                  <div className="font-semibold" style={{fontSize: '20px', color: 'var(--success)'}}>
+                    €8.450,00
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray">Gastos del Mes</div>
+                  <div className="font-semibold" style={{fontSize: '20px', color: 'var(--error)'}}>
+                    €3.240,50
+                  </div>
+                </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
+            </div>
 
-      {/* Balance Summary */}
-      <div className="grid mb-4">
-        <div className="card">
-          <h3 style={{margin: '0 0 16px 0'}}>Resumen de Saldos</h3>
-          <div className="grid-3 gap-4">
-            <div>
-              <div className="text-sm text-gray">Saldo Total</div>
-              <div className="font-semibold" style={{fontSize: '20px', color: 'var(--navy)'}}>
-                €{accounts.reduce((sum, acc) => sum + acc.balance, 0).toLocaleString('es-ES', {minimumFractionDigits: 2})}
+            <div className="card">
+              <h3 style={{margin: '0 0 16px 0'}}>Flujo de Caja</h3>
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm">Enero 2024</span>
+                  <span className="font-semibold text-success">+€5.209,50</span>
+                </div>
+                <div className="bg-gray-200" style={{height: '8px', borderRadius: '4px', background: '#E5E7EB'}}>
+                  <div 
+                    style={{
+                      width: '72%', 
+                      height: '100%', 
+                      background: 'linear-gradient(90deg, var(--error), var(--warning), var(--success))', 
+                      borderRadius: '4px'
+                    }}
+                  ></div>
+                </div>
               </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray">Ingresos del Mes</div>
-              <div className="font-semibold" style={{fontSize: '20px', color: 'var(--success)'}}>
-                €8.450,00
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray">Gastos del Mes</div>
-              <div className="font-semibold" style={{fontSize: '20px', color: 'var(--error)'}}>
-                €3.240,50
+              <div className="text-sm text-gray">
+                Flujo positivo respecto al mes anterior (+15.2%)
               </div>
             </div>
           </div>
         </div>
+      )}
 
-        <div className="card">
-          <h3 style={{margin: '0 0 16px 0'}}>Flujo de Caja</h3>
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm">Enero 2024</span>
-              <span className="font-semibold text-success">+€5.209,50</span>
-            </div>
-            <div className="bg-gray-200" style={{height: '8px', borderRadius: '4px', background: '#E5E7EB'}}>
-              <div 
-                style={{
-                  width: '72%', 
-                  height: '100%', 
-                  background: 'linear-gradient(90deg, var(--teal), var(--success))', 
-                  borderRadius: '4px'
-                }}
-              ></div>
-            </div>
-          </div>
-          <div className="text-sm text-gray">
-            Flujo positivo respecto al mes anterior (+15.2%)
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Movements */}
-      <div className="card mb-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 style={{margin: 0}}>Movimientos Recientes</h3>
-          <button 
-            className="btn btn-secondary btn-sm"
-            data-action="movements:view-all"
-          >
-            Ver todos
-          </button>
-        </div>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Descripción</th>
-              <th>Cuenta</th>
-              <th className="text-right">Importe</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>15/01/2024</td>
-              <td>Transferencia alquiler C/ Mayor 12</td>
-              <td>BBVA Principal</td>
-              <td className="text-right font-medium" style={{color: 'var(--success)'}}>+€850,00</td>
-              <td><span className="chip success">Procesado</span></td>
-            </tr>
-            <tr>
-              <td>14/01/2024</td>
-              <td>Pago Iberdrola</td>
-              <td>ING Gastos</td>
-              <td className="text-right font-medium" style={{color: 'var(--error)'}}>-€145,67</td>
-              <td><span className="chip success">Procesado</span></td>
-            </tr>
-            <tr>
-              <td>12/01/2024</td>
-              <td>Reparación fontanería</td>
-              <td>ING Gastos</td>
-              <td className="text-right font-medium" style={{color: 'var(--error)'}}>-€89,50</td>
-              <td><span className="chip warning">Pendiente doc.</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Quick Actions */}
+      {/* Quick Actions - Show on all tabs */}
       <div className="grid gap-4">
         <div className="card">
           <h3 style={{margin: '0 0 16px 0'}}>Acciones Rápidas</h3>
           <div className="grid gap-2">
             <button 
               className="btn btn-primary"
-              data-action="treasury:register-income"
+              onClick={() => {
+                if (window.showToast) {
+                  window.showToast('Registro de ingreso próximamente', 'info');
+                }
+              }}
             >
               💰 Registrar ingreso
             </button>
             <button 
               className="btn btn-secondary"
-              data-action="treasury:connect-account"
+              onClick={() => {
+                if (window.showToast) {
+                  window.showToast('Conexión de cuenta próximamente', 'info');
+                }
+              }}
             >
               🏦 Conectar nueva cuenta
             </button>
             <button 
               className="btn btn-secondary"
-              data-action="treasury:generate-report"
+              onClick={() => {
+                if (window.showToast) {
+                  window.showToast('Generación de informe próximamente', 'info');
+                }
+              }}
             >
               📊 Generar informe
             </button>
-          </div>
-        </div>
-
-        <div className="card">
-          <h3 style={{margin: '0 0 16px 0'}}>Alertas</h3>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 p-2" style={{background: '#FEF3C7', borderRadius: '6px'}}>
-              <span>⚠️</span>
-              <span className="text-sm">Cuenta ING con saldo bajo (€3.240)</span>
-            </div>
-            <div className="flex items-center gap-2 p-2" style={{background: '#EFF6FF', borderRadius: '6px'}}>
-              <span>ℹ️</span>
-              <span className="text-sm">Próximo pago comunidad: 25/01/2024</span>
-            </div>
           </div>
         </div>
       </div>

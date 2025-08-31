@@ -112,6 +112,137 @@ export default function Page() {
               + Conectar nueva cuenta
             </button>
           </div>
+
+          {/* Reglas & Sweeps - Moved from Tesorería */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 style={{margin: '0'}}>Reglas & Sweeps</h3>
+              <a href="/tesoreria-reglas" className="btn btn-secondary btn-sm">
+                ⚙️ Configurar reglas avanzadas
+              </a>
+            </div>
+            
+            {/* Provider Rules Summary */}
+            <div className="mb-4">
+              <h4 style={{margin: '0 0 12px 0', fontSize: '16px'}}>Reglas por Proveedor</h4>
+              <div className="grid gap-2">
+                {storeState.providerRules && storeState.providerRules.filter(r => r.active).slice(0, 3).map(rule => (
+                  <div key={rule.id} className="flex items-center justify-between p-2" style={{background: '#F9FAFB', borderRadius: '4px'}}>
+                    <span className="text-sm">
+                      Si proveedor contiene "<strong>{rule.providerContains}</strong>" → <span className="chip">{rule.category}</span>
+                    </span>
+                    <span className="chip success">Activa</span>
+                  </div>
+                ))}
+                {(!storeState.providerRules || storeState.providerRules.filter(r => r.active).length === 0) && (
+                  <div className="text-sm text-gray">No hay reglas activas configuradas</div>
+                )}
+              </div>
+            </div>
+
+            {/* Sweep Configuration */}
+            <div className="mb-4">
+              <h4 style={{margin: '0 0 12px 0', fontSize: '16px'}}>Configuración de Sweeps</h4>
+              
+              <div className="grid-2 gap-6">
+                <div>
+                  <label className="form-label">Cuenta Hub</label>
+                  <select 
+                    className="form-control"
+                    value={sweepConfig.hubAccountId || ''}
+                    onChange={(e) => store.updateSweepConfig({ 
+                      hubAccountId: parseInt(e.target.value) 
+                    })}
+                  >
+                    <option value="">Seleccionar cuenta...</option>
+                    {accounts.map(account => (
+                      <option key={account.id} value={account.id}>
+                        {account.name} ({account.bank})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="text-sm text-gray mt-1">
+                    Cuenta desde la que se sugerirán los movimientos automáticos
+                  </div>
+                </div>
+
+                <div>
+                  <label className="form-label">Ventana de emparejamiento</label>
+                  <select 
+                    className="form-control"
+                    value={sweepConfig.movementMatchingDays || 3}
+                    onChange={(e) => store.updateSweepConfig({ 
+                      movementMatchingDays: parseInt(e.target.value) 
+                    })}
+                  >
+                    <option value={1}>±1 día</option>
+                    <option value={3}>±3 días</option>
+                    <option value={7}>±7 días</option>
+                  </select>
+                  <div className="text-sm text-gray mt-1">
+                    Margen para vincular movimientos con facturas automáticamente
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="flex items-center gap-2">
+                  <input 
+                    type="checkbox"
+                    checked={sweepConfig.autoSweepEnabled || false}
+                    onChange={(e) => store.updateSweepConfig({ 
+                      autoSweepEnabled: e.target.checked 
+                    })}
+                  />
+                  <span className="form-label" style={{margin: 0}}>Auto-sweep</span>
+                </label>
+                <div className="text-sm text-gray mt-1">
+                  Cuando está activado, se sugerirán movimientos automáticamente al abrir la app (sin ejecutar)
+                </div>
+              </div>
+
+              {/* Account Target Balances */}
+              <div className="mt-6">
+                <h4 style={{margin: '0 0 12px 0', fontSize: '16px'}}>Saldos Objetivo por Cuenta</h4>
+                <div className="grid gap-3">
+                  {accounts.map(account => (
+                    <div key={account.id} className="flex items-center justify-between p-3" style={{background: '#F9FAFB', borderRadius: '8px'}}>
+                      <div className="flex-1">
+                        <div className="font-semibold">{account.name}</div>
+                        <div className="text-sm text-gray">{account.bank}</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="text-sm text-gray">Actual</div>
+                          <div className="font-semibold">
+                            €{account.balanceToday.toLocaleString('es-ES', {minimumFractionDigits: 2})}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm">Objetivo:</label>
+                          <input 
+                            type="number"
+                            className="form-control"
+                            style={{width: '120px'}}
+                            value={account.targetBalance}
+                            onChange={(e) => {
+                              const updatedAccounts = storeState.accounts.map(acc => 
+                                acc.id === account.id 
+                                  ? { ...acc, targetBalance: parseFloat(e.target.value) || 0 }
+                                  : acc
+                              );
+                              store.setState({ accounts: updatedAccounts });
+                            }}
+                          />
+                          <span className="text-sm text-gray">€</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
