@@ -1431,7 +1431,7 @@ function DocumentAllocationForm({ document, property, documentId, onClose, showT
 
 
 
-// H11: Enhanced Loan Creation Wizard (3 steps)
+// H11: Comprehensive Loan Creation Wizard (4 steps) with Full Vinculaciones System
 function CreateLoanWizard({ properties, onClose, showToast }) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -1439,31 +1439,53 @@ function CreateLoanWizard({ properties, onClose, showToast }) {
     propertyId: '',
     banco: '',
     tipo: 'fijo', // fijo, variable, mixto
-    principal_inicial: 0,
+    principal_inicial: 200000,
     fecha_inicio: new Date().toISOString().split('T')[0],
     plazo_meses: 240,
-    // Step 2: Interest type
+    // Optional commissions
+    comision_apertura: 0,
+    comision_estudio: 0,
+    gastos_notaria: 0,
+    gastos_gestorias: 0,
+    // Step 2: Interest configuration
+    tna_base: 3.0,
     tna_fijo: 3.0,
     indice_label: 'Euríbor 12m',
     spread_bps: 150,
     freq_revision_meses: 12,
     indice_vigente: 3.5,
-    // Step 3: Summary
+    // Step 3: Vinculaciones
+    vinculaciones_seleccionadas: [],
+    // Step 4: Summary
     interes_deducible: true
   });
 
+  const [vinculacionesDisponibles, setVinculacionesDisponibles] = useState([]);
+  const [bankTemplate, setBankTemplate] = useState(null);
   const [calculatedData, setCalculatedData] = useState({
     cuota_inicial: 0,
+    tna_efectivo: 0,
     tae_orientativa: 0,
-    fecha_vencimiento: ''
+    fecha_vencimiento: '',
+    amortization_preview: [],
+    total_bonificacion_bps: 0,
+    ahorro_anual_intereses: 0,
+    coste_total_vinculaciones: 0,
+    roi_vinculaciones: 0
   });
+
+  // Get bank templates from store
+  const bankTemplates = store.getState().bankTemplates || {};
 
   // Step navigation
   const handleNext = () => {
-    if (step < 3) {
+    if (step < 4) {
       setStep(step + 1);
-      if (step === 2) {
-        calculateLoanPreview();
+      if (step === 1) {
+        loadBankVinculaciones();
+      }
+      if (step === 3) {
+        calculateComprehensiveLoanData();
       }
     } else {
       handleSubmit();
@@ -1474,24 +1496,136 @@ function CreateLoanWizard({ properties, onClose, showToast }) {
     if (step > 1) setStep(step - 1);
   };
 
-  // Calculate loan preview for step 3
-  const calculateLoanPreview = () => {
+  // Load bank-specific vinculaciones when bank is selected
+  const loadBankVinculaciones = () => {
+    if (!formData.banco || !bankTemplates[formData.banco]) {
+      setVinculacionesDisponibles([]);
+      setBankTemplate(null);
+      return;
+    }
+
+    const template = bankTemplates[formData.banco];
+    setBankTemplate(template);
+    setVinculacionesDisponibles(template.vinculaciones || []);
+  };
+
+  // Calculate comprehensive loan data with vinculaciones
+  const calculateComprehensiveLoanData = () => {
     const { principal_inicial, plazo_meses, tipo, tna_fijo, spread_bps, indice_vigente } = formData;
     
-    let efectiveTNA = tipo === 'fijo' ? tna_fijo : (indice_vigente + (spread_bps / 100));
+    // Calculate base TNA
+    let baseTNA = tipo === 'fijo' ? tna_fijo : (indice_vigente + (spread_bps / 100));
     
-    const monthlyRate = efectiveTNA / 100 / 12;
-    const cuota_inicial = (principal_inicial * monthlyRate * Math.pow(1 + monthlyRate, plazo_meses)) / 
-                         (Math.pow(1 + monthlyRate, plazo_meses) - 1);
+    // Calculate total bonifications
+    let totalBonificacionBps = 0;
+    let costeAnualVinculaciones = 0;
     
-    const fecha_vencimiento = new Date(formData.fecha_inicio);
-    fecha_vencimiento.setMonth(fecha_vencimiento.getMonth() + plazo_meses);
+    formData.vinculaciones_seleccionadas.forEach(vinculacionId => {
+      const vinculacion = vinculacionesDisponibles.find(v => v.id === vinculacionId);
+      if (vinculacion) {
+        totalBonificacionBps += vinculacion.bonificacion_bps || 0;
+        costeAnualVinculaciones += vinculacion.coste_estimado_anual || 0;
+        
+        // Add conditional bonuses
+        if (vinculacion.conditional_bonus) {
+          vinculacion.conditional_bonus.forEach(bonus => {
+            if (evaluateConditionalBonus(bonus, formData.vinculaciones_seleccionadas)) {
+              totalBonificacionBps += bonus.extra_bps || 0;
+            }
+          });
+        }
+      }
+    });
+
+    // Apply group bonuses if applicable
+    if (bankTemplate && bankTemplate.grupos) {
+      bankTemplate.grupos.forEach(grupo => {
+        const selectedFromGroup = grupo.member_ids.filter(id => 
+          formData.vinculaciones_seleccionadas.includes(id)
+        );
+        
+        if (grupo.policy.type === 'at_least_k' && selectedFromGroup.length >= grupo.policy.k) {
+          totalBonificacionBps += grupo.group_bonus_bps || 0;
+        }
+      });
+    }
+
+    // Calculate effective TNA
+    const tnaEfectivo = Math.max(0, baseTNA - (totalBonificacionBps / 100));
+    
+    // French method calculation
+    const monthlyRate = tnaEfectivo / 100 / 12;
+    const cuotaInicial = (principal_inicial * monthlyRate * Math.pow(1 + monthlyRate, plazo_meses)) / 
+                        (Math.pow(1 + monthlyRate, plazo_meses) - 1);
+    
+    // Calculate maturity date
+    const fechaVencimiento = new Date(formData.fecha_inicio);
+    fechaVencimiento.setMonth(fechaVencimiento.getMonth() + plazo_meses);
+    
+    // Generate amortization preview (first 12 months)
+    const amortizationPreview = generateAmortizationPreview(principal_inicial, tnaEfectivo, plazo_meses, formData.fecha_inicio);
+    
+    // Calculate savings and ROI
+    const cuotaSinBonificacion = (principal_inicial * (baseTNA / 100 / 12) * Math.pow(1 + (baseTNA / 100 / 12), plazo_meses)) / 
+                                (Math.pow(1 + (baseTNA / 100 / 12), plazo_meses) - 1);
+    const ahorroMensual = cuotaSinBonificacion - cuotaInicial;
+    const ahorroAnual = ahorroMensual * 12;
+    const roiVinculaciones = costeAnualVinculaciones > 0 ? ((ahorroAnual - costeAnualVinculaciones) / costeAnualVinculaciones) * 100 : 0;
+    
+    // TAE calculation (simplified - includes opening commission)
+    const taeOrientativa = tnaEfectivo + ((formData.comision_apertura || 0) / principal_inicial * 100);
     
     setCalculatedData({
-      cuota_inicial: Math.round(cuota_inicial * 100) / 100,
-      tae_orientativa: Math.round(efectiveTNA * 100) / 100,
-      fecha_vencimiento: fecha_vencimiento.toISOString().split('T')[0]
+      cuota_inicial: Math.round(cuotaInicial * 100) / 100,
+      tna_efectivo: Math.round(tnaEfectivo * 100) / 100,
+      tae_orientativa: Math.round(taeOrientativa * 100) / 100,
+      fecha_vencimiento: fechaVencimiento.toISOString().split('T')[0],
+      amortization_preview: amortizationPreview,
+      total_bonificacion_bps: totalBonificacionBps,
+      ahorro_anual_intereses: Math.round(ahorroAnual * 100) / 100,
+      coste_total_vinculaciones: costeAnualVinculaciones,
+      roi_vinculaciones: Math.round(roiVinculaciones * 100) / 100
     });
+  };
+
+  // Generate amortization preview
+  const generateAmortizationPreview = (principal, tna, months, startDate) => {
+    const monthlyRate = tna / 100 / 12;
+    const monthlyPayment = (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) / 
+                          (Math.pow(1 + monthlyRate, months) - 1);
+    const preview = [];
+    let remainingCapital = principal;
+
+    for (let i = 1; i <= Math.min(12, months); i++) {
+      const paymentDate = new Date(startDate);
+      paymentDate.setMonth(paymentDate.getMonth() + i);
+      
+      const interestPayment = remainingCapital * monthlyRate;
+      const principalPayment = monthlyPayment - interestPayment;
+      remainingCapital = Math.max(0, remainingCapital - principalPayment);
+
+      preview.push({
+        mes: i,
+        fecha: paymentDate.toLocaleDateString('es-ES'),
+        cuota: Math.round(monthlyPayment * 100) / 100,
+        interes: Math.round(interestPayment * 100) / 100,
+        amortizacion: Math.round(principalPayment * 100) / 100,
+        pendiente: Math.round(remainingCapital * 100) / 100
+      });
+    }
+
+    return preview;
+  };
+
+  // Evaluate conditional bonus
+  const evaluateConditionalBonus = (bonus, selectedVinculaciones) => {
+    if (bonus.if_all) {
+      return bonus.if_all.every(vinculacionId => selectedVinculaciones.includes(vinculacionId));
+    }
+    if (bonus.if_any) {
+      return bonus.if_any.some(vinculacionId => selectedVinculaciones.includes(vinculacionId));
+    }
+    return false;
   };
 
   // Submit loan creation
@@ -1504,42 +1638,80 @@ function CreateLoanWizard({ properties, onClose, showToast }) {
       monthlyPayment: calculatedData.cuota_inicial,
       remainingMonths: formData.plazo_meses,
       endDate: calculatedData.fecha_vencimiento,
-      interestRate: formData.tipo === 'fijo' ? formData.tna_fijo : (formData.indice_vigente + (formData.spread_bps / 100)),
+      interestRate: calculatedData.tna_efectivo,
       interestType: formData.tipo,
       originalAmount: formData.principal_inicial,
-      bank: formData.banco
+      bank: formData.banco,
+      // Enhanced H11 data
+      tnaEfectivo: calculatedData.tna_efectivo,
+      taeOrientativa: calculatedData.tae_orientativa,
+      vinculaciones: formData.vinculaciones_seleccionadas.map(id => {
+        const vinculacion = vinculacionesDisponibles.find(v => v.id === id);
+        return {
+          ...vinculacion,
+          fechaActivacion: new Date().toISOString(),
+          estado: 'Pendiente',
+          verificado: false
+        };
+      }),
+      bankTemplate: formData.banco,
+      totalBonificacionBps: calculatedData.total_bonificacion_bps,
+      ahorroAnualIntereses: calculatedData.ahorro_anual_intereses,
+      roiVinculaciones: calculatedData.roi_vinculaciones
     };
 
     store.addLoan(newLoan);
     
-    showToast('success', `Préstamo ${formData.banco} creado correctamente`);
+    showToast('success', `Préstamo ${formData.banco} creado con ${formData.vinculaciones_seleccionadas.length} vinculaciones`);
     onClose();
   };
 
   const formatCurrency = (amount) => {
     if (isNaN(amount)) return '—';
-    return `${amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+    return `€${amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const handleVinculacionToggle = (vinculacionId) => {
+    const newSelected = formData.vinculaciones_seleccionadas.includes(vinculacionId)
+      ? formData.vinculaciones_seleccionadas.filter(id => id !== vinculacionId)
+      : [...formData.vinculaciones_seleccionadas, vinculacionId];
+    
+    setFormData({...formData, vinculaciones_seleccionadas: newSelected});
+  };
+
+  const getBankOptions = () => {
+    return Object.values(bankTemplates).map(template => ({
+      id: template.id,
+      name: template.name,
+      vinculacionesCount: template.vinculaciones ? template.vinculaciones.length : 0
+    }));
   };
 
   return (
     <div className="loan-wizard">
-      {/* Progress indicator */}
-      <div className="wizard-progress mb-4">
-        <div className="flex items-center justify-between">
-          <div className={`step ${step >= 1 ? 'active' : ''}`}>
-            <span className="step-number">1</span>
-            <span className="step-label">Datos base</span>
+      {/* Enhanced Progress indicator */}
+      <div className="wizard-progress">
+        <div className="wizard-steps">
+          <div className={`wizard-step-item ${step >= 1 ? 'active' : ''} ${step > 1 ? 'completed' : ''}`}>
+            <div className="wizard-step-number">1</div>
+            <div className="wizard-step-label">Configuración</div>
           </div>
-          <div className={`step ${step >= 2 ? 'active' : ''}`}>
-            <span className="step-number">2</span>
-            <span className="step-label">Tipo de interés</span>
+          <div className={`wizard-step-item ${step >= 2 ? 'active' : ''} ${step > 2 ? 'completed' : ''}`}>
+            <div className="wizard-step-number">2</div>
+            <div className="wizard-step-label">Interés</div>
           </div>
-          <div className={`step ${step >= 3 ? 'active' : ''}`}>
-            <span className="step-number">3</span>
-            <span className="step-label">Resumen</span>
+          <div className={`wizard-step-item ${step >= 3 ? 'active' : ''} ${step > 3 ? 'completed' : ''}`}>
+            <div className="wizard-step-number">3</div>
+            <div className="wizard-step-label">Vinculaciones</div>
+          </div>
+          <div className={`wizard-step-item ${step >= 4 ? 'active' : ''} ${step > 4 ? 'completed' : ''}`}>
+            <div className="wizard-step-number">4</div>
+            <div className="wizard-step-label">Resumen</div>
           </div>
         </div>
       </div>
+
+      <div className="wizard-content">
 
       {/* Step 1: Basic Data */}
       {step === 1 && (
