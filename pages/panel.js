@@ -181,14 +181,14 @@ export default function Page() {
           <div>
             <div className="text-sm" style={{opacity: 0.8}}>Ingresos vs Gastos (30d)</div>
             <div className="font-semibold" style={{fontSize: '24px'}}>{formatCurrency(monthlyFlow)}</div>
-            <a href="/inmuebles" className="text-xs" style={{color: 'rgba(255,255,255,0.8)', textDecoration: 'underline'}}>
+            <a href="/inmuebles/gastos" className="text-xs" style={{color: 'rgba(255,255,255,0.8)', textDecoration: 'underline'}}>
               → Ver gastos por activo
             </a>
           </div>
           <div>
             <div className="text-sm" style={{opacity: 0.8}}>DSCR cartera (12m)</div>
             <div className="font-semibold" style={{fontSize: '24px'}}>1.24</div>
-            <a href="/inmuebles" className="text-xs" style={{color: 'rgba(255,255,255,0.8)', textDecoration: 'underline'}}>
+            <a href="/inmuebles/analisis" className="text-xs" style={{color: 'rgba(255,255,255,0.8)', textDecoration: 'underline'}}>
               → Análisis
             </a>
           </div>

@@ -4,7 +4,9 @@ import { getTotalPortfolioValue, getTotalMonthlyRent, getPortfolioRentability, g
 import NewPropertyWizard from '../components/NewPropertyWizard';
 import PropertyDetailModal from '../components/PropertyDetailModal';
 import Header from '../components/Header';
+import LoadingSkeleton from '../components/LoadingSkeleton';
 import { HomeIcon } from '../components/icons';
+import { showToast } from '../components/ToastSystem';
 
 export default function Page() {
   const [selectedProperty, setSelectedProperty] = useState(null);
@@ -15,6 +17,7 @@ export default function Page() {
   const [filterMonth, setFilterMonth] = useState('all');
   const [showNewPropertyWizard, setShowNewPropertyWizard] = useState(false);
   const [selectedPropertyDetail, setSelectedPropertyDetail] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [storeState, setStoreState] = useState(() => {
     // Initialize with store state immediately - don't automatically reset to demo
     let currentState = store.getState();
@@ -24,6 +27,10 @@ export default function Page() {
   // Subscribe to store changes
   useEffect(() => {
     const unsubscribe = store.subscribe(setStoreState);
+    
+    // Simulate loading delay for demo
+    setTimeout(() => setIsLoading(false), 800);
+    
     return () => {
       unsubscribe();
     };
@@ -44,8 +51,47 @@ export default function Page() {
     return contracts.filter(c => c.propertyId === propertyId);
   };
 
-  const getLoansByProperty = (propertyId) => {
-    return loans.filter(l => l.propertyId === propertyId);
+  const handleToggleMultiUnit = (propertyId) => {
+    store.updateState(state => ({
+      ...state,
+      properties: state.properties.map(p => 
+        p.id === propertyId 
+          ? { ...p, multiUnit: !p.multiUnit }
+          : p
+      )
+    }));
+    showToast('Configuración multi-unidad actualizada', 'success');
+  };
+
+  const handleManageUnits = (propertyId) => {
+    const property = properties.find(p => p.id === propertyId);
+    if (property) {
+      showToast(`Gestión de unidades para ${property.address}`, 'info');
+      // TODO: Open units management modal
+    }
+  };
+
+  const handleToggleStatus = (propertyId) => {
+    const property = properties.find(p => p.id === propertyId);
+    if (property) {
+      const newStatus = property.status === 'Ocupado' ? 'Libre' : 'Ocupado';
+      store.updateState(state => ({
+        ...state,
+        properties: state.properties.map(p => 
+          p.id === propertyId 
+            ? { ...p, status: newStatus }
+            : p
+        )
+      }));
+      showToast(`Estado cambiado a ${newStatus}`, 'success');
+    }
+  };
+
+  const handleAddExpense = (propertyId) => {
+    const property = properties.find(p => p.id === propertyId);
+    if (property) {
+      window.location.href = `/inmuebles/gastos?property=${propertyId}`;
+    }
   };
 
   const alertCount = storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length || 0;
@@ -103,32 +149,43 @@ export default function Page() {
       {/* Portfolio KPIs */}
       <div className="card mb-4">
         <h3 style={{margin: '0 0 16px 0'}}>KPIs Cartera</h3>
-        <div className="grid-4 gap-4">
-          <div>
-            <div className="text-sm text-gray">Valor Total Cartera</div>
-            <div className="font-semibold" style={{fontSize: '20px', color: 'var(--navy)'}}>
-              {formatCurrency(getTotalPortfolioValue())}
+        {isLoading ? (
+          <div className="grid-4 gap-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index}>
+                <LoadingSkeleton lines={1} height="14px" style={{ marginBottom: '8px' }} />
+                <LoadingSkeleton lines={1} height="24px" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid-4 gap-4">
+            <div>
+              <div className="text-sm text-gray">Valor Total Cartera</div>
+              <div className="font-semibold" style={{fontSize: '20px', color: 'var(--navy)'}}>
+                {formatCurrency(getTotalPortfolioValue())}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray">Ingresos Mensuales</div>
+              <div className="font-semibold" style={{fontSize: '20px', color: 'var(--success)'}}>
+                {formatCurrency(getTotalMonthlyRent())}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray">Ocupación</div>
+              <div className="font-semibold" style={{fontSize: '20px', color: 'var(--teal)'}}>
+                {getOccupancyRate().toFixed(1)}%
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray">Rentabilidad</div>
+              <div className="font-semibold" style={{fontSize: '20px', color: 'var(--warning)'}}>
+                {getPortfolioRentability().toFixed(1)}%
+              </div>
             </div>
           </div>
-          <div>
-            <div className="text-sm text-gray">Ingresos Mensuales</div>
-            <div className="font-semibold" style={{fontSize: '20px', color: 'var(--success)'}}>
-              {formatCurrency(getTotalMonthlyRent())}
-            </div>
-          </div>
-          <div>
-            <div className="text-sm text-gray">Ocupación</div>
-            <div className="font-semibold" style={{fontSize: '20px', color: 'var(--teal)'}}>
-              {getOccupancyRate().toFixed(1)}%
-            </div>
-          </div>
-          <div>
-            <div className="text-sm text-gray">Rentabilidad</div>
-            <div className="font-semibold" style={{fontSize: '20px', color: 'var(--warning)'}}>
-              {getPortfolioRentability().toFixed(1)}%
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Properties Portfolio */}
@@ -200,9 +257,7 @@ export default function Page() {
                     <input 
                       type="checkbox" 
                       checked={property.multiUnit || false}
-                      data-action="property:toggle-multi-unit"
-                      data-id={property.id}
-                      onChange={() => {}}
+                      onChange={() => handleToggleMultiUnit(property.id)}
                     />
                     <span className="slider"></span>
                   </label>
@@ -228,8 +283,7 @@ export default function Page() {
                     </div>
                     <button 
                       className="btn btn-primary btn-sm mt-2"
-                      data-action="property:manage-units"
-                      data-id={property.id}
+                      onClick={() => handleManageUnits(property.id)}
                       style={{fontSize: '11px', padding: '4px 8px'}}
                     >
                       Gestionar unidades
@@ -325,8 +379,7 @@ export default function Page() {
                     <td>
                       <button 
                         className={`chip ${property.status === 'Ocupado' ? 'success' : 'warning'}`}
-                        data-action="property:toggle-status"
-                        data-id={property.id}
+                        onClick={() => handleToggleStatus(property.id)}
                         style={{
                           border: 'none',
                           cursor: 'pointer',
@@ -346,8 +399,7 @@ export default function Page() {
                         </button>
                         <button 
                           className="btn btn-primary btn-sm"
-                          data-action="property:add-expense"
-                          data-id={property.id}
+                          onClick={() => handleAddExpense(property.id)}
                         >
                           Añadir gasto
                         </button>

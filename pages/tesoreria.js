@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import store from '../store/index';
 import { mockData } from '../data/mockData';
 import Header from '../components/Header';
+import LoadingSkeleton from '../components/LoadingSkeleton';
 import { TargetIcon, CreditCardIcon, AlertTriangleIcon, CheckIcon, EuroIcon, ClipboardListIcon, BellIcon, RefreshCwIcon, BarChart3Icon, BuildingIcon, SettingsIcon, TrendingUpIcon } from '../components/icons';
 
 export default function Page() {
@@ -11,6 +12,7 @@ export default function Page() {
   const [selectedMovement, setSelectedMovement] = useState(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [alertFilter, setAlertFilter] = useState('all');
+  const [isLoading, setIsLoading] = useState(true);
   
   const [storeState, setStoreState] = useState(() => {
     // Initialize with store state if available, otherwise use mockData
@@ -47,6 +49,10 @@ export default function Page() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const unsubscribe = store.subscribe(setStoreState);
+      
+      // Simulate loading delay for demo
+      setTimeout(() => setIsLoading(false), 600);
+      
       return () => {
         unsubscribe();
       };
@@ -690,7 +696,6 @@ export default function Page() {
           >
             <SettingsIcon size={16} />
             Configurar alertas
-          </button>
           </button>
         </div>
       </div>

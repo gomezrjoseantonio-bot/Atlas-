@@ -2,6 +2,7 @@ import '../styles/layout.css'
 import { useEffect, useState } from 'react';
 import Modal from '../components/Modal';
 import Toast from '../components/Toast';
+import ToastSystem from '../components/ToastSystem';
 import QABar from '../components/QABar';
 import QAPanel from '../components/QAPanel';
 import QAPill from '../components/QAPill';
@@ -181,6 +182,7 @@ export default function MyApp({ Component, pageProps }) {
       {/* Global components */}
       <Modal />
       <Toast />
+      <ToastSystem />
       
       <IssueReporter 
         isOpen={showIssueReporter}

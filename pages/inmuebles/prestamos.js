@@ -3,6 +3,7 @@ import store from '../../store/index';
 import { mockData } from '../../data/mockData';
 import Header from '../../components/Header';
 import { RefreshCwIcon, PlusIcon } from '../../components/icons';
+import { showToast } from '../../components/ToastSystem';
 
 export default function PrestamosPage() {
   const [showAmortizeModal, setShowAmortizeModal] = useState(false);
@@ -96,15 +97,33 @@ export default function PrestamosPage() {
     }
   };
 
-  // Sort loans to show overdue reviews first
-  const sortedLoans = [...(loans || [])].sort((a, b) => {
-    const aOverdue = isOverdue(a.nextRevision);
-    const bOverdue = isOverdue(b.nextRevision);
-    
-    if (aOverdue && !bOverdue) return -1;
-    if (!aOverdue && bOverdue) return 1;
-    return 0;
-  });
+  const handleLoadDemoData = () => {
+    store.resetDemo();
+    showToast('Datos demo cargados correctamente', 'success');
+  };
+
+  const handleLinkToProperty = () => {
+    showToast('Funcionalidad de vinculación próximamente', 'info');
+  };
+
+  const handleEditLoan = (loanId) => {
+    const loan = loans.find(l => l.id === loanId);
+    if (loan) {
+      showToast(`Editando préstamo ${loan.bank}`, 'info');
+      // TODO: Open edit modal
+    }
+  };
+
+  const handleDeleteLoan = (loanId) => {
+    const loan = loans.find(l => l.id === loanId);
+    if (loan && confirm(`¿Eliminar préstamo de ${loan.bank}?`)) {
+      store.updateState(state => ({
+        ...state,
+        loans: state.loans.filter(l => l.id !== loanId)
+      }));
+      showToast('Préstamo eliminado correctamente', 'success');
+    }
+  };
 
   const calculateAmortizationSavings = (loan, amount) => {
     if (!loan || !amount || amount <= 0) return null;
@@ -147,11 +166,15 @@ export default function PrestamosPage() {
     };
   };
 
-  const handleAmortize = (loan) => {
-    setSelectedLoan(loan);
-    setAmortizeAmount('');
-    setShowAmortizeModal(true);
-  };
+  // Sort loans to show overdue reviews first  
+  const sortedLoans = [...(loans || [])].sort((a, b) => {
+    const aOverdue = isOverdue(a.nextRevision);
+    const bOverdue = isOverdue(b.nextRevision);
+    
+    if (aOverdue && !bOverdue) return -1;
+    if (!aOverdue && bOverdue) return 1;
+    return 0;
+  });
 
   const executeAmortization = () => {
     if (!selectedLoan || !amortizeAmount) return;
@@ -201,7 +224,7 @@ export default function PrestamosPage() {
           <div className="flex gap-2">
             <button 
               className="btn btn-secondary"
-              data-action="demo:load"
+              onClick={handleLoadDemoData}
             >
               <RefreshCwIcon size={14} style={{marginRight: '4px'}} />
               Cargar Datos Demo
@@ -267,7 +290,7 @@ export default function PrestamosPage() {
             <h3 style={{margin: 0}}>Mis préstamos</h3>
             <button 
               className="btn btn-secondary btn-sm"
-              data-action="loan:link-property"
+              onClick={handleLinkToProperty}
             >
               🔗 Vincular a inmueble
             </button>
@@ -342,15 +365,13 @@ export default function PrestamosPage() {
                         </button>
                         <button 
                           className="btn btn-secondary btn-sm"
-                          data-action="loan:edit"
-                          data-id={loan.id}
+                          onClick={() => handleEditLoan(loan.id)}
                         >
                           ✏️ Editar
                         </button>
                         <button 
                           className="btn btn-error btn-sm"
-                          data-action="loan:delete"
-                          data-id={loan.id}
+                          onClick={() => handleDeleteLoan(loan.id)}
                         >
                           🗑️ Eliminar
                         </button>
