@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import store from '../store/index';
 import { mockData } from '../data/mockData';
 import Header from '../components/Header';
-import { TargetIcon, CreditCardIcon, AlertTriangleIcon, CheckIcon, EuroIcon, ClipboardListIcon, BellIcon, RefreshCwIcon, BarChart3Icon, BuildingIcon } from '../components/icons';
+import { TargetIcon, CreditCardIcon, AlertTriangleIcon, CheckIcon, EuroIcon, ClipboardListIcon, BellIcon, RefreshCwIcon, BarChart3Icon, BuildingIcon, SettingsIcon, TrendingUpIcon } from '../components/icons';
 
 export default function Page() {
   const [activeSubTab, setActiveSubTab] = useState('radar');
@@ -381,11 +381,13 @@ export default function Page() {
                 <option value="review">Revisión requerida</option>
                 <option value="next_7_days">Próximos 7 días</option>
               </select>
-              <button 
+              <button
                 className="btn btn-primary btn-sm"
                 onClick={() => store.runRulesEngine()}
+                style={{display: 'flex', alignItems: 'center', gap: '6px'}}
               >
-                ⚙️ Aplicar reglas ahora
+                <SettingsIcon size={14} />
+                Aplicar reglas ahora
               </button>
             </div>
           </div>
@@ -481,8 +483,10 @@ export default function Page() {
                                     window.showToast('Marcando pago como recibido...', 'success');
                                   }
                                 }}
+                                style={{display: 'flex', alignItems: 'center', gap: '6px'}}
                               >
-                                ✅ Marcar pagado
+                                <CheckIcon size={14} />
+                                Marcar pagado
                               </button>
                             )}
                             {alert.actions && alert.actions.includes('send_reminder') && (
@@ -507,8 +511,10 @@ export default function Page() {
                                     window.showToast(`Aplicando actualización IPC (+${alert.suggestedIncrease}%)...`, 'info');
                                   }
                                 }}
+                                style={{display: 'flex', alignItems: 'center', gap: '6px'}}
                               >
-                                📈 Aplicar IPC
+                                <TrendingUpIcon size={14} />
+                                Aplicar IPC
                               </button>
                             )}
                             <button 
@@ -538,8 +544,9 @@ export default function Page() {
               })}
             </div>
           ) : (
-            <div className="text-center text-gray py-4">
-              ✅ No hay alertas pendientes
+            <div className="text-center text-gray py-4" style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'}}>
+              <CheckIcon size={16} color="var(--success)" />
+              No hay alertas pendientes
             </div>
           )}
         </div>
@@ -679,8 +686,11 @@ export default function Page() {
                 window.showToast('Configurar alertas próximamente', 'info');
               }
             }}
+            style={{display: 'flex', alignItems: 'center', gap: '6px'}}
           >
-            ⚙️ Configurar alertas
+            <SettingsIcon size={16} />
+            Configurar alertas
+          </button>
           </button>
         </div>
       </div>

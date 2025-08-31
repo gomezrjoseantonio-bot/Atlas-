@@ -57,7 +57,7 @@
 .elev-1 { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); }
 .elev-2 { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
 
-/* Theme: Horizon (Navy) */
+/* H14A Theme: Horizon (Navy) - default */
 .theme-invest,
 body {
   --accent: #0B1E3B;
@@ -66,7 +66,7 @@ body {
   --focus: #0B1E3B;
 }
 
-/* Theme: Pulse (Turquesa) */
+/* H14A Theme: Pulse (Turquesa) - future */
 .theme-personal {
   --accent: #14B8A6;
   --accent-hover: #0D9488;
@@ -908,33 +908,73 @@ h3 {
   box-shadow: 0 0 0 3px var(--accent-subtle); 
 }
 
-/* Utilities */
+/* H14A Utilities - using design tokens */
 .text-right { text-align: right; }
-.text-sm { font-size: 12px; }
-.text-gray { color: var(--gray); }
+.text-sm { font-size: var(--text-caption); }
+.text-gray { color: var(--text-2); }
 .font-medium { font-weight: 500; }
 .font-semibold { font-weight: 600; }
-.mt-4 { margin-top: 16px; }
-.mb-4 { margin-bottom: 16px; }
-.mr-2 { margin-right: 8px; }
-.p-4 { padding: 16px; }
+.mt-4 { margin-top: var(--space-4); }
+.mb-4 { margin-bottom: var(--space-4); }
+.mr-2 { margin-right: var(--space-2); }
+.p-4 { padding: var(--space-4); }
 .flex-1 { flex: 1; }
 
-/* Progress Bar */
+/* H14A Spacing utilities */
+.gap-1 { gap: var(--space-1); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+/* H14A Progress Bar - using accent colors */
 .progress-bar {
   width: 100%;
   height: 8px;
-  background: #E5E7EB;
-  border-radius: 4px;
+  background: var(--border);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: var(--teal);
-  border-radius: 4px;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
   transition: width 0.3s ease;
 }
+
+/* H14A Progress with gradient (for treasury radar) */
+/* H14A Charts - accent primary, neutral secondary, subtle grid */
+.chart-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.chart-primary { 
+  stroke: var(--accent); 
+  fill: var(--accent); 
+}
+
+.chart-secondary { 
+  stroke: var(--text-2); 
+  fill: var(--text-2); 
+}
+
+.chart-grid { 
+  stroke: var(--border); 
+  stroke-opacity: 0.5; 
+}
+
+.chart-axis { 
+  stroke: var(--text-2); 
+  font-size: var(--text-caption); 
+}
+
+/* Remove rainbow colors - use neutral palette */
+.chart-series-1 { stroke: var(--accent); fill: var(--accent); }
+.chart-series-2 { stroke: var(--text-2); fill: var(--text-2); }
+.chart-series-3 { stroke: var(--icon); fill: var(--icon); }
+.chart-series-4 { stroke: var(--icon-muted); fill: var(--icon-muted); }
 
 /* Modal */
 .modal-overlay {
