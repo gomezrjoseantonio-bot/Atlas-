@@ -137,6 +137,16 @@ export default function AnalisisPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 style={{margin: 0}}>Análisis por Activo</h1>
           <div className="flex gap-2">
+            <button 
+              className="btn btn-secondary"
+              onClick={() => {
+                setIsLoading(true);
+                setTimeout(() => setIsLoading(false), 800);
+                showToast('Análisis actualizado', 'success');
+              }}
+            >
+              🔄 Actualizar
+            </button>
             <select 
               className="form-control" 
               style={{width: 'auto', marginBottom: 0}}

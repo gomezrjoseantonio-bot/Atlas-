@@ -198,16 +198,10 @@ export default function ContratosPage() {
           <h1 style={{margin: 0}}>Contratos de Alquiler</h1>
           <div className="flex gap-2">
             <button 
-              className="btn btn-secondary"
-              onClick={handleDemoReset}
-            >
-              🔄 Cargar Datos Demo
-            </button>
-            <button 
               className="btn btn-primary"
               onClick={handleCreateContract}
             >
-              ➕ Nuevo contrato
+              + Nuevo contrato
             </button>
           </div>
         </div>
@@ -362,7 +356,7 @@ export default function ContratosPage() {
                 className="btn btn-primary"
                 onClick={handleCreateContract}
               >
-                ➕ Crear primer contrato
+                + Crear primer contrato
               </button>
             </div>
           )}
