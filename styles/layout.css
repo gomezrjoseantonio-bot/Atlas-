@@ -483,9 +483,42 @@ h3 {
 }
 
 .form-control:focus {
-  border-color: var(--teal);
+  border-color: var(--accent);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+/* H14B Accessibility Improvements */
+button:focus,
+.btn:focus,
+a.btn:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button,
+.btn,
+a.btn {
+  min-height: 44px; /* Ensure hit-area >= 32px (actually 44px for better touch) */
+  padding: 12px 16px;
+}
+
+.btn-sm {
+  min-height: 36px;
+  padding: 8px 12px;
+}
+
+/* Icon buttons need sufficient hit area */
+button[aria-label],
+.btn[aria-label] {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Focus visible for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .calculation-highlight {

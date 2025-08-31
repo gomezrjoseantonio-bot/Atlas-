@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import store from '../../store/index';
 import { mockData } from '../../data/mockData';
 import Header from '../../components/Header';
+import LoadingSkeleton from '../../components/LoadingSkeleton';
 import { BarChart3Icon, TrendingUpIcon } from '../../components/icons';
+import { showToast } from '../../components/ToastSystem';
 
 export default function AnalisisPage() {
   const [storeState, setStoreState] = useState(() => {
@@ -24,6 +26,20 @@ export default function AnalisisPage() {
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [analysisType, setAnalysisType] = useState('profitability');
   const [timeRange, setTimeRange] = useState('12m');
+  const [isLoading, setIsLoading] = useState(true);
+
+  const handleLoadDemo = () => {
+    store.resetDemo();
+    showToast('Datos demo cargados correctamente', 'success');
+  };
+
+  const handleRevalue = (propertyId) => {
+    const property = properties.find(p => p.id === propertyId);
+    if (property) {
+      showToast(`Iniciando revalorización de ${property.address}`, 'info');
+      // TODO: Open revaluation modal
+    }
+  };
 
   // Subscribe to store changes with error handling
   useEffect(() => {
@@ -33,6 +49,10 @@ export default function AnalisisPage() {
         console.log('Analisis: Store updated', newState);
         setStoreState(newState);
       });
+      
+      // Simulate loading delay for demo
+      setTimeout(() => setIsLoading(false), 600);
+      
       return () => {
         unsubscribe();
       };
@@ -236,7 +256,7 @@ export default function AnalisisPage() {
                 <div className="text-gray mb-4">No hay datos suficientes para el análisis de rentabilidad</div>
                 <button 
                   className="btn btn-secondary"
-                  data-action="demo:load"
+                  onClick={handleLoadDemo}
                 >
                   🔄 Cargar datos demo
                 </button>
@@ -296,8 +316,7 @@ export default function AnalisisPage() {
                           <td>
                             <button 
                               className="btn btn-secondary btn-sm"
-                              data-action="property:revalue"
-                              data-id={analysis.property.id}
+                              onClick={() => handleRevalue(analysis.property.id)}
                             >
                               Revalorizar
                             </button>
@@ -313,7 +332,7 @@ export default function AnalisisPage() {
                 <div className="text-gray mb-4">No hay datos suficientes para el análisis de valoración</div>
                 <button 
                   className="btn btn-secondary"
-                  data-action="demo:load"
+                  onClick={handleLoadDemo}
                 >
                   🔄 Cargar datos demo
                 </button>

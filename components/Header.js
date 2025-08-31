@@ -65,6 +65,7 @@ export default function Header({
                 onDemoReset();
               }
             }}
+            aria-label="Resetear datos demo"
             style={{marginRight: '12px', display: 'flex', alignItems: 'center', gap: '4px'}}
           >
             <RefreshCwIcon size={12} /> Demo
@@ -76,11 +77,16 @@ export default function Header({
                 window.showToast('Búsqueda próximamente disponible', 'info');
               }
             }}
+            aria-label="Buscar"
             style={{marginRight: '12px', background: 'none', border: 'none', padding: '4px'}}
           >
             <SearchIcon size={16} />
           </button>
-          <a href="/tesoreria" className="notification-badge">
+          <a 
+            href="/tesoreria" 
+            className="notification-badge"
+            aria-label={`Alertas${alertCount > 0 ? ` (${alertCount} activas)` : ''}`}
+          >
             <BellIcon size={16} />
             {alertCount > 0 && (
               <span className="badge">
@@ -88,7 +94,17 @@ export default function Header({
               </span>
             )}
           </a>
-          <SettingsIcon size={16} />
+          <button 
+            aria-label="Configuración"
+            style={{background: 'none', border: 'none', padding: '4px'}}
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.showToast) {
+                window.showToast('Configuración próximamente disponible', 'info');
+              }
+            }}
+          >
+            <SettingsIcon size={16} />
+          </button>
         </div>
       </div>
       
