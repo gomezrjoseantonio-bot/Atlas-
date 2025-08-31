@@ -3,6 +3,10 @@ import store from '../store/index';
 import { getTotalPortfolioValue, getTotalMonthlyRent, getPortfolioRentability, getOccupancyRate } from '../data/mockData';
 import NewPropertyWizard from '../components/NewPropertyWizard';
 import PropertyDetailModal from '../components/PropertyDetailModal';
+import Header from '../components/Header';
+import LoadingSkeleton from '../components/LoadingSkeleton';
+import { HomeIcon } from '../components/icons';
+import { showToast } from '../components/ToastSystem';
 
 export default function Page() {
   const [selectedProperty, setSelectedProperty] = useState(null);
@@ -13,6 +17,7 @@ export default function Page() {
   const [filterMonth, setFilterMonth] = useState('all');
   const [showNewPropertyWizard, setShowNewPropertyWizard] = useState(false);
   const [selectedPropertyDetail, setSelectedPropertyDetail] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [storeState, setStoreState] = useState(() => {
     // Initialize with store state immediately - don't automatically reset to demo
     let currentState = store.getState();
@@ -22,6 +27,10 @@ export default function Page() {
   // Subscribe to store changes
   useEffect(() => {
     const unsubscribe = store.subscribe(setStoreState);
+    
+    // Simulate loading delay for demo
+    setTimeout(() => setIsLoading(false), 800);
+    
     return () => {
       unsubscribe();
     };
@@ -42,41 +51,59 @@ export default function Page() {
     return contracts.filter(c => c.propertyId === propertyId);
   };
 
-  const getLoansByProperty = (propertyId) => {
-    return loans.filter(l => l.propertyId === propertyId);
+  const handleToggleMultiUnit = (propertyId) => {
+    store.updateState(state => ({
+      ...state,
+      properties: state.properties.map(p => 
+        p.id === propertyId 
+          ? { ...p, multiUnit: !p.multiUnit }
+          : p
+      )
+    }));
+    showToast('Configuración multi-unidad actualizada', 'success');
   };
 
+  const handleManageUnits = (propertyId) => {
+    const property = properties.find(p => p.id === propertyId);
+    if (property) {
+      showToast(`Gestión de unidades para ${property.address}`, 'info');
+      // TODO: Open units management modal
+    }
+  };
+
+  const handleToggleStatus = (propertyId) => {
+    const property = properties.find(p => p.id === propertyId);
+    if (property) {
+      const newStatus = property.status === 'Ocupado' ? 'Libre' : 'Ocupado';
+      store.updateState(state => ({
+        ...state,
+        properties: state.properties.map(p => 
+          p.id === propertyId 
+            ? { ...p, status: newStatus }
+            : p
+        )
+      }));
+      showToast(`Estado cambiado a ${newStatus}`, 'success');
+    }
+  };
+
+  const handleAddExpense = (propertyId) => {
+    const property = properties.find(p => p.id === propertyId);
+    if (property) {
+      window.location.href = `/inmuebles/gastos?property=${propertyId}`;
+    }
+  };
+
+  const alertCount = storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length || 0;
+
   return (<>
-    <header className="header">
-      <div className="container nav">
-        <div className="logo">
-          <div className="logo-mark">
-            <div className="bar short"></div>
-            <div className="bar mid"></div>
-            <div className="bar tall"></div>
-          </div>
-          <div>ATLAS</div>
-        </div>
-        <nav className="tabs">
-          <a className="tab" href="/panel">Panel</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
-          <a className="tab active" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/documentos">Documentos</a>
-          <a className="tab" href="/proyeccion">Proyección</a>
-          <a className="tab" href="/configuracion">Configuración</a>
-        </nav>
-        <div className="actions">
-          <button 
-            className="btn btn-secondary btn-sm"
-            data-action="demo:load"
-            style={{marginRight: '12px'}}
-          >
-            🔄 Demo
-          </button>
-          <span>🔍</span><span>🔔</span><span>⚙️</span>
-        </div>
-      </div>
-    </header>
+    <Header 
+      currentTab="inmuebles" 
+      alertCount={alertCount}
+      onDemoReset={() => store.resetDemo()}
+      showInmueblesSubTabs={true}
+      currentInmueblesTab="cartera"
+    />
 
     <main className="container">
       <div className="flex items-center justify-between mb-4">
@@ -119,43 +146,46 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Sub-navigation */}
-      <div className="flex gap-4 mb-6">
-        <a href="/inmuebles" className="tab active">Cartera</a>
-        <a href="/inmuebles/contratos" className="tab">Contratos</a>
-        <a href="/inmuebles/prestamos" className="tab">Préstamos</a>
-        <a href="/inmuebles/analisis" className="tab">Análisis</a>
-      </div>
-
       {/* Portfolio KPIs */}
       <div className="card mb-4">
         <h3 style={{margin: '0 0 16px 0'}}>KPIs Cartera</h3>
-        <div className="grid-4 gap-4">
-          <div>
-            <div className="text-sm text-gray">Valor Total Cartera</div>
-            <div className="font-semibold" style={{fontSize: '20px', color: 'var(--navy)'}}>
-              {formatCurrency(getTotalPortfolioValue())}
+        {isLoading ? (
+          <div className="grid-4 gap-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index}>
+                <LoadingSkeleton lines={1} height="14px" style={{ marginBottom: '8px' }} />
+                <LoadingSkeleton lines={1} height="24px" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid-4 gap-4">
+            <div>
+              <div className="text-sm text-gray">Valor Total Cartera</div>
+              <div className="font-semibold" style={{fontSize: '20px', color: 'var(--navy)'}}>
+                {formatCurrency(getTotalPortfolioValue())}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray">Ingresos Mensuales</div>
+              <div className="font-semibold" style={{fontSize: '20px', color: 'var(--success)'}}>
+                {formatCurrency(getTotalMonthlyRent())}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray">Ocupación</div>
+              <div className="font-semibold" style={{fontSize: '20px', color: 'var(--teal)'}}>
+                {getOccupancyRate().toFixed(1)}%
+              </div>
+            </div>
+            <div>
+              <div className="text-sm text-gray">Rentabilidad</div>
+              <div className="font-semibold" style={{fontSize: '20px', color: 'var(--warning)'}}>
+                {getPortfolioRentability().toFixed(1)}%
+              </div>
             </div>
           </div>
-          <div>
-            <div className="text-sm text-gray">Ingresos Mensuales</div>
-            <div className="font-semibold" style={{fontSize: '20px', color: 'var(--success)'}}>
-              {formatCurrency(getTotalMonthlyRent())}
-            </div>
-          </div>
-          <div>
-            <div className="text-sm text-gray">Ocupación</div>
-            <div className="font-semibold" style={{fontSize: '20px', color: 'var(--teal)'}}>
-              {getOccupancyRate().toFixed(1)}%
-            </div>
-          </div>
-          <div>
-            <div className="text-sm text-gray">Rentabilidad</div>
-            <div className="font-semibold" style={{fontSize: '20px', color: 'var(--warning)'}}>
-              {getPortfolioRentability().toFixed(1)}%
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Properties Portfolio */}
@@ -174,7 +204,7 @@ export default function Page() {
           <div className="grid gap-4">
             {properties.length === 0 ? (
               <div className="card text-center py-8">
-                <div className="mb-4">🏠</div>
+                <div className="mb-4"><HomeIcon size={48} color="var(--text-2)" /></div>
                 <h3 style={{margin: '0 0 8px 0'}}>No tienes inmuebles registrados</h3>
                 <p className="text-gray mb-4">Crea tu primer inmueble para empezar a gestionar tu cartera</p>
                 <button 
@@ -227,9 +257,7 @@ export default function Page() {
                     <input 
                       type="checkbox" 
                       checked={property.multiUnit || false}
-                      data-action="property:toggle-multi-unit"
-                      data-id={property.id}
-                      onChange={() => {}}
+                      onChange={() => handleToggleMultiUnit(property.id)}
                     />
                     <span className="slider"></span>
                   </label>
@@ -238,7 +266,10 @@ export default function Page() {
                 {/* Show units info if multi-unit is enabled */}
                 {property.multiUnit && property.units && (
                   <div className="mb-3 p-2" style={{background: '#F0F9FF', borderRadius: '6px'}}>
-                    <div className="text-sm font-semibold mb-2">🏠 Unidades ({property.occupiedUnits || 0}/{property.totalUnits || property.units.length})</div>
+                    <div className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <HomeIcon size={16} color="var(--accent)" />
+                      Unidades ({property.occupiedUnits || 0}/{property.totalUnits || property.units.length})
+                    </div>
                     <div className="flex flex-wrap gap-1">
                       {property.units.map(unit => (
                         <span 
@@ -252,8 +283,7 @@ export default function Page() {
                     </div>
                     <button 
                       className="btn btn-primary btn-sm mt-2"
-                      data-action="property:manage-units"
-                      data-id={property.id}
+                      onClick={() => handleManageUnits(property.id)}
                       style={{fontSize: '11px', padding: '4px 8px'}}
                     >
                       Gestionar unidades
@@ -315,7 +345,7 @@ export default function Page() {
                 {properties.length === 0 ? (
                   <tr>
                     <td colSpan="8" className="text-center py-8">
-                      <div className="mb-4">🏠</div>
+                      <div className="mb-4"><HomeIcon size={48} color="var(--text-2)" /></div>
                       <h3 style={{margin: '0 0 8px 0'}}>No tienes inmuebles registrados</h3>
                       <p className="text-gray mb-4">Crea tu primer inmueble para empezar a gestionar tu cartera</p>
                       <button 
@@ -349,8 +379,7 @@ export default function Page() {
                     <td>
                       <button 
                         className={`chip ${property.status === 'Ocupado' ? 'success' : 'warning'}`}
-                        data-action="property:toggle-status"
-                        data-id={property.id}
+                        onClick={() => handleToggleStatus(property.id)}
                         style={{
                           border: 'none',
                           cursor: 'pointer',
@@ -370,8 +399,7 @@ export default function Page() {
                         </button>
                         <button 
                           className="btn btn-primary btn-sm"
-                          data-action="property:add-expense"
-                          data-id={property.id}
+                          onClick={() => handleAddExpense(property.id)}
                         >
                           Añadir gasto
                         </button>
@@ -385,105 +413,7 @@ export default function Page() {
         )}
       </div>
 
-      {/* Contracts Table */}
-      <div className="card mb-4">
-        <h3 style={{margin: '0 0 16px 0'}}>Contratos</h3>
-        <div className="table-responsive">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Inmueble</th>
-                <th>Tipo</th>
-                <th>Inquilino/Aseguradora</th>
-                <th>Inicio</th>
-                <th>Fin</th>
-                <th style={{textAlign: 'right'}}>Importe</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contracts.map(contract => {
-                const property = properties.find(p => p.id === contract.propertyId);
-                return (
-                  <tr key={contract.id}>
-                    <td>
-                      <div className="font-semibold">{property?.address}</div>
-                      <div className="text-sm text-gray">{property?.city}</div>
-                    </td>
-                    <td>{contract.type}</td>
-                    <td>{contract.tenant || contract.company}</td>
-                    <td>{contract.startDate}</td>
-                    <td>{contract.endDate}</td>
-                    <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
-                      {formatCurrency(contract.monthlyAmount)}
-                    </td>
-                    <td>
-                      <span className={`chip ${contract.status === 'Activo' ? 'success' : 'warning'}`}>
-                        {contract.status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
-      {/* Loans/Mortgages */}
-      <div className="card mb-4">
-        <h3 style={{margin: '0 0 16px 0'}}>Préstamos</h3>
-        <div className="table-responsive">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Inmueble</th>
-                <th>Banco</th>
-                <th style={{textAlign: 'right'}}>Saldo Pendiente</th>
-                <th style={{textAlign: 'right'}}>Cuota Mensual</th>
-                <th style={{textAlign: 'right'}}>Tipo Interés</th>
-                <th>Meses Restantes</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loans.map(loan => {
-                const property = properties.find(p => p.id === loan.propertyId);
-                return (
-                  <tr key={loan.id}>
-                    <td>
-                      <div className="font-semibold">{property?.address}</div>
-                      <div className="text-sm text-gray">{property?.city}</div>
-                    </td>
-                    <td>{loan.bank}</td>
-                    <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
-                      {formatCurrency(loan.currentBalance)}
-                    </td>
-                    <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
-                      {formatCurrency(loan.monthlyPayment)}
-                    </td>
-                    <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
-                      {loan.interestRate}%
-                    </td>
-                    <td>{loan.remainingMonths} meses</td>
-                    <td>
-                      <button 
-                        className="btn btn-primary btn-sm"
-                        onClick={() => {
-                          setSelectedLoan(loan);
-                          setShowAmortizationModal(true);
-                        }}
-                      >
-                        Amortizar
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
       {/* Amortization Modal */}
       {showAmortizationModal && selectedLoan && (

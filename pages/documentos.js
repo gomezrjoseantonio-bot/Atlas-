@@ -3,6 +3,7 @@ import store from '../store/index';
 import InvoiceBreakdownModal from '../components/InvoiceBreakdownModal';
 import CapexAssignmentModal from '../components/CapexAssignmentModal';
 import ocrService from '../services/ocrService';
+import { showToast } from '../components/ToastSystem';
 
 export default function Page() {
   const [activeTab, setActiveTab] = useState('inbox');
@@ -576,13 +577,15 @@ export default function Page() {
         </div>
         <nav className="tabs">
           <a className="tab" href="/panel">Panel</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
           <a className="tab" href="/inmuebles">Inmuebles</a>
-          <a className="tab active" href="/documentos">Documentos</a>
+          <a className="tab" href="/tesoreria">Tesorería</a>
           <a className="tab" href="/proyeccion">Proyección</a>
           <a className="tab" href="/configuracion">Configuración</a>
         </nav>
         <div className="actions">
+          <a href="/inbox" className="btn btn-secondary btn-sm" style={{fontSize: '12px', marginRight: '8px', background: 'var(--accent-subtle)', color: 'var(--accent)'}}>
+            📄 Subir documentos
+          </a>
           <span>🔍</span><span>🔔</span><span>⚙️</span>
         </div>
       </div>
@@ -721,8 +724,8 @@ export default function Page() {
               <>
                 {/* Bulk Selection Info */}
                 {selectedInboxEntries.length > 0 && (
-                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <span className="font-medium text-blue-800">
+                  <div className="mb-4 p-3" style={{background: 'var(--accent-subtle)', border: '1px solid var(--accent)', borderRadius: '8px'}}>
+                    <span className="font-medium" style={{color: 'var(--accent)'}}>
                       {selectedInboxEntries.length} documento(s) seleccionado(s) para OCR
                     </span>
                   </div>
@@ -782,7 +785,7 @@ export default function Page() {
                             <div>{entry.fileName}</div>
                             <div className="text-sm text-gray">{entry.fileSize}</div>
                             {entry.pagesOcr && entry.pagesOcr.length > 1 && (
-                              <div className="text-xs text-blue-600">
+                              <div className="text-xs" style={{color: 'var(--accent)'}}>
                                 {entry.pagesOcr.length} páginas procesadas
                               </div>
                             )}
@@ -792,7 +795,7 @@ export default function Page() {
                               {entry.status}
                             </span>
                             {ocrProgress[entry.id] && (
-                              <div className="text-xs text-blue-600 mt-1">
+                              <div className="text-xs mt-1" style={{color: 'var(--accent)'}}>
                                 {ocrProgress[entry.id].status}
                                 {ocrProgress[entry.id].current && ocrProgress[entry.id].total && (
                                   <span> ({ocrProgress[entry.id].current}/{ocrProgress[entry.id].total})</span>
@@ -803,10 +806,10 @@ export default function Page() {
                           <td>
                             {entry.ocrConfidence ? (
                               <div className="text-center">
-                                <div className={`text-sm font-medium ${
-                                  entry.ocrConfidence >= 90 ? 'text-green-600' :
-                                  entry.ocrConfidence >= 70 ? 'text-yellow-600' : 'text-red-600'
-                                }`}>
+                                <div className="text-sm font-medium" style={{
+                                  color: entry.ocrConfidence >= 90 ? 'var(--success)' :
+                                         entry.ocrConfidence >= 70 ? 'var(--warning)' : 'var(--danger)'
+                                }}>
                                   {entry.ocrConfidence}%
                                 </div>
                                 <div className="text-xs text-gray">

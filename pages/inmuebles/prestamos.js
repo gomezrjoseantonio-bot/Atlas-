@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import store from '../../store/index';
 import { mockData } from '../../data/mockData';
+import Header from '../../components/Header';
+import { RefreshCwIcon, PlusIcon } from '../../components/icons';
+import { showToast } from '../../components/ToastSystem';
 
 export default function PrestamosPage() {
   const [showAmortizeModal, setShowAmortizeModal] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [amortizeAmount, setAmortizeAmount] = useState('');
+  const [showNewLoanModal, setShowNewLoanModal] = useState(false);
   
   const [storeState, setStoreState] = useState(() => {
     // More defensive initialization for deployment environments
@@ -93,15 +97,33 @@ export default function PrestamosPage() {
     }
   };
 
-  // Sort loans to show overdue reviews first
-  const sortedLoans = [...(loans || [])].sort((a, b) => {
-    const aOverdue = isOverdue(a.nextRevision);
-    const bOverdue = isOverdue(b.nextRevision);
-    
-    if (aOverdue && !bOverdue) return -1;
-    if (!aOverdue && bOverdue) return 1;
-    return 0;
-  });
+  const handleLoadDemoData = () => {
+    store.resetDemo();
+    showToast('Datos demo cargados correctamente', 'success');
+  };
+
+  const handleLinkToProperty = () => {
+    showToast('Funcionalidad de vinculación próximamente', 'info');
+  };
+
+  const handleEditLoan = (loanId) => {
+    const loan = loans.find(l => l.id === loanId);
+    if (loan) {
+      showToast(`Editando préstamo ${loan.bank}`, 'info');
+      // TODO: Open edit modal
+    }
+  };
+
+  const handleDeleteLoan = (loanId) => {
+    const loan = loans.find(l => l.id === loanId);
+    if (loan && confirm(`¿Eliminar préstamo de ${loan.bank}?`)) {
+      store.updateState(state => ({
+        ...state,
+        loans: state.loans.filter(l => l.id !== loanId)
+      }));
+      showToast('Préstamo eliminado correctamente', 'success');
+    }
+  };
 
   const calculateAmortizationSavings = (loan, amount) => {
     if (!loan || !amount || amount <= 0) return null;
@@ -144,11 +166,15 @@ export default function PrestamosPage() {
     };
   };
 
-  const handleAmortize = (loan) => {
-    setSelectedLoan(loan);
-    setAmortizeAmount('');
-    setShowAmortizeModal(true);
-  };
+  // Sort loans to show overdue reviews first  
+  const sortedLoans = [...(loans || [])].sort((a, b) => {
+    const aOverdue = isOverdue(a.nextRevision);
+    const bOverdue = isOverdue(b.nextRevision);
+    
+    if (aOverdue && !bOverdue) return -1;
+    if (!aOverdue && bOverdue) return 1;
+    return 0;
+  });
 
   const executeAmortization = () => {
     if (!selectedLoan || !amortizeAmount) return;
@@ -181,47 +207,34 @@ export default function PrestamosPage() {
   const totalDebt = (loans || []).reduce((sum, loan) => sum + (loan.pendingCapital || 0), 0);
   const totalMonthlyPayment = (loans || []).reduce((sum, loan) => sum + (loan.monthlyPayment || 0), 0);
 
-  return (<>
-    <header className="header">
-      <div className="container nav">
-        <div className="logo">
-          <div className="logo-mark">
-            <div className="bar short"></div>
-            <div className="bar mid"></div>
-            <div className="bar tall"></div>
-          </div>
-          <div>ATLAS</div>
-        </div>
-        <nav className="tabs">
-          <a className="tab" href="/panel">Panel</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
-          <a className="tab active" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/documentos">Documentos</a>
-          <a className="tab" href="/proyeccion">Proyección</a>
-          <a className="tab" href="/configuracion">Configuración</a>
-        </nav>
-        <div className="actions">
-          <span>🔍</span><span>🔔</span><span>⚙️</span>
-        </div>
-      </div>
-    </header>
+  const alertCount = storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length || 0;
 
-    <main className="main">
-      <div className="container">
+  return (<>
+    <Header 
+      currentTab="inmuebles" 
+      alertCount={alertCount}
+      onDemoReset={() => store.resetDemo()}
+      showInmueblesSubTabs={true}
+      currentInmueblesTab="prestamos"
+    />
+
+    <main className="container">
         <div className="flex items-center justify-between mb-6">
           <h1 style={{margin: 0}}>Préstamos</h1>
           <div className="flex gap-2">
             <button 
               className="btn btn-secondary"
-              data-action="demo:load"
+              onClick={handleLoadDemoData}
             >
-              🔄 Cargar Datos Demo
+              <RefreshCwIcon size={14} style={{marginRight: '4px'}} />
+              Cargar Datos Demo
             </button>
             <button 
               className="btn btn-primary"
-              data-action="loan:create"
+              onClick={() => setShowNewLoanModal(true)}
             >
-              ➕ Nuevo préstamo
+              <PlusIcon size={14} style={{marginRight: '4px'}} />
+              Nuevo préstamo
             </button>
           </div>
         </div>
@@ -277,7 +290,7 @@ export default function PrestamosPage() {
             <h3 style={{margin: 0}}>Mis préstamos</h3>
             <button 
               className="btn btn-secondary btn-sm"
-              data-action="loan:link-property"
+              onClick={handleLinkToProperty}
             >
               🔗 Vincular a inmueble
             </button>
@@ -352,15 +365,13 @@ export default function PrestamosPage() {
                         </button>
                         <button 
                           className="btn btn-secondary btn-sm"
-                          data-action="loan:edit"
-                          data-id={loan.id}
+                          onClick={() => handleEditLoan(loan.id)}
                         >
                           ✏️ Editar
                         </button>
                         <button 
                           className="btn btn-error btn-sm"
-                          data-action="loan:delete"
-                          data-id={loan.id}
+                          onClick={() => handleDeleteLoan(loan.id)}
                         >
                           🗑️ Eliminar
                         </button>
@@ -378,9 +389,10 @@ export default function PrestamosPage() {
               <p style={{margin: '0 0 24px 0'}}>Añade tu primer préstamo para comenzar a gestionar tu financiación inmobiliaria.</p>
               <button 
                 className="btn btn-primary"
-                data-action="loan:create"
+                onClick={() => setShowNewLoanModal(true)}
               >
-                ➕ Crear primer préstamo
+                <PlusIcon size={14} style={{marginRight: '4px'}} />
+                Crear primer préstamo
               </button>
             </div>
           )}
@@ -406,7 +418,6 @@ export default function PrestamosPage() {
             </div>
           </div>
         )}
-      </div>
     </main>
 
     {/* Amortization Modal */}
@@ -488,6 +499,60 @@ export default function PrestamosPage() {
               disabled={!amortizeAmount || parseFloat(amortizeAmount) <= 0}
             >
               ✅ Aplicar amortización
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* New Loan Modal */}
+    {showNewLoanModal && (
+      <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && setShowNewLoanModal(false)}>
+        <div className="modal" style={{maxWidth: '600px'}} onMouseDown={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 style={{margin: 0}}>Crear nuevo préstamo</h3>
+            <button className="btn-close" onClick={() => setShowNewLoanModal(false)}>×</button>
+          </div>
+          
+          <div className="mb-4">
+            <p className="text-sm text-gray mb-4">
+              El asistente completo de préstamos estará disponible próximamente con cálculos del método francés, vinculaciones bancarias y análisis TAE.
+            </p>
+            
+            <div className="card p-4" style={{background: '#F8F9FA', border: '1px solid #E5E7EB'}}>
+              <div className="flex items-center gap-3 mb-3">
+                <span style={{fontSize: '24px'}}>🏦</span>
+                <div>
+                  <div className="font-semibold">Asistente de préstamos</div>
+                  <div className="text-sm text-gray">Configuración completa en 4 pasos</div>
+                </div>
+              </div>
+              <div className="text-xs text-gray">
+                • Configuración básica del préstamo<br/>
+                • Cálculo de intereses y vinculaciones<br/>
+                • Análisis de productos bancarios<br/>
+                • Cuadro de amortización método francés
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button 
+              className="btn btn-secondary"
+              onClick={() => setShowNewLoanModal(false)}
+            >
+              Cerrar
+            </button>
+            <button 
+              className="btn btn-primary"
+              onClick={() => {
+                if (window.showToast) {
+                  window.showToast('Asistente de préstamos próximamente disponible', 'info');
+                }
+                setShowNewLoanModal(false);
+              }}
+            >
+              Continuar con asistente
             </button>
           </div>
         </div>

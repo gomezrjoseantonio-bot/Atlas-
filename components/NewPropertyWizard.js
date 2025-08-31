@@ -6,6 +6,7 @@ const NewPropertyWizard = ({ onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     // Step 1: Identity
     alias: '',
+    type: '', // Property type
     address: '',
     city: '',
     province: '',
@@ -97,6 +98,7 @@ const NewPropertyWizard = ({ onClose, onSuccess }) => {
     const newErrors = {};
     
     if (!formData.alias.trim()) newErrors.alias = 'El alias es obligatorio';
+    if (!formData.type.trim()) newErrors.type = 'El tipo de inmueble es obligatorio';
     if (!formData.address.trim()) newErrors.address = 'La dirección es obligatoria';
     if (!formData.city.trim()) newErrors.city = 'La ciudad es obligatoria';
     if (!formData.province.trim()) newErrors.province = 'La provincia es obligatoria';
@@ -255,7 +257,7 @@ const NewPropertyWizard = ({ onClose, onSuccess }) => {
       },
       
       // Default values for existing property fields
-      type: 'Piso',
+      type: formData.type || 'Piso',
       purchaseDate: formData.purchaseDate,
       purchasePrice: parseFloat(formData.purchasePrice),
       currentValue: parseFloat(formData.purchasePrice), // Start with purchase price
@@ -299,6 +301,28 @@ const NewPropertyWizard = ({ onClose, onSuccess }) => {
           {errors.alias && <div className="text-sm text-error mt-1">{errors.alias}</div>}
         </div>
         
+        <div>
+          <label className="text-sm font-medium">Tipo de inmueble *</label>
+          <select
+            className="form-control"
+            value={formData.type}
+            onChange={(e) => handleInputChange('type', e.target.value)}
+          >
+            <option value="">Seleccionar tipo...</option>
+            <option value="Piso">Piso</option>
+            <option value="Casa">Casa</option>
+            <option value="Local">Local comercial</option>
+            <option value="Oficina">Oficina</option>
+            <option value="Garaje">Garaje</option>
+            <option value="Trastero">Trastero</option>
+            <option value="Terreno">Terreno</option>
+            <option value="Otro">Otro</option>
+          </select>
+          {errors.type && <div className="text-sm text-error mt-1">{errors.type}</div>}
+        </div>
+      </div>
+      
+      <div className="grid-2 gap-4 mb-4">
         <div>
           <label className="text-sm font-medium">Código postal</label>
           <input 
@@ -757,8 +781,8 @@ const NewPropertyWizard = ({ onClose, onSuccess }) => {
   );
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth: '800px', maxHeight: '90vh', overflow: 'auto'}} onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{maxWidth: '800px', maxHeight: '90vh', overflow: 'auto'}} onMouseDown={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 style={{margin: 0}}>Nuevo inmueble</h2>
           <button className="btn-close" onClick={onClose}>×</button>

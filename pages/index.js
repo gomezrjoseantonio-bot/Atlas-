@@ -1,3 +1,5 @@
+import { BarChart3Icon, HomeIcon, FileTextIcon, TrendingUpIcon, SettingsIcon, EuroIcon, RocketIcon, SparklesIcon } from '../components/icons';
+
 export default function Home() {
   return (
     <main className="container" style={{padding: '48px 16px'}}>
@@ -22,7 +24,7 @@ export default function Home() {
         <div className="grid gap-4 mb-8" style={{textAlign: 'left'}}>
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <span style={{fontSize: '24px'}}>📊</span>
+              <BarChart3Icon size={24} color="var(--accent)" />
               <h3 style={{margin: 0}}>Panel de Control</h3>
             </div>
             <p className="text-sm text-gray">
@@ -32,7 +34,7 @@ export default function Home() {
 
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <span style={{fontSize: '24px'}}>💰</span>
+              <EuroIcon size={24} color="var(--accent)" />
               <h3 style={{margin: 0}}>Tesorería</h3>
             </div>
             <p className="text-sm text-gray">
@@ -42,7 +44,7 @@ export default function Home() {
 
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <span style={{fontSize: '24px'}}>🏠</span>
+              <HomeIcon size={24} color="var(--accent)" />
               <h3 style={{margin: 0}}>Portfolio Inmuebles</h3>
             </div>
             <p className="text-sm text-gray">
@@ -52,7 +54,7 @@ export default function Home() {
 
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <span style={{fontSize: '24px'}}>📄</span>
+              <FileTextIcon size={24} color="var(--accent)" />
               <h3 style={{margin: 0}}>Documentos (HITO 2)</h3>
             </div>
             <p className="text-sm text-gray">
@@ -62,7 +64,7 @@ export default function Home() {
 
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <span style={{fontSize: '24px'}}>📈</span>
+              <TrendingUpIcon size={24} color="var(--accent)" />
               <h3 style={{margin: 0}}>Proyección</h3>
             </div>
             <p className="text-sm text-gray">
@@ -72,7 +74,7 @@ export default function Home() {
 
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <span style={{fontSize: '24px'}}>⚙️</span>
+              <SettingsIcon size={24} color="var(--accent)" />
               <h3 style={{margin: 0}}>Configuración</h3>
             </div>
             <p className="text-sm text-gray">
@@ -83,16 +85,19 @@ export default function Home() {
 
         <div className="flex gap-3 justify-center">
           <a href="/panel" className="btn btn-primary">
-            🚀 Acceder al Panel
+            <RocketIcon size={16} style={{marginRight: '6px'}} />
+            Acceder al Panel
           </a>
           <a href="/documentos" className="btn btn-secondary">
-            📄 Ver Documentos
+            <FileTextIcon size={16} style={{marginRight: '6px'}} />
+            Ver Documentos
           </a>
         </div>
 
         <div className="mt-8 p-4" style={{background: '#EFF6FF', borderRadius: '8px', border: '1px solid var(--navy)'}}>
-          <div className="font-medium mb-2" style={{color: 'var(--navy)'}}>
-            ✨ Implementación HITO 2 Completada
+          <div className="font-medium mb-2" style={{color: 'var(--navy)', display: 'flex', alignItems: 'center', gap: '8px'}}>
+            <SparklesIcon size={16} />
+            Implementación HITO 2 Completada
           </div>
           <div className="text-sm text-gray">
             Sistema completo de gestión documental con Inbox, tabla de facturas, Cierre rápido, 

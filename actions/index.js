@@ -402,7 +402,7 @@ export const addPropertyExpense = (id) => {
 };
 
 export const createLoan = () => {
-  showModal('createLoan', { properties: store.getState().properties });
+  showModal('createLoanWizard', { properties: store.getState().properties });
 };
 
 export const linkLoanToProperty = () => {

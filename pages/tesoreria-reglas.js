@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import store from '../store/index';
 import { mockData } from '../data/mockData';
+import Header from '../components/Header';
 
 export default function TreasuryRulesPage() {
   const [storeState, setStoreState] = useState(() => {
@@ -78,36 +79,11 @@ export default function TreasuryRulesPage() {
 
   return (
     <div data-theme="atlas">
-      <header className="header">
-        <div className="container nav">
-          <div className="logo">
-            <div className="logo-mark">
-              <div className="bar short"></div>
-              <div className="bar mid"></div>
-              <div className="bar tall"></div>
-            </div>
-            <div>ATLAS</div>
-          </div>
-          <nav className="tabs">
-            <a className="tab" href="/panel">Panel</a>
-            <a className="tab active" href="/tesoreria">Tesorería</a>
-            <a className="tab" href="/inmuebles">Inmuebles</a>
-            <a className="tab" href="/documentos">Documentos</a>
-            <a className="tab" href="/proyeccion">Proyección</a>
-            <a className="tab" href="/configuracion">Configuración</a>
-          </nav>
-          <div className="actions">
-            <button 
-              className="btn btn-secondary btn-sm"
-              onClick={() => store.resetDemo()}
-              style={{marginRight: '12px'}}
-            >
-              🔄 Demo
-            </button>
-            <span>🔍</span><span>🔔</span><span>⚙️</span>
-          </div>
-        </div>
-      </header>
+      <Header 
+        currentTab="tesoreria"
+        alertCount={5}
+        onDemoReset={() => store.resetDemo()}
+      />
 
       <main className="container">
         <div className="flex items-center justify-between mb-6">

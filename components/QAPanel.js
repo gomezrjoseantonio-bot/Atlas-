@@ -13,7 +13,8 @@ export default function QAPanel({
   onCreateOverdueMovements,
   onGenerateInvoicesWithoutDocs,
   onSimulateLowBalance,
-  onExecuteRulesEngine
+  onExecuteRulesEngine,
+  onToggleTheme
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -203,6 +204,13 @@ export default function QAPanel({
               style={{ fontSize: '11px', textAlign: 'left' }}
             >
               🐛 Reportar Issue
+            </button>
+            <button 
+              onClick={onToggleTheme}
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '11px', textAlign: 'left' }}
+            >
+              🎨 Cambiar Tema
             </button>
           </div>
         </div>

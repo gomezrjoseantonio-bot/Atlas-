@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import store from '../../store/index';
 import { mockData } from '../../data/mockData';
+import Header from '../../components/Header';
+import ContractWizard from '../../components/ContractWizard';
+import ContractDetailModal from '../../components/ContractDetailModal';
 
 export default function ContratosPage() {
   const [storeState, setStoreState] = useState(() => {
-    // More defensive initialization for deployment environments
     try {
       console.log('Contratos: Starting initialization');
-    return store.getState();
+      return store.getState();
     } catch (error) {
       console.error('Contratos: Error during initialization, using fallback data', error);
       return {
@@ -17,6 +19,15 @@ export default function ContratosPage() {
         documents: mockData.documents || []
       };
     }
+  });
+
+  const [showContractWizard, setShowContractWizard] = useState(false);
+  const [showContractDetail, setShowContractDetail] = useState(false);
+  const [editingContract, setEditingContract] = useState(null);
+  const [selectedContract, setSelectedContract] = useState(null);
+  const [filters, setFilters] = useState({
+    type: 'all',
+    status: 'all'
   });
 
   // Subscribe to store changes with error handling
@@ -73,71 +84,132 @@ export default function ContratosPage() {
     return property ? property.address : 'Sin asignar';
   };
 
+  const getProperty = (propertyId) => {
+    return properties.find(p => p.id === propertyId);
+  };
+
+  // Handle contract operations
+  const handleCreateContract = () => {
+    setEditingContract(null);
+    setShowContractWizard(true);
+  };
+
+  const handleEditContract = (contract) => {
+    setEditingContract(contract);
+    setShowContractWizard(true);
+  };
+
+  const handleDeleteContract = (contractId) => {
+    if (confirm('¿Estás seguro de que quieres eliminar este contrato?')) {
+      store.deleteContract(contractId);
+      if (typeof window !== 'undefined' && window.showToast) {
+        window.showToast('Contrato eliminado correctamente', 'success');
+      }
+    }
+  };
+
+  const handleSaveContract = (contractData) => {
+    if (editingContract) {
+      store.updateContract(contractData);
+      if (typeof window !== 'undefined' && window.showToast) {
+        window.showToast('Contrato actualizado correctamente', 'success');
+      }
+    } else {
+      store.addContract(contractData);
+      if (typeof window !== 'undefined' && window.showToast) {
+        window.showToast('Contrato creado correctamente', 'success');
+      }
+    }
+  };
+
+  const handleViewContract = (contract) => {
+    setSelectedContract(contract);
+    setShowContractDetail(true);
+  };
+
+  const handleDemoReset = () => {
+    store.loadDemoData();
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast('Datos demo cargados', 'success');
+    }
+  };
+
+  // Filter contracts
+  const filteredContracts = contracts.filter(contract => {
+    const typeMatch = filters.type === 'all' || 
+      (filters.type === 'alquiler' && (contract.type === 'Alquiler' || contract.type === 'Alquiler Habitación' || contract.tipo === 'Vivienda_completa' || contract.tipo === 'Habitacion')) ||
+      (filters.type === 'seguro' && contract.type === 'Seguro Hogar');
+    
+    const statusMatch = filters.status === 'all' || contract.status === filters.status;
+    
+    return typeMatch && statusMatch;
+  });
+
   // Calculate KPIs
-  const totalContracts = contracts.length;
-  const activeContracts = contracts.filter(c => c.status === 'Activo').length;
-  const totalMonthlyIncome = contracts
-    .filter(c => c.type === 'Alquiler' && c.status === 'Activo')
-    .reduce((sum, contract) => sum + contract.monthlyAmount, 0);
+  const totalContracts = filteredContracts.length;
+  const activeContracts = filteredContracts.filter(c => c.status === 'Activo').length;
+  const totalMonthlyIncome = filteredContracts
+    .filter(c => (c.type === 'Alquiler' || c.type === 'Alquiler Habitación' || c.tipo === 'Vivienda_completa' || c.tipo === 'Habitacion') && c.status === 'Activo')
+    .reduce((sum, contract) => sum + (contract.monthlyAmount || contract.renta?.importe_base_mes || 0), 0);
+
+  const alertCount = storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length || 0;
+
+  // Sub-tabs for navigation
+  const subTabs = [
+    { key: 'cartera', label: 'Cartera', icon: '🏠' },
+    { key: 'contratos', label: 'Contratos', icon: '📋' },
+    { key: 'prestamos', label: 'Préstamos', icon: '🏦' },
+    { key: 'gastos', label: 'Gastos', icon: '📄' },
+    { key: 'analisis', label: 'Análisis', icon: '📊' }
+  ];
+
+  const handleSubTabChange = (tabKey) => {
+    switch (tabKey) {
+      case 'cartera':
+        window.location.href = '/inmuebles';
+        break;
+      case 'contratos':
+        // Already here
+        break;
+      case 'prestamos':
+        window.location.href = '/inmuebles/prestamos';
+        break;
+      case 'gastos':
+        window.location.href = '/inmuebles/gastos';
+        break;
+      case 'analisis':
+        window.location.href = '/inmuebles/analisis';
+        break;
+    }
+  };
 
   return (<>
-    <header className="header">
-      <div className="container nav">
-        <div className="logo">
-          <div className="logo-mark">
-            <div className="bar short"></div>
-            <div className="bar mid"></div>
-            <div className="bar tall"></div>
-          </div>
-          <div>ATLAS</div>
-        </div>
-        <nav className="tabs">
-          <a className="tab" href="/panel">Panel</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
-          <a className="tab active" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/documentos">Documentos</a>
-          <a className="tab" href="/proyeccion">Proyección</a>
-          <a className="tab" href="/configuracion">Configuración</a>
-        </nav>
-        <div className="actions">
-          <button 
-            className="btn btn-secondary btn-sm"
-            data-action="demo:load"
-            style={{marginRight: '12px'}}
-          >
-            🔄 Demo
-          </button>
-          <span>🔍</span><span>🔔</span><span>⚙️</span>
-        </div>
-      </div>
-    </header>
+    <Header 
+      currentTab="inmuebles"
+      alertCount={alertCount}
+      onDemoReset={() => store.resetDemo()}
+      showInmueblesSubTabs={true}
+      currentInmueblesTab="contratos"
+    />
 
     <main className="main">
       <div className="container">
         <div className="flex items-center justify-between mb-6">
-          <h1 style={{margin: 0}}>Contratos</h1>
+          <h1 style={{margin: 0}}>Contratos de Alquiler</h1>
           <div className="flex gap-2">
             <button 
               className="btn btn-secondary"
-              data-action="demo:load"
+              onClick={handleDemoReset}
             >
               🔄 Cargar Datos Demo
             </button>
             <button 
               className="btn btn-primary"
-              data-action="contract:create"
+              onClick={handleCreateContract}
             >
               ➕ Nuevo contrato
             </button>
           </div>
-        </div>
-
-        {/* Sub-navigation */}
-        <div className="flex gap-4 mb-6">
-          <a href="/inmuebles" className="tab">Cartera</a>
-          <a href="/inmuebles/contratos" className="tab active">Contratos</a>
-          <a href="/inmuebles/prestamos" className="tab">Préstamos</a>
-          <a href="/inmuebles/analisis" className="tab">Análisis</a>
         </div>
 
         {/* KPIs */}
@@ -146,7 +218,7 @@ export default function ContratosPage() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm text-gray">Total contratos</div>
-                <div className="font-semibold" style={{fontSize: '24px', color: 'var(--navy)'}}>
+                <div className="font-semibold" style={{fontSize: '24px', color: 'var(--accent)'}}>
                   {totalContracts}
                 </div>
               </div>
@@ -168,7 +240,7 @@ export default function ContratosPage() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm text-gray">Ingresos mensuales</div>
-                <div className="font-semibold" style={{fontSize: '24px', color: 'var(--teal)', textAlign: 'right'}}>
+                <div className="font-semibold" style={{fontSize: '24px', color: 'var(--accent)', textAlign: 'right'}}>
                   {formatCurrency(totalMonthlyIncome)}
                 </div>
               </div>
@@ -182,16 +254,26 @@ export default function ContratosPage() {
           <div className="flex items-center justify-between mb-4">
             <h3 style={{margin: 0}}>Lista de Contratos</h3>
             <div className="flex gap-2">
-              <select className="form-control" style={{width: 'auto', marginBottom: 0}}>
+              <select 
+                className="form-control" 
+                style={{width: 'auto', marginBottom: 0}}
+                value={filters.type}
+                onChange={(e) => setFilters(prev => ({...prev, type: e.target.value}))}
+              >
                 <option value="all">Todos los tipos</option>
                 <option value="alquiler">Alquiler</option>
                 <option value="seguro">Seguro</option>
               </select>
-              <select className="form-control" style={{width: 'auto', marginBottom: 0}}>
+              <select 
+                className="form-control" 
+                style={{width: 'auto', marginBottom: 0}}
+                value={filters.status}
+                onChange={(e) => setFilters(prev => ({...prev, status: e.target.value}))}
+              >
                 <option value="all">Todos los estados</option>
-                <option value="activo">Activo</option>
-                <option value="vencido">Vencido</option>
-                <option value="proximo">Próximo vencimiento</option>
+                <option value="Activo">Activo</option>
+                <option value="Vencido">Vencido</option>
+                <option value="Próximo vencimiento">Próximo vencimiento</option>
               </select>
             </div>
           </div>
@@ -203,74 +285,82 @@ export default function ContratosPage() {
                   <th>Inmueble</th>
                   <th>Tipo</th>
                   <th>Inquilino/Aseguradora</th>
-                    <th>Inicio</th>
-                    <th>Fin</th>
-                    <th style={{textAlign: 'right'}}>Importe mensual</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {contracts.map(contract => {
-                    const property = properties.find(p => p.id === contract.propertyId);
-                    return (
-                      <tr key={contract.id}>
-                        <td>
-                          <div className="font-semibold">{property?.address || 'Sin asignar'}</div>
-                          <div className="text-sm text-gray">{property?.city || ''}</div>
-                        </td>
-                        <td>
-                          <span className="chip secondary">{contract.type}</span>
-                        </td>
-                        <td>{contract.tenant || contract.company}</td>
-                        <td>{contract.startDate}</td>
-                        <td>{contract.endDate}</td>
-                        <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
-                          {formatCurrency(contract.monthlyAmount)}
-                        </td>
-                        <td>
-                          <span className={`chip ${contract.status === 'Activo' ? 'success' : 'warning'}`}>
-                            {contract.status}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="flex gap-1">
-                            <button 
-                              className="btn btn-secondary btn-sm"
-                              data-action="contract:edit"
-                              data-id={contract.id}
-                            >
-                              ✏️
-                            </button>
-                            <button 
-                              className="btn btn-secondary btn-sm"
-                              data-action="contract:view"
-                              data-id={contract.id}
-                            >
-                              👁️
-                            </button>
-                            <button 
-                              className="btn btn-secondary btn-sm"
-                              data-action="contract:renew"
-                              data-id={contract.id}
-                            >
-                              🔄
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                  <th>Inicio</th>
+                  <th>Fin</th>
+                  <th style={{textAlign: 'right'}}>Importe mensual</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredContracts.map(contract => {
+                  const property = getProperty(contract.propertyId || contract.inmuebleId);
+                  const displayType = contract.tipo === 'Habitacion' ? 'Alquiler Habitación' : 
+                                    contract.tipo === 'Vivienda_completa' ? 'Alquiler' :
+                                    contract.type;
+                  const tenantName = contract.arrendatarios?.[0]?.nombre || contract.tenant || contract.company;
+                  
+                  return (
+                    <tr key={contract.id}>
+                      <td>
+                        <div className="font-semibold">{property?.address || 'Sin asignar'}</div>
+                        <div className="text-sm text-gray">
+                          {property?.city || ''}
+                          {contract.unidadId && ` • ${contract.unidadId}`}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="chip secondary">{displayType}</span>
+                      </td>
+                      <td>{tenantName}</td>
+                      <td>{contract.fechas?.fecha_inicio || contract.startDate}</td>
+                      <td>{contract.fechas?.fecha_fin_prevista || contract.endDate || '—'}</td>
+                      <td style={{textAlign: 'right', fontWeight: 'semibold'}}>
+                        {formatCurrency(contract.renta?.importe_base_mes || contract.monthlyAmount)}
+                      </td>
+                      <td>
+                        <span className={`chip ${contract.status === 'Activo' ? 'success' : 'warning'}`}>
+                          {contract.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex gap-1">
+                          <button 
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleViewContract(contract)}
+                            title="Ver detalles"
+                          >
+                            👁️
+                          </button>
+                          <button 
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleEditContract(contract)}
+                            title="Editar"
+                          >
+                            ✏️
+                          </button>
+                          <button 
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleDeleteContract(contract.id)}
+                            title="Eliminar"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-          {contracts.length === 0 && (
+          {filteredContracts.length === 0 && (
             <div className="text-center py-8">
               <div className="text-gray mb-4">No hay contratos registrados</div>
               <button 
                 className="btn btn-primary"
-                data-action="contract:create"
+                onClick={handleCreateContract}
               >
                 ➕ Crear primer contrato
               </button>
@@ -285,33 +375,58 @@ export default function ContratosPage() {
             Contratos que requieren atención en los próximos 60 días
           </div>
           
-          {contracts
+          {filteredContracts
             .filter(c => c.status === 'Próximo vencimiento')
             .slice(0, 3)
             .map(contract => {
-              const property = properties.find(p => p.id === contract.propertyId);
+              const property = getProperty(contract.propertyId || contract.inmuebleId);
               return (
                 <div key={contract.id} className="flex items-center justify-between p-3 mb-2" style={{background: '#FEF3C7', borderRadius: '8px'}}>
                   <div>
                     <div className="font-semibold">{contract.type} - {property?.address}</div>
-                    <div className="text-sm text-gray">Vence: {contract.endDate}</div>
+                    <div className="text-sm text-gray">Vence: {contract.fechas?.fecha_fin_prevista || contract.endDate}</div>
                   </div>
                   <button 
                     className="btn btn-warning btn-sm"
-                    data-action="contract:renew"
-                    data-id={contract.id}
+                    onClick={() => {
+                      if (typeof window !== 'undefined' && window.showToast) {
+                        window.showToast('Función de renovación próximamente disponible', 'info');
+                      }
+                    }}
                   >
-                    Renovar
+                    🔄 Renovar
                   </button>
                 </div>
               );
             })}
           
-          {contracts.filter(c => c.status === 'Próximo vencimiento').length === 0 && (
+          {filteredContracts.filter(c => c.status === 'Próximo vencimiento').length === 0 && (
             <div className="text-sm text-gray">No hay contratos próximos a vencer</div>
           )}
         </div>
       </div>
     </main>
+
+    {/* Modals */}
+    {showContractWizard && (
+      <ContractWizard
+        isOpen={showContractWizard}
+        onClose={() => setShowContractWizard(false)}
+        onSave={handleSaveContract}
+        properties={properties}
+        editingContract={editingContract}
+      />
+    )}
+
+    {showContractDetail && selectedContract && (
+      <ContractDetailModal
+        isOpen={showContractDetail}
+        onClose={() => setShowContractDetail(false)}
+        contract={selectedContract}
+        property={getProperty(selectedContract.propertyId || selectedContract.inmuebleId)}
+        onEdit={handleEditContract}
+        onDelete={handleDeleteContract}
+      />
+    )}
   </>);
 }

@@ -173,49 +173,199 @@ export const mockData = {
     }
   ],
 
-  // Rental contracts
+  // Rental contracts with H13 comprehensive model
   contracts: [
     {
       id: 1,
+      inmuebleId: 1,
+      unidadId: null, // Whole property
+      tipo: 'Vivienda_completa',
+      arrendador: {
+        nombre: 'José Antonio Gómez',
+        dni: '12345678A',
+        telefono: '+34 600 123 456',
+        email: 'jose@example.com'
+      },
+      arrendatarios: [
+        {
+          nombre: 'María García',
+          dni: '87654321B',
+          telefono: '+34 600 654 321',
+          email: 'maria@example.com',
+          tipo_responsabilidad: 'Solidaria'
+        }
+      ],
+      fechas: {
+        fecha_inicio: '2023-06-01',
+        fecha_fin_prevista: '2025-05-31',
+        prorroga_auto: true
+      },
+      renta: {
+        importe_base_mes: 1200,
+        moneda: 'EUR',
+        dia_vencimiento: 1,
+        prorrateo_entrada: true,
+        prorrateo_salida: true
+      },
+      actualizacion: {
+        metodo: 'Indice',
+        indice_label: 'IPC',
+        periodicidad_meses: 12,
+        ultima_revision: '2024-06-01',
+        proxima_revision: '2025-06-01'
+      },
+      fianza: {
+        importe: 2400,
+        tipo: 'Legal',
+        deposito_cuenta: 'Depósito Legal',
+        interes_aplicable: false
+      },
+      garantias: [],
+      status: 'Activo',
+      // Legacy fields for backward compatibility
       propertyId: 1,
       type: 'Alquiler',
       tenant: 'María García',
       startDate: '2023-06-01',
       endDate: '2025-05-31',
       monthlyAmount: 1200,
-      deposit: 2400,
-      status: 'Activo'
+      deposit: 2400
     },
     {
       id: 2,
+      inmuebleId: 2,
+      unidadId: null, // Whole property
+      tipo: 'Vivienda_completa',
+      arrendador: {
+        nombre: 'José Antonio Gómez',
+        dni: '12345678A',
+        telefono: '+34 600 123 456',
+        email: 'jose@example.com'
+      },
+      arrendatarios: [
+        {
+          nombre: 'João Silva',
+          dni: 'X1234567L',
+          telefono: '+34 600 987 654',
+          email: 'joao@example.com',
+          tipo_responsabilidad: 'Solidaria'
+        }
+      ],
+      fechas: {
+        fecha_inicio: '2024-01-15',
+        fecha_fin_prevista: '2025-01-14',
+        prorroga_auto: false
+      },
+      renta: {
+        importe_base_mes: 850,
+        moneda: 'EUR',
+        dia_vencimiento: 15,
+        prorrateo_entrada: false,
+        prorrateo_salida: true
+      },
+      actualizacion: {
+        metodo: 'Fijo_pct',
+        porcentaje_anual: 2.5,
+        periodicidad_meses: 12,
+        ultima_revision: null,
+        proxima_revision: '2025-01-15'
+      },
+      fianza: {
+        importe: 1700,
+        tipo: 'Legal',
+        deposito_cuenta: 'Depósito Legal',
+        interes_aplicable: false
+      },
+      garantias: [],
+      status: 'Activo',
+      // Legacy fields for backward compatibility
       propertyId: 2,
       type: 'Alquiler',
       tenant: 'João Silva',
       startDate: '2024-01-15',
       endDate: '2025-01-14',
       monthlyAmount: 850,
-      deposit: 1700,
-      status: 'Activo'
+      deposit: 1700
     },
     {
       id: 3,
-      propertyId: 1,
-      type: 'Seguro Hogar',
+      inmuebleId: 3,
+      unidadId: 'habitacion-1',
+      tipo: 'Habitacion',
+      arrendador: {
+        nombre: 'José Antonio Gómez',
+        dni: '12345678A',
+        telefono: '+34 600 123 456',
+        email: 'jose@example.com'
+      },
+      arrendatarios: [
+        {
+          nombre: 'Ana Martínez',
+          dni: '11223344C',
+          telefono: '+34 600 111 222',
+          email: 'ana@example.com',
+          tipo_responsabilidad: 'Solidaria'
+        }
+      ],
+      fechas: {
+        fecha_inicio: '2024-02-01',
+        fecha_fin_prevista: '2024-08-31',
+        prorroga_auto: true
+      },
+      renta: {
+        importe_base_mes: 400,
+        moneda: 'EUR',
+        dia_vencimiento: 1,
+        prorrateo_entrada: true,
+        prorrateo_salida: true
+      },
+      actualizacion: {
+        metodo: 'Ninguno'
+      },
+      fianza: {
+        importe: 400,
+        tipo: 'Legal',
+        deposito_cuenta: 'Depósito Legal',
+        interes_aplicable: false
+      },
+      garantias: [],
+      status: 'Activo',
+      // Legacy fields for backward compatibility
+      propertyId: 3,
+      type: 'Alquiler Habitación',
+      tenant: 'Ana Martínez',
+      startDate: '2024-02-01',
+      endDate: '2024-08-31',
+      monthlyAmount: 400,
+      deposit: 400
+    },
+    {
+      id: 4,
+      inmuebleId: 1,
+      unidadId: null,
+      tipo: 'Seguro',
       company: 'Mapfre',
       startDate: '2024-01-01',
       endDate: '2024-12-31',
       monthlyAmount: 45,
-      status: 'Activo'
+      status: 'Activo',
+      // Legacy fields
+      propertyId: 1,
+      type: 'Seguro Hogar'
     },
     {
-      id: 4,
-      propertyId: 2,
-      type: 'Seguro Hogar',
+      id: 5,
+      inmuebleId: 2,
+      unidadId: null,
+      tipo: 'Seguro', 
       company: 'AXA',
       startDate: '2024-03-15',
       endDate: '2025-03-14',
       monthlyAmount: 38,
-      status: 'Próx. vencimiento'
+      status: 'Próximo vencimiento',
+      // Legacy fields
+      propertyId: 2,
+      type: 'Seguro Hogar'
     }
   ],
 
@@ -756,6 +906,47 @@ export const mockData = {
       documentId: 2,
       actions: ['create_predicted_charge', 'postpone', 'dismiss'],
       createdAt: '2024-01-14T16:00:00',
+      dismissed: false
+    },
+    {
+      id: 4,
+      type: 'contract_expiry',
+      severity: 'high',
+      title: 'Contrato próximo a vencer',
+      description: 'Alquiler Ana Martínez (H3) vence en 45 días (31/08/2024)',
+      propertyId: 3,
+      contractId: 3,
+      dueDate: '2024-08-31',
+      actions: ['open_contract', 'renew_contract', 'postpone', 'dismiss'],
+      createdAt: '2024-01-15T08:00:00',
+      dismissed: false
+    },
+    {
+      id: 5,
+      type: 'rent_payment_due',
+      severity: 'medium',
+      title: 'Cobro de alquiler próximo',
+      description: 'María García - Pago mensual vence el 01/02/2024',
+      propertyId: 1,
+      contractId: 1,
+      amount: 1200,
+      dueDate: '2024-02-01',
+      actions: ['open_contract', 'mark_paid', 'send_reminder', 'dismiss'],
+      createdAt: '2024-01-25T09:00:00',
+      dismissed: false
+    },
+    {
+      id: 6,
+      type: 'rent_indexation',
+      severity: 'low',
+      title: 'Actualización de renta disponible',
+      description: 'Contrato João Silva elegible para revisión IPC (+2.8%)',
+      propertyId: 2,
+      contractId: 2,
+      suggestedIncrease: 2.8,
+      newAmount: 873.80,
+      actions: ['open_contract', 'apply_indexation', 'postpone', 'dismiss'],
+      createdAt: '2024-01-10T10:00:00',
       dismissed: false
     }
   ],

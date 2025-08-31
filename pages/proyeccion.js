@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import store from '../store/index';
 import { mockData } from '../data/mockData';
+import Header from '../components/Header';
+import { HomeIcon, BarChart3Icon, AlertTriangleIcon } from '../components/icons';
 
 export default function Page() {
   const [selectedScenario, setSelectedScenario] = useState('base');
@@ -144,34 +146,18 @@ export default function Page() {
   const personalForecast = generatePersonalForecast(parseInt(timeframe));
   const consolidatedForecast = generateConsolidatedForecast(currentScenario, parseInt(timeframe));
 
+  const alertCount = storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length || 0;
+
   return (<>
-    <header className="header">
-      <div className="container nav">
-        <div className="logo">
-          <div className="logo-mark">
-            <div className="bar short"></div>
-            <div class="bar mid"></div>
-            <div className="bar tall"></div>
-          </div>
-          <div>ATLAS</div>
-        </div>
-        <nav className="tabs">
-          <a className="tab" href="/panel">Panel</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
-          <a className="tab" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/documentos">Documentos</a>
-          <a className="tab active" href="/proyeccion">Proyección</a>
-          <a className="tab" href="/configuracion">Configuración</a>
-        </nav>
-        <div className="actions">
-          <span>🔍</span><span>🔔</span><span>⚙️</span>
-        </div>
-      </div>
-    </header>
+    <Header 
+      currentTab="proyeccion" 
+      alertCount={alertCount}
+      onDemoReset={() => store.resetDemo()}
+    />
 
     <main className="container">
       <div className="flex items-center justify-between mb-4">
-        <h2 style={{color:'var(--navy)', margin:0}}>Proyección Financiera</h2>
+        <h2 style={{color:'var(--accent)', margin:0}}>Proyección Financiera</h2>
         <div className="flex gap-2">
           <select 
             className="form-control"
@@ -192,7 +178,8 @@ export default function Page() {
           onClick={() => setActiveTab('inmuebles')}
           className={`btn ${activeTab === 'inmuebles' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
         >
-          🏠 Inmuebles
+          <HomeIcon size={16} style={{marginRight: '6px'}} />
+          Inmuebles
         </button>
         <button 
           onClick={() => setActiveTab('personal')}
@@ -204,7 +191,8 @@ export default function Page() {
           onClick={() => setActiveTab('consolidado')}
           className={`btn ${activeTab === 'consolidado' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
         >
-          📊 Consolidado
+          <BarChart3Icon size={16} style={{marginRight: '6px'}} />
+          Consolidado
         </button>
       </div>
 
@@ -299,7 +287,7 @@ export default function Page() {
               </div>
               <div>
                 <div className="text-sm text-gray">Beneficio Neto</div>
-                <div className="font-semibold" style={{fontSize: '20px', color: 'var(--navy)'}}>
+                <div className="font-semibold" style={{fontSize: '20px', color: 'var(--accent)'}}>
                   {formatCurrency(propertyForecast.reduce((sum, m) => sum + m.net, 0))}
                 </div>
               </div>
@@ -465,7 +453,8 @@ export default function Page() {
                     className="btn btn-outline btn-sm mt-2"
                     style={{width: '100%'}}
                   >
-                    💡 Mejorar DSCR
+                    <AlertTriangleIcon size={16} style={{marginRight: '6px'}} />
+                    Mejorar DSCR
                   </button>
                 )}
               </div>
@@ -488,7 +477,8 @@ export default function Page() {
         <div className="modal" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 style={{margin: 0, color: 'var(--navy)'}}>
-              💡 Sugerencias para mejorar DSCR
+              <AlertTriangleIcon size={20} style={{marginRight: '8px'}} color="var(--warning)" />
+              Sugerencias para mejorar DSCR
             </h3>
             <button
               onClick={() => setShowDSCRModal(false)}
@@ -544,11 +534,12 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-            <div className="text-sm font-medium text-blue-800 mb-1">
-              💡 Recomendación
+          <div className="mt-4 p-3" style={{background: 'var(--accent-subtle)', borderRadius: '8px'}}>
+            <div className="text-sm font-medium" style={{color: 'var(--accent)', marginBottom: '4px'}}>
+              <AlertTriangleIcon size={20} style={{marginRight: '8px'}} color="var(--warning)" />
+              Recomendación
             </div>
-            <div className="text-sm text-blue-700">
+            <div className="text-sm" style={{color: 'var(--accent)'}}>
               Combinar amortización parcial con optimización de gastos para alcanzar el DSCR objetivo de 1.25x
             </div>
           </div>
