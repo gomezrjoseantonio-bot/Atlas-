@@ -12,8 +12,18 @@ export default function Page() {
   const [alertFilter, setAlertFilter] = useState('all');
   
   const [storeState, setStoreState] = useState(() => {
-    // Initialize with store state immediately
-    return store.getState();
+    // Initialize with store state if available, otherwise use mockData
+    if (typeof window !== 'undefined') {
+      return store.getState();
+    }
+    return {
+      accounts: mockData.accounts || [],
+      movements: mockData.movements || [],
+      alerts: mockData.alerts || [],
+      treasuryRules: mockData.treasuryRules || [],
+      scheduledPayments: mockData.scheduledPayments || [],
+      ...mockData
+    };
   });
 
   // Check URL parameters for filter presets
@@ -34,10 +44,12 @@ export default function Page() {
 
   // Subscribe to store changes
   useEffect(() => {
-    const unsubscribe = store.subscribe(setStoreState);
-    return () => {
-      unsubscribe();
-    };
+    if (typeof window !== 'undefined') {
+      const unsubscribe = store.subscribe(setStoreState);
+      return () => {
+        unsubscribe();
+      };
+    }
   }, []);
 
   // Ensure we have valid data with fallbacks

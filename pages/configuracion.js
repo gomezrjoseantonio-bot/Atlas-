@@ -7,17 +7,28 @@ export default function Page() {
   const [activeSection, setActiveSection] = useState('bancos');
   const [personalToggle, setPersonalToggle] = useState(true);
   const [showNewAccountModal, setShowNewAccountModal] = useState(false);
+  
   const [storeState, setStoreState] = useState(() => {
-    // Initialize with store state immediately
-    return store.getState();
+    // Initialize with store state if available, otherwise use mockData
+    if (typeof window !== 'undefined') {
+      return store.getState();
+    }
+    return {
+      accounts: mockData.accounts || [],
+      sweepConfig: {},
+      rulesEngineEnabled: true,
+      ...mockData
+    };
   });
 
   // Subscribe to store changes
   useEffect(() => {
-    const unsubscribe = store.subscribe(setStoreState);
-    return () => {
-      unsubscribe();
-    };
+    if (typeof window !== 'undefined') {
+      const unsubscribe = store.subscribe(setStoreState);
+      return () => {
+        unsubscribe();
+      };
+    }
   }, []);
 
   // Use accounts from store state with fallback to mockData
