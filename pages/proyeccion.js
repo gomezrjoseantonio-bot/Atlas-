@@ -157,13 +157,15 @@ export default function Page() {
         </div>
         <nav className="tabs">
           <a className="tab" href="/panel">Panel</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
           <a className="tab" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/documentos">Documentos</a>
+          <a className="tab" href="/tesoreria">Tesorería</a>
           <a className="tab active" href="/proyeccion">Proyección</a>
           <a className="tab" href="/configuracion">Configuración</a>
         </nav>
         <div className="actions">
+          <a href="/inbox" className="btn btn-secondary btn-sm" style={{fontSize: '12px', marginRight: '8px'}}>
+            📄 Subir documentos
+          </a>
           <span>🔍</span><span>🔔</span><span>⚙️</span>
         </div>
       </div>
@@ -171,7 +173,7 @@ export default function Page() {
 
     <main className="container">
       <div className="flex items-center justify-between mb-4">
-        <h2 style={{color:'var(--navy)', margin:0}}>Proyección Financiera</h2>
+        <h2 style={{color:'var(--accent)', margin:0}}>Proyección Financiera</h2>
         <div className="flex gap-2">
           <select 
             className="form-control"
@@ -299,7 +301,7 @@ export default function Page() {
               </div>
               <div>
                 <div className="text-sm text-gray">Beneficio Neto</div>
-                <div className="font-semibold" style={{fontSize: '20px', color: 'var(--navy)'}}>
+                <div className="font-semibold" style={{fontSize: '20px', color: 'var(--accent)'}}>
                   {formatCurrency(propertyForecast.reduce((sum, m) => sum + m.net, 0))}
                 </div>
               </div>
@@ -544,11 +546,11 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-            <div className="text-sm font-medium text-blue-800 mb-1">
+          <div className="mt-4 p-3" style={{background: 'var(--accent-subtle)', borderRadius: '8px'}}>
+            <div className="text-sm font-medium" style={{color: 'var(--accent)', marginBottom: '4px'}}>
               💡 Recomendación
             </div>
-            <div className="text-sm text-blue-700">
+            <div className="text-sm" style={{color: 'var(--accent)'}}>
               Combinar amortización parcial con optimización de gastos para alcanzar el DSCR objetivo de 1.25x
             </div>
           </div>
