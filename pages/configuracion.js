@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import store from '../store/index';
 import { mockData } from '../data/mockData';
+import Header from '../components/Header';
 
 export default function Page() {
   const [activeSection, setActiveSection] = useState('bancos');
@@ -25,89 +26,28 @@ export default function Page() {
   const sweepConfig = storeState?.sweepConfig || {};
   const rulesEngineEnabled = storeState?.rulesEngineEnabled ?? true;
 
+  const alertCount = storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length || 0;
+
+  // Define sub-tabs for configuracion
+  const subTabs = [
+    { key: 'bancos', icon: '🏦', label: 'Bancos & Cuentas' },
+    { key: 'plan', icon: '💳', label: 'Plan & Facturación' },
+    { key: 'usuarios', icon: '👥', label: 'Usuarios & Roles' },
+    { key: 'preferencias', icon: '⚙️', label: 'Preferencias & Datos' }
+  ];
+
   return (<>
-    <header className="header">
-      <div className="container nav">
-        <div className="logo">
-          <div className="logo-mark">
-            <div className="bar short"></div>
-            <div className="bar mid"></div>
-            <div className="bar tall"></div>
-          </div>
-          <div>ATLAS</div>
-        </div>
-        <nav className="tabs">
-          <a className="tab" href="/panel">Panel</a>
-          <a className="tab" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
-          <a className="tab" href="/proyeccion">Proyección</a>
-          <a className="tab active" href="/configuracion">Configuración</a>
-        </nav>
-        <div className="actions">
-          <a href="/inbox" className="btn btn-secondary btn-sm" style={{fontSize: '12px', marginRight: '8px'}}>
-            📄 Subir documentos
-          </a>
-          <button 
-            className="btn btn-secondary btn-sm"
-            onClick={() => store.resetDemo()}
-            style={{marginRight: '12px'}}
-          >
-            🔄 Demo
-          </button>
-          <button 
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              if (window.showToast) {
-                window.showToast('Búsqueda próximamente disponible', 'info');
-              }
-            }}
-            style={{marginRight: '12px', background: 'none', border: 'none', fontSize: '18px'}}
-          >
-            🔍
-          </button>
-          <a href="/tesoreria" className="notification-badge">
-            <span>🔔</span>
-            {storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length > 0 && (
-              <span className="badge">
-                {storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length}
-              </span>
-            )}
-          </a>
-          <span>⚙️</span>
-        </div>
-      </div>
-    </header>
+    <Header 
+      currentTab="configuracion" 
+      subTabs={subTabs}
+      activeSubTab={activeSection}
+      onSubTabChange={setActiveSection}
+      alertCount={alertCount}
+      onDemoReset={() => store.resetDemo()}
+    />
 
     <main className="container">
       <h2 style={{color:'var(--navy)', margin:'0 0 24px 0'}}>Configuración</h2>
-
-      {/* Section Navigation */}
-      <div className="flex gap-1 mb-4">
-        <button 
-          onClick={() => setActiveSection('bancos')}
-          className={`btn ${activeSection === 'bancos' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-        >
-          🏦 Bancos & Cuentas
-        </button>
-        <button 
-          onClick={() => setActiveSection('plan')}
-          className={`btn ${activeSection === 'plan' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-        >
-          💳 Plan & Facturación
-        </button>
-        <button 
-          onClick={() => setActiveSection('usuarios')}
-          className={`btn ${activeSection === 'usuarios' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-        >
-          👥 Usuarios & Roles
-        </button>
-        <button 
-          onClick={() => setActiveSection('preferencias')}
-          className={`btn ${activeSection === 'preferencias' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-        >
-          ⚙️ Preferencias & Datos
-        </button>
-      </div>
 
       {/* Bancos & Cuentas */}
       {activeSection === 'bancos' && (

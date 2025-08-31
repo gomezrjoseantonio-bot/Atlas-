@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import store from '../store/index';
 import { getTotalPortfolioValue, getTotalMonthlyRent, getOccupancyRate, getTotalMonthlyExpenses } from '../data/mockData';
 import Modal from '../components/Modal';
+import Header from '../components/Header';
 
 export default function Page() {
   const [personalMode, setPersonalMode] = useState(() => {
@@ -132,58 +133,14 @@ export default function Page() {
     }, 500);
   };
 
+  const alertCount = activeAlerts.filter(alert => alert.severity === 'critical' || alert.severity === 'high').length;
+
   return (<>
-    <header className="header">
-      <div className="container nav">
-        <div className="logo">
-          <div className="logo-mark">
-            <div className="bar short"></div>
-            <div className="bar mid"></div>
-            <div className="bar tall"></div>
-          </div>
-          <div>ATLAS</div>
-        </div>
-        <nav className="tabs">
-          <a className="tab active" href="/panel">Panel</a>
-          <a className="tab" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
-          <a className="tab" href="/proyeccion">Proyección</a>
-          <a className="tab" href="/configuracion">Configuración</a>
-        </nav>
-        <div className="actions">
-          <a href="/inbox" className="btn btn-secondary btn-sm" style={{fontSize: '12px', marginRight: '8px'}}>
-            📄 Subir documentos
-          </a>
-          <button 
-            className="btn btn-secondary btn-sm"
-            onClick={() => store.resetDemo()}
-            style={{marginRight: '12px'}}
-          >
-            🔄 Demo
-          </button>
-          <button 
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              if (window.showToast) {
-                window.showToast('Búsqueda próximamente disponible', 'info');
-              }
-            }}
-            style={{marginRight: '12px', background: 'none', border: 'none', fontSize: '18px'}}
-          >
-            🔍
-          </button>
-          <a href="/tesoreria" className="notification-badge">
-            <span>🔔</span>
-            {activeAlerts.filter(alert => alert.severity === 'critical' || alert.severity === 'high').length > 0 && (
-              <span className="badge">
-                {activeAlerts.filter(alert => alert.severity === 'critical' || alert.severity === 'high').length}
-              </span>
-            )}
-          </a>
-          <span>⚙️</span>
-        </div>
-      </div>
-    </header>
+    <Header 
+      currentTab="panel" 
+      alertCount={alertCount}
+      onDemoReset={() => store.resetDemo()}
+    />
 
     <main className="container">
       {/* Header with PERSONAL Switch */}

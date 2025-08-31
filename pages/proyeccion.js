@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import store from '../store/index';
 import { mockData } from '../data/mockData';
+import Header from '../components/Header';
 
 export default function Page() {
   const [selectedScenario, setSelectedScenario] = useState('base');
@@ -144,58 +145,14 @@ export default function Page() {
   const personalForecast = generatePersonalForecast(parseInt(timeframe));
   const consolidatedForecast = generateConsolidatedForecast(currentScenario, parseInt(timeframe));
 
+  const alertCount = storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length || 0;
+
   return (<>
-    <header className="header">
-      <div className="container nav">
-        <div className="logo">
-          <div className="logo-mark">
-            <div className="bar short"></div>
-            <div class="bar mid"></div>
-            <div className="bar tall"></div>
-          </div>
-          <div>ATLAS</div>
-        </div>
-        <nav className="tabs">
-          <a className="tab" href="/panel">Panel</a>
-          <a className="tab" href="/inmuebles">Inmuebles</a>
-          <a className="tab" href="/tesoreria">Tesorería</a>
-          <a className="tab active" href="/proyeccion">Proyección</a>
-          <a className="tab" href="/configuracion">Configuración</a>
-        </nav>
-        <div className="actions">
-          <a href="/inbox" className="btn btn-secondary btn-sm" style={{fontSize: '12px', marginRight: '8px'}}>
-            📄 Subir documentos
-          </a>
-          <button 
-            className="btn btn-secondary btn-sm"
-            onClick={() => store.resetDemo()}
-            style={{marginRight: '12px'}}
-          >
-            🔄 Demo
-          </button>
-          <button 
-            className="btn btn-secondary btn-sm"
-            onClick={() => {
-              if (window.showToast) {
-                window.showToast('Búsqueda próximamente disponible', 'info');
-              }
-            }}
-            style={{marginRight: '12px', background: 'none', border: 'none', fontSize: '18px'}}
-          >
-            🔍
-          </button>
-          <a href="/tesoreria" className="notification-badge">
-            <span>🔔</span>
-            {storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length > 0 && (
-              <span className="badge">
-                {storeState?.alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length}
-              </span>
-            )}
-          </a>
-          <span>⚙️</span>
-        </div>
-      </div>
-    </header>
+    <Header 
+      currentTab="proyeccion" 
+      alertCount={alertCount}
+      onDemoReset={() => store.resetDemo()}
+    />
 
     <main className="container">
       <div className="flex items-center justify-between mb-4">

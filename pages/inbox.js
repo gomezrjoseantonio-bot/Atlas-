@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import store from '../store/index';
+import Header from '../components/Header';
 
 export default function Inbox() {
   const [storeState, setStoreState] = useState(() => store.getState());
@@ -138,43 +139,11 @@ export default function Inbox() {
 
   return (
     <>
-      <header className="header">
-        <div className="container nav">
-          <div className="logo">
-            <div className="logo-mark">
-              <div className="bar short"></div>
-              <div className="bar mid"></div>
-              <div className="bar tall"></div>
-            </div>
-            <div>ATLAS</div>
-          </div>
-          <nav className="tabs">
-            <a className="tab" href="/panel">Panel</a>
-            <a className="tab" href="/inmuebles">Inmuebles</a>
-            <a className="tab" href="/tesoreria">Tesorería</a>
-            <a className="tab" href="/proyeccion">Proyección</a>
-            <a className="tab" href="/configuracion">Configuración</a>
-          </nav>
-          <div className="actions">
-            <a href="/inbox" className="btn btn-secondary btn-sm" style={{fontSize: '12px', marginRight: '8px', background: 'var(--accent-subtle)', color: 'var(--accent)'}}>
-              📄 Subir documentos
-            </a>
-            <button 
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                if (window.showToast) {
-                  window.showToast('Búsqueda próximamente disponible', 'info');
-                }
-              }}
-              style={{marginRight: '12px', background: 'none', border: 'none', fontSize: '18px'}}
-            >
-              🔍
-            </button>
-            <span>🔔</span>
-            <span>⚙️</span>
-          </div>
-        </div>
-      </header>
+      <Header 
+        currentTab="" 
+        alertCount={0}
+        isInboxPage={true}
+      />
 
       <main className="container">
         <div className="flex items-center justify-between mb-4">
