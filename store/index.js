@@ -628,6 +628,159 @@ class AtlasStore {
     this.setState({ documents });
   }
 
+  // H13: Contract operations for comprehensive rental contract management
+  addContract(contract) {
+    const contracts = [...this.state.contracts, { 
+      ...contract, 
+      id: contract.id || Date.now(), 
+      createdAt: new Date().toISOString() 
+    }];
+    this.setState({ contracts });
+  }
+
+  updateContract(contractData) {
+    const contracts = this.state.contracts.map(contract => 
+      contract.id === contractData.id ? { ...contract, ...contractData } : contract
+    );
+    this.setState({ contracts });
+  }
+
+  deleteContract(id) {
+    const contracts = this.state.contracts.filter(contract => contract.id !== id);
+    this.setState({ contracts });
+  }
+
+  // H13: Generate rent calendar for a contract
+  generateRentCalendar(contract, months = 12) {
+    const calendar = [];
+    const startDate = new Date(contract.fechas?.fecha_inicio || contract.startDate);
+    const rentAmount = parseFloat(contract.renta?.importe_base_mes || contract.monthlyAmount || 0);
+    const paymentDay = contract.renta?.dia_vencimiento || 1;
+    
+    for (let i = 0; i < months; i++) {
+      const paymentDate = new Date(startDate);
+      paymentDate.setMonth(startDate.getMonth() + i);
+      paymentDate.setDate(paymentDay);
+      
+      // Handle month overflow (e.g., Jan 31 -> Feb 28)
+      if (paymentDate.getDate() !== paymentDay) {
+        paymentDate.setDate(0); // Last day of previous month
+      }
+      
+      calendar.push({
+        month: paymentDate.getMonth(),
+        year: paymentDate.getFullYear(),
+        date: paymentDate.toLocaleDateString('es-ES'),
+        amount: rentAmount,
+        status: i === 0 ? 'Pendiente' : 'Programado',
+        isPaid: false,
+        paymentId: null
+      });
+    }
+    
+    return calendar;
+  }
+
+  // H13: Apply rent indexation
+  applyRentIndexation(contractId, indexValue, newRentAmount) {
+    const contracts = this.state.contracts.map(contract => {
+      if (contract.id === contractId) {
+        const historialActualizaciones = contract.historial_actualizaciones || [];
+        historialActualizaciones.push({
+          fecha: new Date().toISOString(),
+          indice_valor: indexValue,
+          renta_anterior: contract.renta?.importe_base_mes || contract.monthlyAmount,
+          renta_nueva: newRentAmount,
+          metodo: contract.actualizacion?.metodo,
+          id: Date.now()
+        });
+
+        return {
+          ...contract,
+          renta: {
+            ...contract.renta,
+            importe_base_mes: newRentAmount
+          },
+          monthlyAmount: newRentAmount, // Legacy field
+          historial_actualizaciones: historialActualizaciones,
+          actualizacion: {
+            ...contract.actualizacion,
+            ultima_revision: new Date().toISOString().split('T')[0],
+            proxima_revision: this.calculateNextRentRevision(contract)
+          }
+        };
+      }
+      return contract;
+    });
+    
+    this.setState({ contracts });
+  }
+
+  // H13: Calculate next rent revision date
+  calculateNextRentRevision(contract) {
+    const periodicidad = contract.actualizacion?.periodicidad_meses || 12;
+    const nextDate = new Date();
+    nextDate.setMonth(nextDate.getMonth() + periodicidad);
+    return nextDate.toISOString().split('T')[0];
+  }
+
+  // H13: Register rent payment
+  registerRentPayment(contractId, paymentData) {
+    const contracts = this.state.contracts.map(contract => {
+      if (contract.id === contractId) {
+        const historialPagos = contract.historial_pagos || [];
+        historialPagos.push({
+          ...paymentData,
+          fecha: new Date().toISOString(),
+          id: Date.now()
+        });
+
+        return {
+          ...contract,
+          historial_pagos: historialPagos
+        };
+      }
+      return contract;
+    });
+    
+    this.setState({ contracts });
+  }
+
+  // H13: Extend/renew contract
+  renewContract(contractId, renewalData) {
+    const contracts = this.state.contracts.map(contract => {
+      if (contract.id === contractId) {
+        const historialRenovaciones = contract.historial_renovaciones || [];
+        historialRenovaciones.push({
+          fecha: new Date().toISOString(),
+          fecha_fin_anterior: contract.fechas?.fecha_fin_prevista || contract.endDate,
+          fecha_fin_nueva: renewalData.nueva_fecha_fin,
+          renta_anterior: contract.renta?.importe_base_mes || contract.monthlyAmount,
+          renta_nueva: renewalData.nueva_renta || contract.renta?.importe_base_mes || contract.monthlyAmount,
+          id: Date.now()
+        });
+
+        return {
+          ...contract,
+          fechas: {
+            ...contract.fechas,
+            fecha_fin_prevista: renewalData.nueva_fecha_fin
+          },
+          endDate: renewalData.nueva_fecha_fin, // Legacy field
+          renta: {
+            ...contract.renta,
+            importe_base_mes: renewalData.nueva_renta || contract.renta?.importe_base_mes
+          },
+          monthlyAmount: renewalData.nueva_renta || contract.monthlyAmount, // Legacy field
+          historial_renovaciones: historialRenovaciones
+        };
+      }
+      return contract;
+    });
+    
+    this.setState({ contracts });
+  }
+
   // H11: Enhanced Loan operations with comprehensive features
   updateLoan(id, updates) {
     const loans = this.state.loans.map(loan => 
