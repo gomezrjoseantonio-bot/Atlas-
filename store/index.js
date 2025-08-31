@@ -89,6 +89,260 @@ class AtlasStore {
     document.dispatchEvent(event);
   }
 
+  // H11: Initialize bank templates with vinculaciones
+  initializeBankTemplates() {
+    return {
+      ING: {
+        id: 'ING',
+        name: 'ING',
+        vinculaciones: [
+          {
+            id: 'ing_hogar',
+            tipo: 'Seguro_hogar',
+            etiqueta: 'Seguro Hogar',
+            bonificacion_bps: 30,
+            aplica_sobre: 'spread',
+            obligatoria_para_concesion: false
+          },
+          {
+            id: 'ing_vida',
+            tipo: 'Seguro_vida',
+            etiqueta: 'Seguro Vida',
+            bonificacion_bps: 0, // Base 0, conditional +50 if Hogar
+            aplica_sobre: 'spread',
+            conditional_bonus: [
+              { if_all: ['ing_hogar'], extra_bps: 50 }
+            ]
+          },
+          {
+            id: 'ing_nomina',
+            tipo: 'Nomina_domiciliada',
+            etiqueta: 'Nómina Domiciliada',
+            bonificacion_bps: 20,
+            aplica_sobre: 'spread'
+          },
+          {
+            id: 'ing_recibos',
+            tipo: 'Recibos_domiciliados',
+            etiqueta: 'Recibos Domiciliados',
+            bonificacion_bps: 10,
+            aplica_sobre: 'spread'
+          }
+        ],
+        grupos: [
+          {
+            group_id: 'ing_elige_2_de_4',
+            label: 'Elige 2 de 4',
+            policy: { type: 'at_least_k', k: 2 },
+            member_ids: ['ing_nomina', 'ing_recibos', 'ing_tarjeta', 'ing_plan'],
+            group_bonus_bps: 20,
+            aplica_sobre: 'spread'
+          }
+        ]
+      },
+      SANTANDER: {
+        id: 'SANTANDER',
+        name: 'Santander',
+        vinculaciones: [
+          {
+            id: 'san_nomina',
+            tipo: 'Nomina_domiciliada',
+            etiqueta: 'Nómina Domiciliada',
+            bonificacion_bps: 25,
+            aplica_sobre: 'spread',
+            umbral_minimo: 2500 // €/mes
+          },
+          {
+            id: 'san_tarjeta',
+            tipo: 'Tarjeta_gasto_minimo',
+            etiqueta: 'Tarjeta Gasto Mínimo',
+            bonificacion_bps: 15,
+            aplica_sobre: 'spread',
+            umbral_minimo: 600 // €/mes
+          },
+          {
+            id: 'san_hogar',
+            tipo: 'Seguro_hogar',
+            etiqueta: 'Seguro Hogar',
+            bonificacion_bps: 20,
+            aplica_sobre: 'spread'
+          }
+        ]
+      },
+      BBVA: {
+        id: 'BBVA',
+        name: 'BBVA',
+        vinculaciones: [
+          {
+            id: 'bbva_nomina',
+            tipo: 'Nomina_domiciliada',
+            etiqueta: 'Nómina Domiciliada',
+            bonificacion_bps: 30,
+            aplica_sobre: 'spread',
+            umbral_minimo: 3000
+          },
+          {
+            id: 'bbva_plan',
+            tipo: 'Plan_pensiones',
+            etiqueta: 'Plan de Pensiones',
+            bonificacion_bps: 25,
+            aplica_sobre: 'spread',
+            umbral_minimo: 1200 // €/año
+          }
+        ]
+      },
+      CAIXA: {
+        id: 'CAIXA',
+        name: 'CaixaBank',
+        vinculaciones: [
+          {
+            id: 'caixa_digital',
+            tipo: 'Cuenta_digital',
+            etiqueta: 'Cuenta Digital',
+            bonificacion_bps: 15,
+            aplica_sobre: 'spread'
+          }
+        ]
+      },
+      OPENBANK: {
+        id: 'OPENBANK',
+        name: 'Openbank',
+        vinculaciones: [
+          {
+            id: 'open_digital',
+            tipo: 'Cuenta_digital',
+            etiqueta: 'Operativa Digital',
+            bonificacion_bps: 10,
+            aplica_sobre: 'spread'
+          }
+        ]
+      },
+      EVO: {
+        id: 'EVO',
+        name: 'EVO Banco',
+        vinculaciones: [
+          {
+            id: 'evo_nomina',
+            tipo: 'Nomina_domiciliada',
+            etiqueta: 'Nómina Domiciliada',
+            bonificacion_bps: 40,
+            aplica_sobre: 'spread'
+          }
+        ]
+      },
+      GENERICA: {
+        id: 'GENERICA',
+        name: 'Plantilla Genérica',
+        vinculaciones: []
+      }
+    };
+  }
+
+  // H11: Initialize vinculacion catalog
+  initializeVinculacionCatalog() {
+    return [
+      {
+        id: 'nomina_domiciliada',
+        name: 'Nómina Domiciliada',
+        tipo: 'Nomina_domiciliada',
+        description: 'Domiciliación de nómina en la entidad',
+        regla_verificacion: {
+          tipo: 'movimiento_mensual',
+          patron: 'Nómina|Payroll|NOMINA',
+          umbral_minimo: 1500,
+          periodicidad: 'mensual'
+        },
+        coste_estimado_anual: 0
+      },
+      {
+        id: 'recibos_domiciliados',
+        name: 'Recibos Domiciliados',
+        tipo: 'Recibos_domiciliados',
+        description: 'Domiciliación de recibos (agua, luz, gas, teléfono)',
+        regla_verificacion: {
+          tipo: 'cargo_mensual',
+          categorias: ['Suministros', 'Telecomunicaciones'],
+          minimo_recibos: 3,
+          periodicidad: 'mensual'
+        },
+        coste_estimado_anual: 0
+      },
+      {
+        id: 'tarjeta_gasto_minimo',
+        name: 'Tarjeta Gasto Mínimo',
+        tipo: 'Tarjeta_gasto_minimo',
+        description: 'Gasto mínimo mensual con tarjeta del banco',
+        regla_verificacion: {
+          tipo: 'gasto_tarjeta',
+          umbral_minimo: 600,
+          periodicidad: 'mensual',
+          excluir_cajeros: true
+        },
+        coste_estimado_anual: 0
+      },
+      {
+        id: 'seguro_hogar',
+        name: 'Seguro Hogar',
+        tipo: 'Seguro_hogar',
+        description: 'Contratación de seguro de hogar con la entidad',
+        regla_verificacion: {
+          tipo: 'cargo_periodico',
+          patron: 'Seguro|MAPFRE|AXA|ZURICH',
+          periodicidad: 'anual_o_semestral'
+        },
+        coste_estimado_anual: 200
+      },
+      {
+        id: 'seguro_vida',
+        name: 'Seguro Vida',
+        tipo: 'Seguro_vida',
+        description: 'Contratación de seguro de vida con la entidad',
+        regla_verificacion: {
+          tipo: 'cargo_periodico',
+          patron: 'Vida|LIFE|Seguro Vida',
+          periodicidad: 'anual_o_semestral'
+        },
+        coste_estimado_anual: 150
+      },
+      {
+        id: 'plan_pensiones',
+        name: 'Plan de Pensiones',
+        tipo: 'Plan_pensiones',
+        description: 'Aportaciones a plan de pensiones del banco',
+        regla_verificacion: {
+          tipo: 'aportacion_anual',
+          patron: 'Plan Pensiones|Pension|PENSION',
+          umbral_minimo: 1200,
+          periodicidad: 'anual'
+        },
+        coste_estimado_anual: 1200
+      },
+      {
+        id: 'alarma_partner',
+        name: 'Alarma/Partner',
+        tipo: 'Alarma_partner',
+        description: 'Servicios de partner (alarma, telecomunicaciones)',
+        regla_verificacion: {
+          tipo: 'cargo_mensual',
+          patron: 'Securitas|Prosegur|ADT|Movistar|Vodafone',
+          periodicidad: 'mensual'
+        },
+        coste_estimado_anual: 300
+      },
+      {
+        id: 'cuenta_digital',
+        name: 'Cuenta Digital',
+        tipo: 'Cuenta_digital',
+        description: 'Operativa 100% digital',
+        regla_verificacion: {
+          tipo: 'configuracion',
+          requiere_banca_digital: true
+        },
+        coste_estimado_anual: 0
+      }
+    ];
+  }
+
   getInitialState() {
     return {
       accounts: [],
@@ -128,6 +382,13 @@ class AtlasStore {
       // H9B: CAPEX Management System
       capexProjects: [], // CAPEX projects for properties
       capexItems: [], // Individual CAPEX items linked to projects and documents
+      // H11: Enhanced Loan Management System
+      loanVinculaciones: [], // Loan bonification products per loan
+      loanCostesComisiones: [], // Loan costs and commissions per loan
+      bankTemplates: this.initializeBankTemplates(), // Predefined bank product templates
+      vinculacionCatalog: this.initializeVinculacionCatalog(), // Product catalog for vinculaciones
+      loanAlerts: [], // Loan-specific alerts (revisions, bonifications at risk, etc.)
+      loanProjections: [], // Loan projections and scenarios
       fiscalConfig: {
         rcAnnualLimit: 1000, // R/C annual limit per property (€)
         rcCarryoverYears: 4, // Years to carry over unused R/C limit
@@ -367,7 +628,7 @@ class AtlasStore {
     this.setState({ documents });
   }
 
-  // Loan operations
+  // H11: Enhanced Loan operations with comprehensive features
   updateLoan(id, updates) {
     const loans = this.state.loans.map(loan => 
       loan.id === id ? { ...loan, ...updates } : loan
@@ -375,22 +636,293 @@ class AtlasStore {
     this.setState({ loans });
   }
 
+  addLoan(loanData) {
+    const newLoan = {
+      ...loanData,
+      id: Date.now(),
+      createdAt: new Date().toISOString(),
+      // H11: Enhanced loan structure
+      cuadroAmortizacion: this.generateAmortizationTable(loanData),
+      tnaEfectivo: this.calculateEffectiveTNA(loanData),
+      vinculaciones: loanData.vinculaciones || [],
+      costesComisiones: loanData.costesComisiones || [],
+      alertas: []
+    };
+    
+    const loans = [...this.state.loans, newLoan];
+    this.setState({ loans });
+    return newLoan;
+  }
+
   addAmortization(loanId, amount) {
     const loans = this.state.loans.map(loan => {
       if (loan.id === loanId) {
         const newPendingCapital = Math.max(0, loan.pendingCapital - amount);
-        return { 
+        const amortizationEntry = {
+          amount,
+          date: new Date().toISOString(),
+          newPendingCapital
+        };
+        
+        // Recalculate amortization table
+        const updatedLoan = { 
           ...loan, 
           pendingCapital: newPendingCapital,
-          lastAmortization: {
-            amount,
-            date: new Date().toISOString()
-          }
+          lastAmortization: amortizationEntry
         };
+        
+        // Regenerate amortization table from current state
+        updatedLoan.cuadroAmortizacion = this.generateAmortizationTable(updatedLoan);
+        
+        return updatedLoan;
       }
       return loan;
     });
     this.setState({ loans });
+  }
+
+  // H11: French method amortization table generation
+  generateAmortizationTable(loan) {
+    const {
+      principal_inicial = loan.originalAmount || loan.pendingCapital,
+      pendingCapital = loan.pendingCapital || principal_inicial,
+      tna_fijo = loan.interestRate,
+      tna_variable = loan.interestRate,
+      tipo = loan.interestType || 'fijo',
+      plazo_meses = loan.remainingMonths || 240,
+      fecha_inicio = loan.startDate || new Date().toISOString().split('T')[0]
+    } = loan;
+
+    const monthlyRate = (tipo === 'fijo' ? tna_fijo : tna_variable) / 100 / 12;
+    const startDate = new Date(fecha_inicio);
+    const table = [];
+    let remainingCapital = pendingCapital;
+
+    // French method: fixed monthly payment
+    const monthlyPayment = (remainingCapital * monthlyRate * Math.pow(1 + monthlyRate, plazo_meses)) / 
+                           (Math.pow(1 + monthlyRate, plazo_meses) - 1);
+
+    for (let month = 1; month <= plazo_meses && remainingCapital > 0.01; month++) {
+      const paymentDate = new Date(startDate);
+      paymentDate.setMonth(startDate.getMonth() + month);
+
+      const interestPayment = remainingCapital * monthlyRate;
+      const principalPayment = monthlyPayment - interestPayment;
+      remainingCapital = Math.max(0, remainingCapital - principalPayment);
+
+      table.push({
+        mes: month,
+        fecha: paymentDate.toISOString().split('T')[0],
+        cuota: Math.round(monthlyPayment * 100) / 100,
+        interes: Math.round(interestPayment * 100) / 100,
+        amortizacion: Math.round(principalPayment * 100) / 100,
+        pendiente: Math.round(remainingCapital * 100) / 100,
+        tipoAplicado: tipo === 'fijo' ? tna_fijo : tna_variable
+      });
+    }
+
+    return table;
+  }
+
+  // H11: Calculate effective TNA with bonifications
+  calculateEffectiveTNA(loan) {
+    const baseTNA = loan.interestRate || 0;
+    const bonificaciones = loan.vinculaciones || [];
+    
+    let totalBonificacionBps = 0;
+    
+    // Sum all active bonifications
+    bonificaciones.forEach(vinculacion => {
+      if (vinculacion.activo && vinculacion.estado === 'Cumplida') {
+        totalBonificacionBps += vinculacion.bonificacion_bps || 0;
+        
+        // Add conditional bonuses
+        if (vinculacion.conditional_bonus) {
+          vinculacion.conditional_bonus.forEach(bonus => {
+            if (this.evaluateConditionalBonus(bonus, bonificaciones)) {
+              totalBonificacionBps += bonus.extra_bps || 0;
+            }
+          });
+        }
+      }
+    });
+
+    // Apply group bonuses (X de N)
+    totalBonificacionBps += this.calculateGroupBonuses(bonificaciones);
+
+    // Apply bundle bonuses
+    totalBonificacionBps += this.calculateBundleBonuses(bonificaciones);
+
+    return Math.max(0, baseTNA - (totalBonificacionBps / 100));
+  }
+
+  // H11: Evaluate conditional bonus rules
+  evaluateConditionalBonus(bonus, vinculaciones) {
+    if (!bonus.if_all || !Array.isArray(bonus.if_all)) return false;
+    
+    return bonus.if_all.every(requiredId => 
+      vinculaciones.some(v => v.id === requiredId && v.activo && v.estado === 'Cumplida')
+    );
+  }
+
+  // H11: Calculate group bonuses (X de N)
+  calculateGroupBonuses(vinculaciones) {
+    const groups = {};
+    
+    // Group vinculaciones by group_id
+    vinculaciones.forEach(v => {
+      if (v.group_id) {
+        if (!groups[v.group_id]) groups[v.group_id] = [];
+        groups[v.group_id].push(v);
+      }
+    });
+
+    let totalGroupBonus = 0;
+    
+    Object.values(groups).forEach(group => {
+      const activeCount = group.filter(v => v.activo && v.estado === 'Cumplida').length;
+      const policy = group[0].group_policy;
+      
+      if (policy && this.evaluateGroupPolicy(policy, activeCount)) {
+        totalGroupBonus += group[0].group_bonus_bps || 0;
+      }
+    });
+
+    return totalGroupBonus;
+  }
+
+  // H11: Calculate bundle bonuses  
+  calculateBundleBonuses(vinculaciones) {
+    const bundles = {};
+    
+    // Group vinculaciones by bundle_id
+    vinculaciones.forEach(v => {
+      if (v.bundle_id) {
+        if (!bundles[v.bundle_id]) bundles[v.bundle_id] = [];
+        bundles[v.bundle_id].push(v);
+      }
+    });
+
+    let totalBundleBonus = 0;
+    
+    Object.values(bundles).forEach(bundle => {
+      const allActive = bundle.every(v => v.activo && v.estado === 'Cumplida');
+      if (allActive) {
+        totalBundleBonus += bundle[0].bundle_bonus_bps || 0;
+      }
+    });
+
+    return totalBundleBonus;
+  }
+
+  // H11: Evaluate group policy (at_least_k, exactly_k, at_most_k)
+  evaluateGroupPolicy(policy, activeCount) {
+    switch (policy.type) {
+      case 'at_least_k':
+        return activeCount >= policy.k;
+      case 'exactly_k':
+        return activeCount === policy.k;
+      case 'at_most_k':
+        return activeCount <= policy.k;
+      default:
+        return false;
+    }
+  }
+
+  // H11: Register interest rate revision
+  registerRateRevision(loanId, revisionData) {
+    const loans = this.state.loans.map(loan => {
+      if (loan.id === loanId) {
+        const historialRevisiones = loan.historial_revisiones || [];
+        historialRevisiones.push({
+          ...revisionData,
+          fecha: new Date().toISOString(),
+          id: Date.now()
+        });
+
+        const updatedLoan = {
+          ...loan,
+          interestRate: revisionData.nuevo_tna,
+          historial_revisiones: historialRevisiones,
+          nextRevision: this.calculateNextRevisionDate(loan, revisionData.fecha)
+        };
+
+        // Recalculate amortization table from revision date
+        updatedLoan.cuadroAmortizacion = this.generateAmortizationTable(updatedLoan);
+        updatedLoan.tnaEfectivo = this.calculateEffectiveTNA(updatedLoan);
+
+        return updatedLoan;
+      }
+      return loan;
+    });
+    
+    this.setState({ loans });
+  }
+
+  // H11: Calculate next revision date
+  calculateNextRevisionDate(loan, currentRevisionDate) {
+    const currentDate = new Date(currentRevisionDate);
+    const revisionFreq = loan.freq_revision_meses || 12;
+    const nextDate = new Date(currentDate);
+    nextDate.setMonth(currentDate.getMonth() + revisionFreq);
+    return nextDate.toISOString().split('T')[0];
+  }
+
+  // H11: Refinance loan (create new, mark old as cancelled)
+  refinanceLoan(oldLoanId, newLoanData) {
+    const oldLoan = this.state.loans.find(l => l.id === oldLoanId);
+    if (!oldLoan) return null;
+
+    // Create new loan with current pending capital
+    const newLoan = {
+      ...newLoanData,
+      id: Date.now(),
+      principal_inicial: oldLoan.pendingCapital,
+      pendingCapital: oldLoan.pendingCapital,
+      refinanced_from: oldLoanId,
+      createdAt: new Date().toISOString()
+    };
+
+    // Mark old loan as cancelled
+    const loans = this.state.loans.map(loan => {
+      if (loan.id === oldLoanId) {
+        return {
+          ...loan,
+          status: 'Cancelado por refinanciación',
+          refinanced_to: newLoan.id,
+          cancellationDate: new Date().toISOString()
+        };
+      }
+      return loan;
+    });
+
+    // Add new loan
+    loans.push(this.addLoanCalculations(newLoan));
+    this.setState({ loans });
+    
+    return newLoan;
+  }
+
+  // H11: Add calculated fields to loan
+  addLoanCalculations(loan) {
+    return {
+      ...loan,
+      cuadroAmortizacion: this.generateAmortizationTable(loan),
+      tnaEfectivo: this.calculateEffectiveTNA(loan),
+      monthlyPayment: this.calculateMonthlyPayment(loan)
+    };
+  }
+
+  // H11: Calculate monthly payment using French method
+  calculateMonthlyPayment(loan) {
+    const capital = loan.pendingCapital || loan.principal_inicial || 0;
+    const monthlyRate = (loan.tnaEfectivo || loan.interestRate || 0) / 100 / 12;
+    const months = loan.plazo_meses || loan.remainingMonths || 240;
+    
+    if (monthlyRate === 0) return capital / months;
+    
+    return (capital * monthlyRate * Math.pow(1 + monthlyRate, months)) / 
+           (Math.pow(1 + monthlyRate, months) - 1);
   }
 
   // Inbox operations
@@ -2328,6 +2860,260 @@ Timestamp: ${diag.timestamp}`;
     this.setState({ capexClosures });
     
     return closure;
+  }
+
+  // H11: Initialize bank templates with vinculaciones
+  initializeBankTemplates() {
+    return {
+      ING: {
+        id: 'ING',
+        name: 'ING',
+        vinculaciones: [
+          {
+            id: 'ing_hogar',
+            tipo: 'Seguro_hogar',
+            etiqueta: 'Seguro Hogar',
+            bonificacion_bps: 30,
+            aplica_sobre: 'spread',
+            obligatoria_para_concesion: false
+          },
+          {
+            id: 'ing_vida',
+            tipo: 'Seguro_vida',
+            etiqueta: 'Seguro Vida',
+            bonificacion_bps: 0, // Base 0, conditional +50 if Hogar
+            aplica_sobre: 'spread',
+            conditional_bonus: [
+              { if_all: ['ing_hogar'], extra_bps: 50 }
+            ]
+          },
+          {
+            id: 'ing_nomina',
+            tipo: 'Nomina_domiciliada',
+            etiqueta: 'Nómina Domiciliada',
+            bonificacion_bps: 20,
+            aplica_sobre: 'spread'
+          },
+          {
+            id: 'ing_recibos',
+            tipo: 'Recibos_domiciliados',
+            etiqueta: 'Recibos Domiciliados',
+            bonificacion_bps: 10,
+            aplica_sobre: 'spread'
+          }
+        ],
+        grupos: [
+          {
+            group_id: 'ing_elige_2_de_4',
+            label: 'Elige 2 de 4',
+            policy: { type: 'at_least_k', k: 2 },
+            member_ids: ['ing_nomina', 'ing_recibos', 'ing_tarjeta', 'ing_plan'],
+            group_bonus_bps: 20,
+            aplica_sobre: 'spread'
+          }
+        ]
+      },
+      SANTANDER: {
+        id: 'SANTANDER',
+        name: 'Santander',
+        vinculaciones: [
+          {
+            id: 'san_nomina',
+            tipo: 'Nomina_domiciliada',
+            etiqueta: 'Nómina Domiciliada',
+            bonificacion_bps: 25,
+            aplica_sobre: 'spread',
+            umbral_minimo: 2500 // €/mes
+          },
+          {
+            id: 'san_tarjeta',
+            tipo: 'Tarjeta_gasto_minimo',
+            etiqueta: 'Tarjeta Gasto Mínimo',
+            bonificacion_bps: 15,
+            aplica_sobre: 'spread',
+            umbral_minimo: 600 // €/mes
+          },
+          {
+            id: 'san_hogar',
+            tipo: 'Seguro_hogar',
+            etiqueta: 'Seguro Hogar',
+            bonificacion_bps: 20,
+            aplica_sobre: 'spread'
+          }
+        ]
+      },
+      BBVA: {
+        id: 'BBVA',
+        name: 'BBVA',
+        vinculaciones: [
+          {
+            id: 'bbva_nomina',
+            tipo: 'Nomina_domiciliada',
+            etiqueta: 'Nómina Domiciliada',
+            bonificacion_bps: 30,
+            aplica_sobre: 'spread',
+            umbral_minimo: 3000
+          },
+          {
+            id: 'bbva_plan',
+            tipo: 'Plan_pensiones',
+            etiqueta: 'Plan de Pensiones',
+            bonificacion_bps: 25,
+            aplica_sobre: 'spread',
+            umbral_minimo: 1200 // €/año
+          }
+        ]
+      },
+      CAIXA: {
+        id: 'CAIXA',
+        name: 'CaixaBank',
+        vinculaciones: [
+          {
+            id: 'caixa_digital',
+            tipo: 'Cuenta_digital',
+            etiqueta: 'Cuenta Digital',
+            bonificacion_bps: 15,
+            aplica_sobre: 'spread'
+          }
+        ]
+      },
+      OPENBANK: {
+        id: 'OPENBANK',
+        name: 'Openbank',
+        vinculaciones: [
+          {
+            id: 'open_digital',
+            tipo: 'Cuenta_digital',
+            etiqueta: 'Operativa Digital',
+            bonificacion_bps: 10,
+            aplica_sobre: 'spread'
+          }
+        ]
+      },
+      EVO: {
+        id: 'EVO',
+        name: 'EVO Banco',
+        vinculaciones: [
+          {
+            id: 'evo_nomina',
+            tipo: 'Nomina_domiciliada',
+            etiqueta: 'Nómina Domiciliada',
+            bonificacion_bps: 40,
+            aplica_sobre: 'spread'
+          }
+        ]
+      },
+      GENERICA: {
+        id: 'GENERICA',
+        name: 'Plantilla Genérica',
+        vinculaciones: []
+      }
+    };
+  }
+
+  // H11: Initialize vinculacion catalog
+  initializeVinculacionCatalog() {
+    return [
+      {
+        id: 'nomina_domiciliada',
+        name: 'Nómina Domiciliada',
+        tipo: 'Nomina_domiciliada',
+        description: 'Domiciliación de nómina en la entidad',
+        regla_verificacion: {
+          tipo: 'movimiento_mensual',
+          patron: 'Nómina|Payroll|NOMINA',
+          umbral_minimo: 1500,
+          periodicidad: 'mensual'
+        },
+        coste_estimado_anual: 0
+      },
+      {
+        id: 'recibos_domiciliados',
+        name: 'Recibos Domiciliados',
+        tipo: 'Recibos_domiciliados',
+        description: 'Domiciliación de recibos (agua, luz, gas, teléfono)',
+        regla_verificacion: {
+          tipo: 'cargo_mensual',
+          categorias: ['Suministros', 'Telecomunicaciones'],
+          minimo_recibos: 3,
+          periodicidad: 'mensual'
+        },
+        coste_estimado_anual: 0
+      },
+      {
+        id: 'tarjeta_gasto_minimo',
+        name: 'Tarjeta Gasto Mínimo',
+        tipo: 'Tarjeta_gasto_minimo',
+        description: 'Gasto mínimo mensual con tarjeta del banco',
+        regla_verificacion: {
+          tipo: 'gasto_tarjeta',
+          umbral_minimo: 600,
+          periodicidad: 'mensual',
+          excluir_cajeros: true
+        },
+        coste_estimado_anual: 0
+      },
+      {
+        id: 'seguro_hogar',
+        name: 'Seguro Hogar',
+        tipo: 'Seguro_hogar',
+        description: 'Contratación de seguro de hogar con la entidad',
+        regla_verificacion: {
+          tipo: 'cargo_periodico',
+          patron: 'Seguro|MAPFRE|AXA|ZURICH',
+          periodicidad: 'anual_o_semestral'
+        },
+        coste_estimado_anual: 200
+      },
+      {
+        id: 'seguro_vida',
+        name: 'Seguro Vida',
+        tipo: 'Seguro_vida',
+        description: 'Contratación de seguro de vida con la entidad',
+        regla_verificacion: {
+          tipo: 'cargo_periodico',
+          patron: 'Vida|LIFE|Seguro Vida',
+          periodicidad: 'anual_o_semestral'
+        },
+        coste_estimado_anual: 150
+      },
+      {
+        id: 'plan_pensiones',
+        name: 'Plan de Pensiones',
+        tipo: 'Plan_pensiones',
+        description: 'Aportaciones a plan de pensiones del banco',
+        regla_verificacion: {
+          tipo: 'aportacion_anual',
+          patron: 'Plan Pensiones|Pension|PENSION',
+          umbral_minimo: 1200,
+          periodicidad: 'anual'
+        },
+        coste_estimado_anual: 1200
+      },
+      {
+        id: 'alarma_partner',
+        name: 'Alarma/Partner',
+        tipo: 'Alarma_partner',
+        description: 'Servicios de partner (alarma, telecomunicaciones)',
+        regla_verificacion: {
+          tipo: 'cargo_mensual',
+          patron: 'Securitas|Prosegur|ADT|Movistar|Vodafone',
+          periodicidad: 'mensual'
+        },
+        coste_estimado_anual: 300
+      },
+      {
+        id: 'cuenta_digital',
+        name: 'Cuenta Digital',
+        tipo: 'Cuenta_digital',
+        description: 'Operativa 100% digital',
+        regla_verificacion: {
+          tipo: 'configuracion',
+          requiere_banca_digital: true
+        },
+        coste_estimado_anual: 0
+      }
+    ];
   }
 }
 

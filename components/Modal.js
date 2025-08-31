@@ -71,7 +71,13 @@ function getModalTitle(modalType) {
     // HITO 7: Multi-unit modals
     'multi-unit-setup': 'Configurar Multi-unidad',
     'manage-units': 'Gestionar Unidades',
-    'document-allocation': 'Prorratear Gasto'
+    'document-allocation': 'Prorratear Gasto',
+    // H11: Enhanced loan modals
+    'createLoanWizard': 'Crear Nuevo Préstamo',
+    'loanDetail': 'Detalle del Préstamo',
+    'editLoanVinculaciones': 'Gestionar Vinculaciones',
+    'editLoanCostes': 'Gestionar Costes y Comisiones',
+    'registerRateRevision': 'Registrar Revisión de Tipo'
   };
   return titles[modalType] || 'Modal';
 }
@@ -111,6 +117,17 @@ function renderModalContent(modalType, data, closeModal, showToast) {
       return <ManageUnitsContent property={data.property} propertyId={data.propertyId} onClose={closeModal} showToast={showToast} />;
     case 'document-allocation':
       return <DocumentAllocationForm document={data.document} property={data.property} documentId={data.documentId} onClose={closeModal} showToast={showToast} />;
+    // H11: Enhanced loan modals
+    case 'createLoanWizard':
+      return <CreateLoanWizard properties={data.properties} onClose={closeModal} showToast={showToast} />;
+    case 'loanDetail':
+      return <LoanDetailContent loan={data.loan} onClose={closeModal} showToast={showToast} />;
+    case 'editLoanVinculaciones':
+      return <EditLoanVinculacionesForm loan={data.loan} onClose={closeModal} showToast={showToast} />;
+    case 'editLoanCostes':
+      return <EditLoanCostesForm loan={data.loan} onClose={closeModal} showToast={showToast} />;
+    case 'registerRateRevision':
+      return <RegisterRateRevisionForm loan={data.loan} onClose={closeModal} showToast={showToast} />;
     default:
       return <div>Contenido del modal no encontrado</div>;
   }
@@ -1408,6 +1425,153 @@ function DocumentAllocationForm({ document, property, documentId, onClose, showT
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+
+// H11: Enhanced Loan Creation Wizard (3 steps + 2.5 optional)
+function CreateLoanWizard({ properties, onClose, showToast }) {
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({
+    // Step 1: Basic data
+    propertyId: '',
+    banco: '',
+    tipo: 'fijo', // fijo, variable, mixto
+    principal_inicial: 0,
+    fecha_inicio: new Date().toISOString().split('T')[0],
+    plazo_meses: 240,
+    metodo: 'Frances',
+    frecuencia: 'mensual',
+    // Commissions (optional)
+    comision_apertura_pct: 0,
+    comision_apertura_eur: 0,
+    comision_prepago_pct: 0,
+    documento_adjunto: null,
+    
+    // Step 2: Interest type
+    tna_fijo: 3.0,
+    // Variable
+    indice_label: 'Euríbor 12m',
+    spread_bps: 150,
+    freq_revision_meses: 12,
+    fecha_proxima_revision: '',
+    indice_vigente: 3.5,
+    // Mixto
+    mixto_tramo_fijo: { meses: 24, tna_fijo: 2.5 },
+    
+    // Step 2.5: Vinculaciones (optional)
+    plantilla_banco: '',
+    vinculaciones_seleccionadas: [],
+    
+    // Step 3: Proration
+    prorrateo: { 
+      metodo: 'sqm', // sqm, units, percentage, specific, no_divide
+      distribuciones: {} 
+    },
+    
+    // Fiscal
+    interes_deducible: true
+  });
+
+  const [calculatedData, setCalculatedData] = useState({
+    cuota_inicial: 0,
+    tae_orientativa: 0,
+    fecha_vencimiento: '',
+    cuadro_preview: []
+  });
+
+  // Step navigation
+  const handleNext = () => {
+    if (step < 3) {
+      setStep(step + 1);
+      if (step === 2) {
+        calculateLoanPreview();
+      }
+    } else {
+      handleSubmit();
+    }
+  };
+
+  const handlePrevious = () => {
+    if (step > 1) setStep(step - 1);
+  };
+
+  // Calculate loan preview for step 3
+  const calculateLoanPreview = () => {
+    const { principal_inicial, plazo_meses, tipo, tna_fijo, spread_bps, indice_vigente } = formData;
+    
+    let efectiveTNA = tipo === 'fijo' ? tna_fijo : (indice_vigente + (spread_bps / 100));
+    if (tipo === 'mixto') {
+      efectiveTNA = formData.mixto_tramo_fijo.tna_fijo; // First period
+    }
+    
+    const monthlyRate = efectiveTNA / 100 / 12;
+    const cuota_inicial = (principal_inicial * monthlyRate * Math.pow(1 + monthlyRate, plazo_meses)) / 
+                         (Math.pow(1 + monthlyRate, plazo_meses) - 1);
+    
+    // Simple TAE calculation (without commissions for now)
+    const tae_orientativa = efectiveTNA;
+    
+    const fecha_vencimiento = new Date(formData.fecha_inicio);
+    fecha_vencimiento.setMonth(fecha_vencimiento.getMonth() + plazo_meses);
+    
+    setCalculatedData({
+      cuota_inicial: Math.round(cuota_inicial * 100) / 100,
+      tae_orientativa: Math.round(tae_orientativa * 100) / 100,
+      fecha_vencimiento: fecha_vencimiento.toISOString().split('T')[0],
+      cuadro_preview: [] // Generate first few entries if needed
+    });
+  };
+
+  // Submit loan creation
+  const handleSubmit = () => {
+    const newLoan = {
+      ...formData,
+      id: Date.now(),
+      createdAt: new Date().toISOString(),
+      pendingCapital: formData.principal_inicial,
+      monthlyPayment: calculatedData.cuota_inicial,
+      remainingMonths: formData.plazo_meses,
+      endDate: calculatedData.fecha_vencimiento,
+      interestRate: formData.tipo === 'fijo' ? formData.tna_fijo : (formData.indice_vigente + (formData.spread_bps / 100))
+    };
+
+    const enhancedLoan = store.addLoan(newLoan);
+    
+    showToast('success', "Préstamo ${formData.banco} creado correctamente");
+    onClose();
+  };
+
+  const formatCurrency = (amount) => {
+    if (isNaN(amount)) return '—';
+    return "${amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €";
+  };
+
+  return (
+    <div className="loan-wizard">
+      <div className="flex gap-2 justify-end mt-6">
+        <button
+          onClick={onClose}
+          className="btn btn-secondary"
+        >
+          Cancelar
+        </button>
+        {step > 1 && (
+          <button
+            onClick={handlePrevious}
+            className="btn btn-secondary"
+          >
+            Anterior
+          </button>
+        )}
+        <button
+          onClick={handleNext}
+          className="btn btn-primary"
+        >
+          {step === 3 ? 'Crear Préstamo' : 'Siguiente'}
+        </button>
+      </div>
     </div>
   );
 }
