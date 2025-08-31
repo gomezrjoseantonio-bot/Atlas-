@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import store from '../store/index';
 import { mockData } from '../data/mockData';
 import Header from '../components/Header';
-import { TargetIcon, CreditCardIcon, AlertTriangleIcon, CheckIcon, EuroIcon, ClipboardListIcon, BellIcon, RefreshCwIcon } from '../components/icons';
+import { TargetIcon, CreditCardIcon, AlertTriangleIcon, CheckIcon, EuroIcon, ClipboardListIcon, BellIcon, RefreshCwIcon, BarChart3Icon, BuildingIcon } from '../components/icons';
 
 export default function Page() {
   const [activeSubTab, setActiveSubTab] = useState('radar');
@@ -162,7 +162,7 @@ export default function Page() {
     { key: 'radar', icon: <TargetIcon size={16} />, label: 'Radar de cuentas' },
     { key: 'movimientos', icon: <CreditCardIcon size={16} />, label: 'Movimientos' },
     { key: 'alertas', icon: <AlertTriangleIcon size={16} />, label: 'Alertas' },
-    { key: 'proyeccion', icon: '📊', label: 'Previsión' }
+    { key: 'proyeccion', icon: <BarChart3Icon size={16} />, label: 'Previsión' }
   ];
 
   // Calculate totals for header query
@@ -658,7 +658,8 @@ export default function Page() {
               }
             }}
           >
-            🏦 Conectar nueva cuenta
+            <BuildingIcon size={14} style={{marginRight: '4px'}} />
+            Conectar nueva cuenta
           </button>
           <button 
             className="btn btn-outline"
@@ -668,7 +669,8 @@ export default function Page() {
               }
             }}
           >
-            📊 Generar informe
+            <BarChart3Icon size={14} style={{marginRight: '4px'}} />
+            Generar informe
           </button>
           <button 
             className="btn btn-outline"

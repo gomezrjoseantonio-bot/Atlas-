@@ -1,4 +1,4 @@
-import { BarChart3Icon, HomeIcon, FileTextIcon, TrendingUpIcon, SettingsIcon } from '../components/icons';
+import { BarChart3Icon, HomeIcon, FileTextIcon, TrendingUpIcon, SettingsIcon, EuroIcon } from '../components/icons';
 
 export default function Home() {
   return (
@@ -34,7 +34,7 @@ export default function Home() {
 
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <span style={{fontSize: '24px'}}>💰</span>
+              <EuroIcon size={24} color="var(--accent)" />
               <h3 style={{margin: 0}}>Tesorería</h3>
             </div>
             <p className="text-sm text-gray">

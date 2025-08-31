@@ -3,6 +3,7 @@ import store from '../store/index';
 import { getTotalPortfolioValue, getTotalMonthlyRent, getOccupancyRate, getTotalMonthlyExpenses } from '../data/mockData';
 import Modal from '../components/Modal';
 import Header from '../components/Header';
+import { BarChart3Icon } from '../components/icons';
 
 export default function Page() {
   const [personalMode, setPersonalMode] = useState(() => {
@@ -372,7 +373,7 @@ export default function Page() {
             border: '1px dashed var(--border)'
           }}>
             <div className="text-center text-gray">
-              <div style={{fontSize: '24px', marginBottom: '8px'}}>📊</div>
+              <div style={{marginBottom: '8px'}}><BarChart3Icon size={24} color="var(--accent)" /></div>
               <div className="text-sm">Gráfico de flujos (placeholder)</div>
               <div className="text-xs" style={{opacity: 0.7}}>
                 Últimos 90 días de movimientos
