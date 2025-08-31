@@ -907,6 +907,47 @@ export const mockData = {
       actions: ['create_predicted_charge', 'postpone', 'dismiss'],
       createdAt: '2024-01-14T16:00:00',
       dismissed: false
+    },
+    {
+      id: 4,
+      type: 'contract_expiry',
+      severity: 'high',
+      title: 'Contrato próximo a vencer',
+      description: 'Alquiler Ana Martínez (H3) vence en 45 días (31/08/2024)',
+      propertyId: 3,
+      contractId: 3,
+      dueDate: '2024-08-31',
+      actions: ['open_contract', 'renew_contract', 'postpone', 'dismiss'],
+      createdAt: '2024-01-15T08:00:00',
+      dismissed: false
+    },
+    {
+      id: 5,
+      type: 'rent_payment_due',
+      severity: 'medium',
+      title: 'Cobro de alquiler próximo',
+      description: 'María García - Pago mensual vence el 01/02/2024',
+      propertyId: 1,
+      contractId: 1,
+      amount: 1200,
+      dueDate: '2024-02-01',
+      actions: ['open_contract', 'mark_paid', 'send_reminder', 'dismiss'],
+      createdAt: '2024-01-25T09:00:00',
+      dismissed: false
+    },
+    {
+      id: 6,
+      type: 'rent_indexation',
+      severity: 'low',
+      title: 'Actualización de renta disponible',
+      description: 'Contrato João Silva elegible para revisión IPC (+2.8%)',
+      propertyId: 2,
+      contractId: 2,
+      suggestedIncrease: 2.8,
+      newAmount: 873.80,
+      actions: ['open_contract', 'apply_indexation', 'postpone', 'dismiss'],
+      createdAt: '2024-01-10T10:00:00',
+      dismissed: false
     }
   ],
 

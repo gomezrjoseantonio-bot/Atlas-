@@ -112,6 +112,12 @@ export default function Page() {
     switch(alertFilter) {
       case 'low_balance':
         return activeAlerts.filter(alert => alert.type === 'low_balance');
+      case 'contracts':
+        return activeAlerts.filter(alert => 
+          alert.type === 'contract_expiry' || 
+          alert.type === 'rent_payment_due' || 
+          alert.type === 'rent_indexation'
+        );
       case 'review':
         return activeAlerts.filter(alert => alert.type === 'review_required');
       case 'critical':
@@ -370,6 +376,7 @@ export default function Page() {
                 <option value="all">Todas</option>
                 <option value="critical">Críticas</option>
                 <option value="low_balance">Saldo bajo</option>
+                <option value="contracts">Contratos</option>
                 <option value="review">Revisión requerida</option>
                 <option value="next_7_days">Próximos 7 días</option>
               </select>
@@ -436,8 +443,69 @@ export default function Page() {
                               </button>
                             )}
                             {alert.actions && alert.actions.includes('open_contract') && (
-                              <button className="btn btn-secondary btn-sm">
-                                Abrir contrato
+                              <button 
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => {
+                                  if (alert.contractId) {
+                                    window.location.href = `/inmuebles/contratos?contract=${alert.contractId}`;
+                                  } else {
+                                    window.location.href = '/inmuebles/contratos';
+                                  }
+                                }}
+                              >
+                                📋 Abrir contrato
+                              </button>
+                            )}
+                            {alert.actions && alert.actions.includes('renew_contract') && (
+                              <button 
+                                className="btn btn-primary btn-sm"
+                                onClick={() => {
+                                  console.log('Renew contract action for alert:', alert.id);
+                                  if (typeof window !== 'undefined' && window.showToast) {
+                                    window.showToast('Iniciando renovación de contrato...', 'info');
+                                  }
+                                }}
+                              >
+                                🔄 Renovar
+                              </button>
+                            )}
+                            {alert.actions && alert.actions.includes('mark_paid') && (
+                              <button 
+                                className="btn btn-primary btn-sm"
+                                onClick={() => {
+                                  console.log('Mark paid action for alert:', alert.id);
+                                  if (typeof window !== 'undefined' && window.showToast) {
+                                    window.showToast('Marcando pago como recibido...', 'success');
+                                  }
+                                }}
+                              >
+                                ✅ Marcar pagado
+                              </button>
+                            )}
+                            {alert.actions && alert.actions.includes('send_reminder') && (
+                              <button 
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => {
+                                  console.log('Send reminder action for alert:', alert.id);
+                                  if (typeof window !== 'undefined' && window.showToast) {
+                                    window.showToast('Enviando recordatorio al inquilino...', 'info');
+                                  }
+                                }}
+                              >
+                                📧 Recordatorio
+                              </button>
+                            )}
+                            {alert.actions && alert.actions.includes('apply_indexation') && (
+                              <button 
+                                className="btn btn-primary btn-sm"
+                                onClick={() => {
+                                  console.log('Apply indexation action for alert:', alert.id);
+                                  if (typeof window !== 'undefined' && window.showToast) {
+                                    window.showToast(`Aplicando actualización IPC (+${alert.suggestedIncrease}%)...`, 'info');
+                                  }
+                                }}
+                              >
+                                📈 Aplicar IPC
                               </button>
                             )}
                             <button 

@@ -94,6 +94,11 @@ export default function Page() {
   const lowBalanceAlerts = activeAlerts.filter(alert => alert.type === 'low_balance');
   const missingInvoiceAlerts = activeAlerts.filter(alert => alert.type === 'missing_invoice');
   const reviewAlerts = activeAlerts.filter(alert => alert.type === 'review_required');
+  const contractAlerts = activeAlerts.filter(alert => 
+    alert.type === 'contract_expiry' || 
+    alert.type === 'rent_payment_due' || 
+    alert.type === 'rent_indexation'
+  );
   
   // Recent movements (last 4)
   const recentMovements = movements
@@ -133,7 +138,10 @@ export default function Page() {
     }, 500);
   };
 
-  const alertCount = activeAlerts.filter(alert => alert.severity === 'critical' || alert.severity === 'high').length;
+  const alertCount = activeAlerts.filter(alert => 
+    alert.severity === 'critical' || alert.severity === 'high' ||
+    alert.type === 'contract_expiry' || alert.type === 'rent_payment_due'
+  ).length;
 
   return (<>
     <Header 
@@ -248,6 +256,15 @@ export default function Page() {
                 Gastos sin factura ({totalMissingInvoices})
               </span>
             )}
+            {contractAlerts.length > 0 && (
+              <span 
+                className="chip attention clickable"
+                onClick={() => window.location.href = '/inmuebles/contratos'}
+                style={{cursor: 'pointer'}}
+              >
+                Contratos ({contractAlerts.length})
+              </span>
+            )}
             {reviewAlerts.length > 0 && (
               <span 
                 className="chip attention clickable"
@@ -257,7 +274,7 @@ export default function Page() {
                 Revisión de tipo ({reviewAlerts.length})
               </span>
             )}
-            {!lowBalanceAlerts.length && !totalMissingInvoices && !reviewAlerts.length && (
+            {!lowBalanceAlerts.length && !totalMissingInvoices && !contractAlerts.length && !reviewAlerts.length && (
               <span className="chip success">Todo en orden</span>
             )}
           </div>

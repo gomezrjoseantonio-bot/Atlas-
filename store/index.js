@@ -348,6 +348,7 @@ class AtlasStore {
       accounts: [],
       properties: [],
       loans: [],
+      contracts: [], // H13: Rental contracts
       documents: [],
       inboxEntries: [],
       movements: [],
@@ -1450,6 +1451,102 @@ class AtlasStore {
         type: 'alert_created',
         description: `Alerta creada para factura sin cargo: ${doc.provider}`
       });
+    });
+    
+    // Check for upcoming contract expirations
+    contracts.forEach(contract => {
+      const endDate = contract.fechas?.fecha_fin_prevista || contract.endDate;
+      if (endDate) {
+        const contractEnd = new Date(endDate);
+        const now = new Date();
+        const daysUntilExpiry = Math.ceil((contractEnd - now) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilExpiry <= 60 && daysUntilExpiry > 0) {
+          const property = this.state.properties.find(p => p.id === (contract.inmuebleId || contract.propertyId));
+          const tenantName = contract.arrendatarios?.[0]?.nombre || contract.tenant;
+          
+          this.addAlert({
+            type: 'contract_expiry',
+            severity: daysUntilExpiry <= 30 ? 'high' : 'medium',
+            title: 'Contrato próximo a vencer',
+            description: `${tenantName} (${property?.address || 'Inmueble'}) vence en ${daysUntilExpiry} días`,
+            propertyId: contract.inmuebleId || contract.propertyId,
+            contractId: contract.id,
+            dueDate: endDate,
+            actions: ['open_contract', 'renew_contract', 'postpone', 'dismiss']
+          });
+          
+          changes.push({
+            type: 'alert_created',
+            description: `Alerta creada para vencimiento de contrato: ${tenantName}`
+          });
+        }
+      }
+      
+      // Check for upcoming rent payments
+      const paymentDay = contract.renta?.dia_vencimiento || 1;
+      const now = new Date();
+      const nextPaymentDate = new Date(now.getFullYear(), now.getMonth() + 1, paymentDay);
+      const daysUntilPayment = Math.ceil((nextPaymentDate - now) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntilPayment <= 7 && daysUntilPayment > 0 && contract.status === 'Activo') {
+        const tenantName = contract.arrendatarios?.[0]?.nombre || contract.tenant;
+        const rentAmount = contract.renta?.importe_base_mes || contract.monthlyAmount;
+        
+        this.addAlert({
+          type: 'rent_payment_due',
+          severity: 'medium',
+          title: 'Cobro de alquiler próximo',
+          description: `${tenantName} - Pago mensual vence en ${daysUntilPayment} días`,
+          propertyId: contract.inmuebleId || contract.propertyId,
+          contractId: contract.id,
+          amount: rentAmount,
+          dueDate: nextPaymentDate.toISOString().split('T')[0],
+          actions: ['open_contract', 'mark_paid', 'send_reminder', 'dismiss']
+        });
+        
+        changes.push({
+          type: 'alert_created',
+          description: `Alerta creada para cobro de alquiler: ${tenantName}`
+        });
+      }
+      
+      // Check for rent indexation opportunities
+      if (contract.actualizacion?.metodo === 'Indice' && contract.status === 'Activo') {
+        const startDate = new Date(contract.fechas?.fecha_inicio || contract.startDate);
+        const periodicidad = contract.actualizacion.periodicidad_meses || 12;
+        const lastUpdate = contract.actualizacion.ultima_revision ? new Date(contract.actualizacion.ultima_revision) : startDate;
+        
+        const nextRevisionDate = new Date(lastUpdate);
+        nextRevisionDate.setMonth(nextRevisionDate.getMonth() + periodicidad);
+        
+        const now = new Date();
+        const daysUntilRevision = Math.ceil((nextRevisionDate - now) / (1000 * 60 * 60 * 24));
+        
+        if (daysUntilRevision <= 0 && daysUntilRevision >= -30) { // Eligible for indexation
+          const tenantName = contract.arrendatarios?.[0]?.nombre || contract.tenant;
+          const currentRent = contract.renta?.importe_base_mes || contract.monthlyAmount;
+          const suggestedIncrease = 2.8; // Mock IPC increase
+          const newAmount = currentRent * (1 + suggestedIncrease / 100);
+          
+          this.addAlert({
+            type: 'rent_indexation',
+            severity: 'low',
+            title: 'Actualización de renta disponible',
+            description: `Contrato ${tenantName} elegible para revisión ${contract.actualizacion.indice_label} (+${suggestedIncrease}%)`,
+            propertyId: contract.inmuebleId || contract.propertyId,
+            contractId: contract.id,
+            suggestedIncrease,
+            newAmount,
+            actions: ['open_contract', 'apply_indexation', 'postpone', 'dismiss']
+          });
+          
+          changes.push({
+            type: 'alert_created',
+            description: `Alerta creada para actualización de renta: ${tenantName}`
+          });
+        }
+      }
     });
     
     // Check for upcoming loan revisions
