@@ -1,0 +1,104 @@
+name: Brand Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-brand:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Validate Icon Colors
+      run: |
+        # Check for hardcoded colors in icon components
+        if grep -r 'fill="#\|stroke="#' components/ pages/ 2>/dev/null; then
+          echo "❌ Found hardcoded colors in icons. Icons should use currentColor."
+          exit 1
+        fi
+        
+        # Check for explicit color attributes in icon usage (except CSS variables)
+        if grep -r 'color="[^v]' components/ pages/ 2>/dev/null | grep -v 'color="var(' | grep -v 'color="currentColor"'; then
+          echo "❌ Found hardcoded color attributes in icon usage. Use currentColor instead."
+          exit 1
+        fi
+        
+        echo "✅ Icon color validation passed"
+    
+    - name: Validate HEX Colors
+      run: |
+        # Define whitelist of allowed HEX colors (design tokens)
+        ALLOWED_COLORS=(
+          "#F8FAFC"  # --bg
+          "#FFFFFF"  # --surface
+          "#E5E7EB"  # --border
+          "#0F172A"  # --text
+          "#475569"  # --text-2
+          "#374151"  # --icon
+          "#9CA3AF"  # --icon-muted
+          "#10B981"  # --success
+          "#EF4444"  # --danger
+          "#F59E0B"  # --warning
+          "#0B1E3B"  # --accent (Navy)
+          "#102A56"  # --accent-hover
+          "#E8EEF7"  # --accent-subtle
+          "#14B8A6"  # --teal (legacy)
+          "#1E3A8A"  # --navy (legacy)
+        )
+        
+        # Find all HEX colors in JS/CSS files
+        HEX_FOUND=$(grep -r '#[0-9A-Fa-f]\{6\}' styles/ components/ pages/ 2>/dev/null | grep -v '\.map' || true)
+        
+        if [ -n "$HEX_FOUND" ]; then
+          echo "Found HEX colors:"
+          echo "$HEX_FOUND"
+          
+          # Check if any found colors are not in whitelist
+          INVALID_COLORS=""
+          while IFS= read -r line; do
+            COLOR=$(echo "$line" | grep -o '#[0-9A-Fa-f]\{6\}' | tr '[:lower:]' '[:upper:]')
+            if [ -n "$COLOR" ]; then
+              COLOR_UPPER=$(echo "$COLOR" | tr '[:lower:]' '[:upper:]')
+              FOUND=false
+              for allowed in "${ALLOWED_COLORS[@]}"; do
+                ALLOWED_UPPER=$(echo "$allowed" | tr '[:lower:]' '[:upper:]')
+                if [ "$COLOR_UPPER" = "$ALLOWED_UPPER" ]; then
+                  FOUND=true
+                  break
+                fi
+              done
+              if [ "$FOUND" = false ]; then
+                INVALID_COLORS="$INVALID_COLORS\n$line"
+              fi
+            fi
+          done <<< "$HEX_FOUND"
+          
+          if [ -n "$INVALID_COLORS" ]; then
+            echo "❌ Found non-whitelisted HEX colors:"
+            echo -e "$INVALID_COLORS"
+            echo "Please use CSS variables from design tokens instead."
+            exit 1
+          fi
+        fi
+        
+        echo "✅ HEX color validation passed"
+    
+    - name: Validate Format Functions
+      run: |
+        # Check that formatCurrency functions return "—" for NaN values
+        if grep -r 'formatCurrency.*€0' pages/ 2>/dev/null; then
+          echo "❌ Found formatCurrency functions returning €0 instead of — for NaN values"
+          exit 1
+        fi
+        
+        # Check that ES locale is used
+        if grep -r "toLocaleString.*'" pages/ 2>/dev/null | grep -v "es-ES"; then
+          echo "❌ Found non-ES locale in currency formatting"
+          exit 1
+        fi
+        
+        echo "✅ Format validation passed"

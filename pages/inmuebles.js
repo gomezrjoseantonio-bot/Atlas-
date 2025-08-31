@@ -42,7 +42,7 @@ export default function Page() {
 
   const formatCurrency = (amount) => {
     if (amount === undefined || amount === null || isNaN(amount)) {
-      return '€0,00';
+      return '—';
     }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
   };
@@ -204,7 +204,7 @@ export default function Page() {
           <div className="grid gap-4">
             {properties.length === 0 ? (
               <div className="card text-center py-8">
-                <div className="mb-4"><HomeIcon size={48} color="var(--text-2)" /></div>
+                <div className="mb-4"><HomeIcon size={48} /></div>
                 <h3 style={{margin: '0 0 8px 0'}}>No tienes inmuebles registrados</h3>
                 <p className="text-gray mb-4">Crea tu primer inmueble para empezar a gestionar tu cartera</p>
                 <button 
@@ -267,7 +267,7 @@ export default function Page() {
                 {property.multiUnit && property.units && (
                   <div className="mb-3 p-2" style={{background: '#F0F9FF', borderRadius: '6px'}}>
                     <div className="text-sm font-semibold mb-2 flex items-center gap-2">
-                      <HomeIcon size={16} color="var(--accent)" />
+                      <HomeIcon size={16} />
                       Unidades ({property.occupiedUnits || 0}/{property.totalUnits || property.units.length})
                     </div>
                     <div className="flex flex-wrap gap-1">
@@ -345,7 +345,7 @@ export default function Page() {
                 {properties.length === 0 ? (
                   <tr>
                     <td colSpan="8" className="text-center py-8">
-                      <div className="mb-4"><HomeIcon size={48} color="var(--text-2)" /></div>
+                      <div className="mb-4"><HomeIcon size={48} /></div>
                       <h3 style={{margin: '0 0 8px 0'}}>No tienes inmuebles registrados</h3>
                       <p className="text-gray mb-4">Crea tu primer inmueble para empezar a gestionar tu cartera</p>
                       <button 

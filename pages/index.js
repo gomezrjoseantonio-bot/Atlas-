@@ -24,7 +24,7 @@ export default function Home() {
         <div className="grid gap-4 mb-8" style={{textAlign: 'left'}}>
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <BarChart3Icon size={24} color="var(--accent)" />
+              <BarChart3Icon size={24} />
               <h3 style={{margin: 0}}>Panel de Control</h3>
             </div>
             <p className="text-sm text-gray">
@@ -34,7 +34,7 @@ export default function Home() {
 
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <EuroIcon size={24} color="var(--accent)" />
+              <EuroIcon size={24} />
               <h3 style={{margin: 0}}>Tesorería</h3>
             </div>
             <p className="text-sm text-gray">
@@ -44,7 +44,7 @@ export default function Home() {
 
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <HomeIcon size={24} color="var(--accent)" />
+              <HomeIcon size={24} />
               <h3 style={{margin: 0}}>Portfolio Inmuebles</h3>
             </div>
             <p className="text-sm text-gray">
@@ -54,7 +54,7 @@ export default function Home() {
 
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <FileTextIcon size={24} color="var(--accent)" />
+              <FileTextIcon size={24} />
               <h3 style={{margin: 0}}>Documentos (HITO 2)</h3>
             </div>
             <p className="text-sm text-gray">
@@ -64,7 +64,7 @@ export default function Home() {
 
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <TrendingUpIcon size={24} color="var(--accent)" />
+              <TrendingUpIcon size={24} />
               <h3 style={{margin: 0}}>Proyección</h3>
             </div>
             <p className="text-sm text-gray">
@@ -74,7 +74,7 @@ export default function Home() {
 
           <div className="card">
             <div className="flex items-center gap-3 mb-3">
-              <SettingsIcon size={24} color="var(--accent)" />
+              <SettingsIcon size={24} />
               <h3 style={{margin: 0}}>Configuración</h3>
             </div>
             <p className="text-sm text-gray">

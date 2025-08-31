@@ -163,12 +163,12 @@ export default function Page() {
 
   const alertCount = alerts?.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length || 0;
 
-  // Define sub-tabs for tesoreria
+  // Define sub-tabs for tesoreria - Updated for Brief v2
   const subTabs = [
-    { key: 'radar', icon: <TargetIcon size={16} />, label: 'Radar de cuentas' },
+    { key: 'radar', icon: <TargetIcon size={16} />, label: 'Radar' },
     { key: 'movimientos', icon: <CreditCardIcon size={16} />, label: 'Movimientos' },
-    { key: 'alertas', icon: <AlertTriangleIcon size={16} />, label: 'Alertas' },
-    { key: 'proyeccion', icon: <BarChart3Icon size={16} />, label: 'Previsión' }
+    { key: 'reglas', icon: <SettingsIcon size={16} />, label: 'Reglas & Sweeps' },
+    { key: 'alertas', icon: <AlertTriangleIcon size={16} />, label: 'Alertas' }
   ];
 
   // Calculate totals for header query
@@ -403,10 +403,10 @@ export default function Page() {
               {filteredAlerts.map(alert => {
                 const getSeverityIcon = (severity) => {
                   switch(severity) {
-                    case 'critical': return <AlertTriangleIcon size={16} color="var(--danger)" />;
-                    case 'high': return <AlertTriangleIcon size={16} color="var(--warning)" />;
-                    case 'medium': return <BellIcon size={16} color="var(--warning)" />;
-                    case 'low': return <CheckIcon size={16} color="var(--text-2)" />;
+                    case 'critical': return <AlertTriangleIcon size={16} />;
+                    case 'high': return <AlertTriangleIcon size={16} />;
+                    case 'medium': return <BellIcon size={16} />;
+                    case 'low': return <CheckIcon size={16} />;
                     default: return <ClipboardListIcon size={16} />;
                   }
                 };
@@ -551,98 +551,110 @@ export default function Page() {
             </div>
           ) : (
             <div className="text-center text-gray py-4" style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'}}>
-              <CheckIcon size={16} color="var(--success)" />
+              <CheckIcon size={16} />
               No hay alertas pendientes
             </div>
           )}
         </div>
       )}
 
-      {/* Proyección Tab */}
-      {activeSubTab === 'proyeccion' && (
+      {/* Reglas & Sweeps Tab */}
+      {activeSubTab === 'reglas' && (
         <div className="space-y-4">
-          {/* Enhanced Alerts Calendar - Predicted Items */}
-          <div className="card mb-4">
-            <h3 style={{margin: '0 0 16px 0'}}>Cargos e Ingresos Previstos</h3>
+          {/* Link from Configuración > Bancos & Cuentas */}
+          <div className="card mb-4" style={{background: '#EFF6FF', borderColor: 'var(--accent)'}}>
+            <div className="flex items-center gap-3">
+              <SettingsIcon size={20} />
+              <div>
+                <div className="font-semibold">Configuración de Reglas</div>
+                <div className="text-sm text-gray">
+                  Configurar mínimos por cuenta y trasvases automáticos desde 
+                  <a href="/configuracion?tab=bancos" className="link" style={{marginLeft: '4px'}}>
+                    Configuración → Bancos & Cuentas
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Rules */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 style={{margin: 0}}>Reglas Activas</h3>
+              <a href="/tesoreria-reglas" className="btn btn-primary btn-sm">
+                Gestionar reglas
+              </a>
+            </div>
+            <div className="table-responsive">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Cuenta</th>
+                    <th>Tipo de regla</th>
+                    <th>Parámetros</th>
+                    <th>Estado</th>
+                    <th>Última ejecución</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {treasuryRules.map(rule => (
+                    <tr key={rule.id}>
+                      <td className="font-semibold">{rule.accountName}</td>
+                      <td>{rule.type === 'minimum_balance' ? 'Saldo mínimo' : 'Sweep automático'}</td>
+                      <td className="text-sm">
+                        {rule.type === 'minimum_balance' && `Mínimo: €${rule.minimumAmount.toLocaleString('es-ES')}`}
+                        {rule.type === 'sweep' && `Hacia: ${rule.targetAccount} cuando > €${rule.threshold.toLocaleString('es-ES')}`}
+                      </td>
+                      <td>
+                        <span className={`chip ${rule.enabled ? 'success' : 'warning'}`}>
+                          {rule.enabled ? 'Activa' : 'Pausada'}
+                        </span>
+                      </td>
+                      <td className="text-sm text-gray">
+                        {rule.lastExecution || '—'}
+                      </td>
+                      <td>
+                        <button className="btn btn-secondary btn-sm">
+                          Editar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Sweep History */}
+          <div className="card">
+            <h3 style={{margin: '0 0 16px 0'}}>Historial de Trasvases</h3>
             <div className="grid gap-3">
-              {/* Show predicted items from next 90 days */}
-              {storeState.predictedItems && storeState.predictedItems
-                .filter(item => {
-                  const dueDate = new Date(item.dueDate);
-                  const now = new Date();
-                  const diffDays = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
-                  return diffDays >= 0 && diffDays <= 90;
-                })
-                .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-                .slice(0, 10)
-                .map(item => {
-                  const dueDate = new Date(item.dueDate);
-                  const now = new Date();
-                  const daysLeft = Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24));
-                  const badge = getDaysLeftBadge(daysLeft);
-                  const property = mockData.properties.find(p => p.id === item.propertyId);
-                  
-                  return (
-                    <div key={item.id} className="card" style={{
-                      background: '#F9FAFB',
-                      borderLeft: `4px solid ${item.type === 'income' ? 'var(--success)' : 'var(--warning)'}`
-                    }}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 flex-1">
-                          <span>
-                            {item.type === 'income' ? <EuroIcon size={20} color="var(--success)" /> : <CreditCardIcon size={20} color="var(--accent)" />}
-                          </span>
-                          <div className="flex-1">
-                            <div className="font-semibold">{item.description}</div>
-                            {property && (
-                              <div className="text-sm text-gray">{property.address}</div>
-                            )}
-                            <div className="text-sm text-gray">Vencimiento: {item.dueDate}</div>
-                            <div className="text-xs text-gray">
-                              {item.recurringType} · {item.source}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold" style={{
-                            fontSize: '16px',
-                            color: item.type === 'income' ? 'var(--success)' : 'var(--error)'
-                          }}>
-                            {item.type === 'income' ? '+' : ''}€{item.amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}
-                          </div>
-                          <span className={`chip ${badge.class}`}>{badge.text}</span>
-                        </div>
+              {storeState.sweepHistory && storeState.sweepHistory.slice(0, 5).map(sweep => (
+                <div key={sweep.id} className="card" style={{background: '#F9FAFB'}}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="font-semibold">{sweep.description}</div>
+                      <div className="text-sm text-gray">
+                        {sweep.fromAccount} → {sweep.toAccount}
                       </div>
+                      <div className="text-sm text-gray">{sweep.date}</div>
                     </div>
-                  );
-                })
-              }
-              
-              {/* Legacy scheduled payments */}
-              {scheduledPayments.map(payment => {
-                const badge = getDaysLeftBadge(payment.daysLeft);
-                const property = mockData.properties.find(p => p.id === payment.propertyId);
-                
-                return (
-                  <div key={`legacy_${payment.id}`} className="card" style={{background: '#F9FAFB'}}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="font-semibold">{payment.description}</div>
-                        {property && (
-                          <div className="text-sm text-gray">{property.address}</div>
-                        )}
-                        <div className="text-sm text-gray">Vencimiento: {payment.dueDate}</div>
+                    <div className="text-right">
+                      <div className="font-semibold" style={{fontSize: '16px', color: 'var(--accent)'}}>
+                        €{sweep.amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}
                       </div>
-                      <div className="text-right">
-                        <div className="font-semibold" style={{fontSize: '16px'}}>
-                          €{payment.amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}
-                        </div>
-                        <span className={`chip ${badge.class}`}>{badge.text}</span>
-                      </div>
+                      <span className={`chip ${sweep.status === 'completed' ? 'success' : 'warning'}`}>
+                        {sweep.status === 'completed' ? 'Completado' : 'Pendiente'}
+                      </span>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              )) || (
+                <div className="text-center text-gray py-4">
+                  No hay trasvases recientes
+                </div>
+              )}
             </div>
           </div>
         </div>

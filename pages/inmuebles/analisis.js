@@ -86,7 +86,7 @@ export default function AnalisisPage() {
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
-      return '€0,00';
+      return '—';
     }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
   };
@@ -137,6 +137,16 @@ export default function AnalisisPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 style={{margin: 0}}>Análisis por Activo</h1>
           <div className="flex gap-2">
+            <button 
+              className="btn btn-secondary"
+              onClick={() => {
+                setIsLoading(true);
+                setTimeout(() => setIsLoading(false), 800);
+                showToast('Análisis actualizado', 'success');
+              }}
+            >
+              🔄 Actualizar
+            </button>
             <select 
               className="form-control" 
               style={{width: 'auto', marginBottom: 0}}
@@ -163,7 +173,7 @@ export default function AnalisisPage() {
         {/* Portfolio Summary KPIs */}
         <div className="card mb-6">
           <h3 style={{margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px'}}>
-            <BarChart3Icon size={20} color="var(--accent)" />
+            <BarChart3Icon size={20} />
             Resumen Cartera
           </h3>
           <div className="grid-4 gap-4">
@@ -268,7 +278,7 @@ export default function AnalisisPage() {
         {analysisType === 'valuation' && (
           <div className="card mb-6">
             <h3 style={{margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px'}}>
-              <TrendingUpIcon size={20} color="var(--accent)" />
+              <TrendingUpIcon size={20} />
               Análisis de Valoración
             </h3>
             {portfolioAnalysis.length > 0 ? (

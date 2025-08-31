@@ -25,7 +25,7 @@ export default function Inbox() {
     if (amount === null || amount === undefined || isNaN(amount)) {
       return '—';
     }
-    return `${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})} €`;
+    return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
   };
 
   const handleFileSelect = (event) => {
@@ -97,24 +97,59 @@ export default function Inbox() {
     // Convert to document and remove from inbox
     const newDocument = {
       id: `doc_${Date.now()}`,
-      fileName: entry.fileName,
-      fileSize: entry.fileSize,
-      uploadDate: entry.uploadDate,
-      propertyId: propertyId,
-      status: 'Validada',
+      filename: entry.fileName,
+      date: entry.extractedData?.date || new Date().toISOString().split('T')[0],
+      provider: entry.extractedData?.supplier || 'Proveedor (OCR)',
+      concept: entry.extractedData?.concept || 'Concepto extraído',
+      amount: entry.extractedData?.amount || 0,
       category: 'Corrientes',
-      treatment: 'Deducible año (R/C)',
+      treatment: 'deducible',
+      status: 'Validada',
       origin: entry.origin,
-      ...entry.extractedData
+      propertyId: propertyId
     };
 
     store.updateState(state => ({
       ...state,
-      documents: [...state.documents, newDocument],
+      documents: [...(state.documents || []), newDocument],
       inboxEntries: state.inboxEntries.filter(e => e.id !== entryId)
     }));
 
-    window.showToast && window.showToast('Documento asignado correctamente', 'success');
+    window.showToast && window.showToast('Documento asignado y movido a Gastos', 'success');
+  };
+
+  const handleProcessWithOCR = (entryId) => {
+    const entry = inboxEntries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    // Simulate OCR processing
+    store.updateState(state => ({
+      ...state,
+      inboxEntries: state.inboxEntries.map(e => 
+        e.id === entryId 
+          ? {
+              ...e,
+              status: 'Procesado con OCR',
+              extractedData: {
+                date: new Date().toISOString().split('T')[0],
+                supplier: `Proveedor ${Math.floor(Math.random() * 100)}`,
+                concept: `Concepto extraído ${Math.floor(Math.random() * 100)}`,
+                amount: Math.round(Math.random() * 500 + 50)
+              }
+            }
+          : e
+      )
+    }));
+
+    window.showToast && window.showToast('OCR procesado correctamente', 'success');
+  };
+
+  const handleDesgloseCapex = (entryId) => {
+    const entry = inboxEntries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    window.showToast && window.showToast(`Iniciando desglose CAPEX para ${entry.fileName}`, 'info');
+    // TODO: Open CAPEX breakdown modal
   };
 
   const handleDeleteEntry = (entryId) => {
@@ -287,30 +322,48 @@ export default function Inbox() {
                         <span className="chip gray">{entry.origin}</span>
                       </td>
                       <td>
-                        <div className="flex gap-2">
-                          {entry.extractedData && (
-                            <select 
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  handleAssignToProperty(entry.id, e.target.value);
-                                  e.target.value = '';
-                                }
-                              }}
-                              className="input"
-                              style={{fontSize: '12px', padding: '4px 8px'}}
+                        <div className="flex gap-1">
+                          {!entry.extractedData && (
+                            <button 
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleProcessWithOCR(entry.id)}
+                              title="Procesar con OCR"
                             >
-                              <option value="">Asignar a inmueble</option>
-                              {properties.map(property => (
-                                <option key={property.id} value={property.id}>
-                                  {property.address}
-                                </option>
-                              ))}
-                            </select>
+                              🔍
+                            </button>
+                          )}
+                          {entry.extractedData && (
+                            <>
+                              <select 
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    handleAssignToProperty(entry.id, e.target.value);
+                                    e.target.value = '';
+                                  }
+                                }}
+                                className="form-control"
+                                style={{fontSize: '12px', padding: '4px 8px', minWidth: '120px'}}
+                              >
+                                <option value="">Asignar a inmueble</option>
+                                {properties.map(property => (
+                                  <option key={property.id} value={property.id}>
+                                    {property.alias || property.address}
+                                  </option>
+                                ))}
+                              </select>
+                              <button 
+                                className="btn btn-warning btn-sm"
+                                onClick={() => handleDesgloseCapex(entry.id)}
+                                title="Desglosar CAPEX"
+                              >
+                                🧱
+                              </button>
+                            </>
                           )}
                           <button 
                             className="btn btn-error btn-sm"
                             onClick={() => handleDeleteEntry(entry.id)}
-                            style={{fontSize: '12px'}}
+                            title="Eliminar"
                           >
                             🗑️
                           </button>

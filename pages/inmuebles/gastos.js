@@ -12,6 +12,8 @@ export default function GastosPage() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterOrigin, setFilterOrigin] = useState('all');
   const [filterAssignment, setFilterAssignment] = useState('all');
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   
   const [storeState, setStoreState] = useState(() => {
     return store.getState();
@@ -27,6 +29,117 @@ export default function GastosPage() {
 
   const documents = storeState?.documents || mockData.documents || [];
   const properties = storeState?.properties || mockData.properties || [];
+
+  const handleFileUpload = (files) => {
+    const fileList = Array.from(files);
+    const validFiles = fileList.filter(file => {
+      const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+      return validTypes.includes(file.type) && file.size < 10 * 1024 * 1024; // 10MB limit
+    });
+
+    if (validFiles.length !== fileList.length) {
+      if (window.showToast) {
+        window.showToast('Algunos archivos no son válidos (solo PDF, JPG, PNG < 10MB)', 'warning');
+      }
+    }
+
+    setUploadedFiles(prev => [...prev, ...validFiles.map(file => ({
+      id: Date.now() + Math.random(),
+      file,
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      status: 'uploaded'
+    }))]);
+
+    if (window.showToast) {
+      window.showToast(`${validFiles.length} archivo(s) subido(s) correctamente`, 'success');
+    }
+  };
+
+  const handleOCRProcess = async () => {
+    if (uploadedFiles.length === 0) {
+      if (window.showToast) {
+        window.showToast('No hay archivos para procesar', 'warning');
+      }
+      return;
+    }
+
+    setIsProcessingOCR(true);
+    
+    // Simulate OCR processing
+    for (let i = 0; i < uploadedFiles.length; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setUploadedFiles(prev => prev.map((file, index) => 
+        index === i ? { ...file, status: 'processing' } : file
+      ));
+    }
+
+    // Simulate OCR completion and add to documents
+    const newDocuments = uploadedFiles.map(fileData => ({
+      id: Date.now() + Math.random(),
+      filename: fileData.name,
+      date: new Date().toISOString().split('T')[0],
+      provider: 'Proveedor (OCR)',
+      concept: 'Concepto extraído por OCR',
+      amount: Math.round(Math.random() * 500 + 50), // Random amount for demo
+      category: 'Suministros',
+      treatment: 'deducible',
+      status: 'Validada',
+      origin: 'Subida',
+      propertyId: null
+    }));
+
+    // Add documents to store
+    store.updateState(state => ({
+      ...state,
+      documents: [...(state.documents || []), ...newDocuments]
+    }));
+
+    setIsProcessingOCR(false);
+    setUploadedFiles([]);
+
+    if (window.showToast) {
+      window.showToast(`${newDocuments.length} documento(s) procesado(s) con OCR`, 'success');
+    }
+  };
+
+  const handleExportPDF = () => {
+    const data = filteredDocuments.map(doc => ({
+      Fecha: doc.date ? new Date(doc.date).toLocaleDateString('es-ES') : '',
+      Proveedor: doc.provider || '',
+      Concepto: doc.concept || '',
+      Importe: formatCurrency(doc.amount),
+      Categoría: doc.category || '',
+      Tratamiento: getTreatmentChip(doc.treatment).text,
+      Estado: doc.status || '',
+      Inmueble: getPropertyName(doc.propertyId)
+    }));
+
+    // Simulate PDF export
+    const csvContent = [
+      Object.keys(data[0] || {}).join(','),
+      ...data.map(row => Object.values(row).map(val => `"${val}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gastos_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    if (window.showToast) {
+      window.showToast('Exportación completada (CSV por ahora)', 'success');
+    }
+  };
+
+  const handleExportExcel = () => {
+    // For now, same as CSV
+    handleExportPDF();
+  };
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
@@ -121,7 +234,7 @@ export default function GastosPage() {
       <div className="card mb-6" style={{borderColor: 'var(--warning)', background: '#FFFBEB'}}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <AlertTriangleIcon size={20} color="var(--warning)" />
+            <AlertTriangleIcon size={20} />
             <div>
               <div className="font-medium text-sm">
                 Las mejoras (CAPEX) no se deducen completas en el año: se amortizan
@@ -148,26 +261,86 @@ export default function GastosPage() {
       <div className="card mb-6">
         <h3 style={{margin: '0 0 16px 0'}}>Subir documentos</h3>
         <div 
-          className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-accent transition-colors"
+          className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors"
+          style={{
+            borderColor: uploadedFiles.length > 0 ? 'var(--success)' : 'var(--border)',
+            backgroundColor: uploadedFiles.length > 0 ? '#F0FDF4' : 'transparent'
+          }}
           onDrop={(e) => {
             e.preventDefault();
-            if (window.showToast) {
-              window.showToast('Procesamiento de archivos próximamente disponible', 'info');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+              handleFileUpload(files);
             }
           }}
           onDragOver={(e) => e.preventDefault()}
           onClick={() => {
-            if (window.showToast) {
-              window.showToast('Selección de archivos próximamente disponible', 'info');
-            }
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.multiple = true;
+            input.accept = '.pdf,.jpg,.jpeg,.png';
+            input.onchange = (e) => {
+              if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files);
+              }
+            };
+            input.click();
           }}
         >
-          <div style={{fontSize: '48px', marginBottom: '16px'}}>📄</div>
-          <div className="font-semibold mb-2">Arrastra archivos aquí o haz clic para seleccionar</div>
-          <div className="text-sm text-gray mb-4">Formatos: PDF, JPG, PNG, ZIP (múltiples archivos)</div>
+          <div style={{fontSize: '48px', marginBottom: '16px'}}>
+            {uploadedFiles.length > 0 ? '✅' : '📄'}
+          </div>
+          <div className="font-semibold mb-2">
+            {uploadedFiles.length > 0 
+              ? `${uploadedFiles.length} archivo(s) subido(s)` 
+              : 'Arrastra archivos aquí o haz clic para seleccionar'
+            }
+          </div>
+          <div className="text-sm text-gray mb-4">Formatos: PDF, JPG, PNG (máx. 10MB cada uno)</div>
+          
+          {uploadedFiles.length > 0 && (
+            <div className="mb-4">
+              <div className="text-left max-w-md mx-auto">
+                {uploadedFiles.map((fileData) => (
+                  <div key={fileData.id} className="flex items-center justify-between p-2 bg-white rounded border mb-1">
+                    <div className="text-sm">
+                      <div className="font-medium">{fileData.name}</div>
+                      <div className="text-gray">{(fileData.size / 1024).toFixed(1)} KB</div>
+                    </div>
+                    <div className="text-xs">
+                      {fileData.status === 'uploaded' && '📤'}
+                      {fileData.status === 'processing' && '⏳'}
+                      {fileData.status === 'completed' && '✅'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
           <div className="flex gap-2 justify-center">
-            <button className="btn btn-primary btn-sm">Procesar con OCR</button>
-            <button className="btn btn-secondary btn-sm">Limpiar</button>
+            <button 
+              className="btn btn-primary btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOCRProcess();
+              }}
+              disabled={uploadedFiles.length === 0 || isProcessingOCR}
+            >
+              {isProcessingOCR ? '⏳ Procesando...' : '🔍 Procesar con OCR'}
+            </button>
+            <button 
+              className="btn btn-secondary btn-sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setUploadedFiles([]);
+                if (window.showToast) {
+                  window.showToast('Archivos eliminados', 'info');
+                }
+              }}
+            >
+              🗑️ Limpiar
+            </button>
           </div>
         </div>
       </div>
@@ -232,7 +405,25 @@ export default function GastosPage() {
 
       {/* Documents Table */}
       <div className="card mb-6">
-        <h3 style={{margin: '0 0 16px 0'}}>Documentos ({filteredDocuments.length})</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 style={{margin: 0}}>Documentos ({filteredDocuments.length})</h3>
+          <div className="flex gap-2">
+            <button 
+              className="btn btn-secondary btn-sm"
+              onClick={handleExportPDF}
+              disabled={filteredDocuments.length === 0}
+            >
+              📄 Exportar PDF
+            </button>
+            <button 
+              className="btn btn-secondary btn-sm"
+              onClick={handleExportExcel}
+              disabled={filteredDocuments.length === 0}
+            >
+              📊 Exportar Excel
+            </button>
+          </div>
+        </div>
         <div className="table-responsive">
           <table className="table">
             <thead>
@@ -240,7 +431,7 @@ export default function GastosPage() {
                 <th>Fecha</th>
                 <th>Proveedor</th>
                 <th>Concepto</th>
-                <th style={{textAlign: 'right'}}>Importe</th>
+                <th style={{textAlign: 'right'}}>Importe (ES)</th>
                 <th>Categoría</th>
                 <th>Tratamiento</th>
                 <th>Estado</th>
@@ -268,57 +459,64 @@ export default function GastosPage() {
                     </span>
                   </td>
                   <td>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       <button 
                         className="btn btn-secondary btn-sm"
                         onClick={() => {
                           if (window.showToast) {
-                            window.showToast('Visualización de PDF próximamente disponible', 'info');
+                            window.showToast(`Visualizando ${doc.filename || 'documento'}`, 'info');
                           }
                         }}
+                        title="Ver"
                       >
-                        👁
+                        👁️
                       </button>
                       <button 
                         className="btn btn-secondary btn-sm"
                         onClick={() => {
                           if (window.showToast) {
-                            window.showToast('Edición de documentos próximamente disponible', 'info');
+                            window.showToast(`Editando ${doc.concept || 'documento'}`, 'info');
                           }
                         }}
+                        title="Editar"
                       >
                         ✏️
                       </button>
                       {(doc.treatment === 'mejora' || doc.treatment === 'mobiliario') && (
                         <button 
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-warning btn-sm"
                           onClick={() => {
                             setSelectedDocument(doc);
                             setShowBreakdownModal(true);
                           }}
+                          title="Desglosar CAPEX"
                         >
                           🧱
                         </button>
                       )}
                       <button 
-                        className="btn btn-secondary btn-sm"
-                        style={{color: 'var(--danger)'}}
+                        className="btn btn-error btn-sm"
                         onClick={() => {
                           if (window.confirm('¿Estás seguro de que quieres eliminar este documento?')) {
+                            store.updateState(state => ({
+                              ...state,
+                              documents: state.documents.filter(d => d.id !== doc.id)
+                            }));
                             if (window.showToast) {
-                              window.showToast('Eliminación de documentos próximamente disponible', 'info');
+                              window.showToast('Documento eliminado', 'success');
                             }
                           }
                         }}
+                        title="Borrar"
                       >
-                        🗑
+                        🗑️
                       </button>
                     </div>
                   </td>
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan="8" className="text-center text-gray">
+                  <td colSpan="8" className="text-center text-gray py-8">
                     No hay documentos que coincidan con los filtros
                   </td>
                 </tr>
