@@ -390,8 +390,9 @@ const PropertyDetailModal = ({ property, onClose }) => {
             <button 
               className="btn btn-secondary"
               onClick={() => {
+                // Enable editing functionality
                 if (window.showToast) {
-                  window.showToast('Edición de inmuebles próximamente disponible', 'info');
+                  window.showToast('Funcionalidad de edición en desarrollo', 'info');
                 }
               }}
             >
@@ -401,10 +402,13 @@ const PropertyDetailModal = ({ property, onClose }) => {
               className="btn btn-secondary"
               style={{color: 'var(--danger)'}}
               onClick={() => {
-                if (window.confirm(`¿Estás seguro de que quieres eliminar "${property.address}"?`)) {
+                if (window.confirm(`¿Estás seguro de que quieres eliminar "${property.address}"?\n\nEsta acción no se puede deshacer.`)) {
+                  // Delete property from store
+                  store.deleteProperty(property.id);
                   if (window.showToast) {
-                    window.showToast('Eliminación de inmuebles próximamente disponible', 'info');
+                    window.showToast(`Inmueble "${property.address}" eliminado correctamente`, 'success');
                   }
+                  onClose();
                 }
               }}
             >

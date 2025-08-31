@@ -704,7 +704,18 @@ class AtlasStore {
 
     for (let month = 1; month <= plazo_meses && remainingCapital > 0.01; month++) {
       const paymentDate = new Date(startDate);
-      paymentDate.setMonth(startDate.getMonth() + month);
+      // Properly add months while preserving the day of month
+      const targetMonth = startDate.getMonth() + month;
+      const targetYear = startDate.getFullYear() + Math.floor(targetMonth / 12);
+      const finalMonth = targetMonth % 12;
+      
+      paymentDate.setFullYear(targetYear, finalMonth, startDate.getDate());
+      
+      // Handle cases where the target day doesn't exist in target month (e.g., Jan 31 -> Feb 31)
+      if (paymentDate.getMonth() !== finalMonth) {
+        // If we overflowed to next month, set to last day of target month
+        paymentDate.setFullYear(targetYear, finalMonth + 1, 0);
+      }
 
       const interestPayment = remainingCapital * monthlyRate;
       const principalPayment = monthlyPayment - interestPayment;
