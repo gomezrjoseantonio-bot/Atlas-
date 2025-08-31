@@ -74,7 +74,7 @@ export default function Header({
             className="btn btn-secondary btn-sm"
             onClick={() => {
               if (typeof window !== 'undefined' && window.showToast) {
-                window.showToast('Búsqueda próximamente disponible', 'info');
+                window.showToast('Búsqueda global', 'info');
               }
             }}
             aria-label="Buscar"
@@ -98,8 +98,8 @@ export default function Header({
             aria-label="Configuración"
             style={{background: 'none', border: 'none', padding: '4px'}}
             onClick={() => {
-              if (typeof window !== 'undefined' && window.showToast) {
-                window.showToast('Configuración próximamente disponible', 'info');
+              if (typeof window !== 'undefined') {
+                window.location.href = '/configuracion';
               }
             }}
           >

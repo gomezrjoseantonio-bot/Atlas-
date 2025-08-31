@@ -26,7 +26,7 @@ export default function Page() {
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
-      return '€0';
+      return '—';
     }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 0})}`;
   };
@@ -477,7 +477,7 @@ export default function Page() {
         <div className="modal" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 style={{margin: 0, color: 'var(--navy)'}}>
-              <AlertTriangleIcon size={20} style={{marginRight: '8px'}} color="var(--warning)" />
+              <AlertTriangleIcon size={20} style={{marginRight: '8px'}} />
               Sugerencias para mejorar DSCR
             </h3>
             <button
@@ -536,7 +536,7 @@ export default function Page() {
 
           <div className="mt-4 p-3" style={{background: 'var(--accent-subtle)', borderRadius: '8px'}}>
             <div className="text-sm font-medium" style={{color: 'var(--accent)', marginBottom: '4px'}}>
-              <AlertTriangleIcon size={20} style={{marginRight: '8px'}} color="var(--warning)" />
+              <AlertTriangleIcon size={20} style={{marginRight: '8px'}} />
               Recomendación
             </div>
             <div className="text-sm" style={{color: 'var(--accent)'}}>

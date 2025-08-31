@@ -29,7 +29,7 @@ export default function Page() {
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
-      return '€0,00';
+      return '—';
     }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
   };
@@ -277,7 +277,7 @@ export default function Page() {
               {filteredDocuments.length === 0 ? (
                 <div style={{textAlign: 'center', padding: '48px 0', color: 'var(--gray)'}}>
                   <div style={{fontSize: '48px', marginBottom: '16px', display: 'flex', justifyContent: 'center'}}>
-                    <FileTextIcon size={48} color="var(--icon-muted)" />
+                    <FileTextIcon size={48} />
                   </div>
                   <div>Todavía no hay facturas. Sube o reenvía desde tu correo.</div>
                 </div>

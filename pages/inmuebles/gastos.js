@@ -121,7 +121,7 @@ export default function GastosPage() {
       <div className="card mb-6" style={{borderColor: 'var(--warning)', background: '#FFFBEB'}}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <AlertTriangleIcon size={20} color="var(--warning)" />
+            <AlertTriangleIcon size={20} />
             <div>
               <div className="font-medium text-sm">
                 Las mejoras (CAPEX) no se deducen completas en el año: se amortizan

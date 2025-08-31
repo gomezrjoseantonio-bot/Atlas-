@@ -403,10 +403,10 @@ export default function Page() {
               {filteredAlerts.map(alert => {
                 const getSeverityIcon = (severity) => {
                   switch(severity) {
-                    case 'critical': return <AlertTriangleIcon size={16} color="var(--danger)" />;
-                    case 'high': return <AlertTriangleIcon size={16} color="var(--warning)" />;
-                    case 'medium': return <BellIcon size={16} color="var(--warning)" />;
-                    case 'low': return <CheckIcon size={16} color="var(--text-2)" />;
+                    case 'critical': return <AlertTriangleIcon size={16} />;
+                    case 'high': return <AlertTriangleIcon size={16} />;
+                    case 'medium': return <BellIcon size={16} />;
+                    case 'low': return <CheckIcon size={16} />;
                     default: return <ClipboardListIcon size={16} />;
                   }
                 };
@@ -551,7 +551,7 @@ export default function Page() {
             </div>
           ) : (
             <div className="text-center text-gray py-4" style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'}}>
-              <CheckIcon size={16} color="var(--success)" />
+              <CheckIcon size={16} />
               No hay alertas pendientes
             </div>
           )}
