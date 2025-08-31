@@ -1,4 +1,4 @@
-import { BarChart3Icon, HomeIcon, FileTextIcon, TrendingUpIcon, SettingsIcon, EuroIcon } from '../components/icons';
+import { BarChart3Icon, HomeIcon, FileTextIcon, TrendingUpIcon, SettingsIcon, EuroIcon, RocketIcon, SparklesIcon } from '../components/icons';
 
 export default function Home() {
   return (
@@ -85,7 +85,8 @@ export default function Home() {
 
         <div className="flex gap-3 justify-center">
           <a href="/panel" className="btn btn-primary">
-            🚀 Acceder al Panel
+            <RocketIcon size={16} style={{marginRight: '6px'}} />
+            Acceder al Panel
           </a>
           <a href="/documentos" className="btn btn-secondary">
             <FileTextIcon size={16} style={{marginRight: '6px'}} />
@@ -94,8 +95,9 @@ export default function Home() {
         </div>
 
         <div className="mt-8 p-4" style={{background: '#EFF6FF', borderRadius: '8px', border: '1px solid var(--navy)'}}>
-          <div className="font-medium mb-2" style={{color: 'var(--navy)'}}>
-            ✨ Implementación HITO 2 Completada
+          <div className="font-medium mb-2" style={{color: 'var(--navy)', display: 'flex', alignItems: 'center', gap: '8px'}}>
+            <SparklesIcon size={16} />
+            Implementación HITO 2 Completada
           </div>
           <div className="text-sm text-gray">
             Sistema completo de gestión documental con Inbox, tabla de facturas, Cierre rápido, 

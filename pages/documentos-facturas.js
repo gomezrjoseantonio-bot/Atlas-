@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import store from '../store/index';
+import { SearchIcon, BellIcon, SettingsIcon, RocketIcon, FileTextIcon, CheckIcon, AlertTriangleIcon, DownloadIcon, FilterIcon } from '../components/icons';
 
 export default function Page() {
   const router = useRouter();
@@ -121,9 +122,9 @@ export default function Page() {
             <a href="/configuracion" className="nav-link">Configuración</a>
           </nav>
           <div className="nav-actions">
-            <div className="icon">🔍</div>
-            <div className="icon">🔔</div>
-            <div className="icon">⚙️</div>
+            <SearchIcon size={16} />
+            <BellIcon size={16} />
+            <SettingsIcon size={16} />
           </div>
         </div>
       </header>
@@ -138,8 +139,10 @@ export default function Page() {
             <button 
               className="btn btn-primary"
               onClick={() => setShowQuickClose(true)}
+              style={{display: 'flex', alignItems: 'center', gap: '8px'}}
             >
-              🚀 Cierre rápido
+              <RocketIcon size={16} />
+              Cierre rápido
             </button>
           </div>
 
@@ -154,8 +157,10 @@ export default function Page() {
             <button 
               onClick={() => setActiveTab('invoices')}
               className="btn btn-primary btn-sm"
+              style={{display: 'flex', alignItems: 'center', gap: '6px'}}
             >
-              📄 Facturas
+              <FileTextIcon size={14} />
+              Facturas
             </button>
           </div>
 
@@ -271,7 +276,9 @@ export default function Page() {
               
               {filteredDocuments.length === 0 ? (
                 <div style={{textAlign: 'center', padding: '48px 0', color: 'var(--gray)'}}>
-                  <div style={{fontSize: '48px', marginBottom: '16px'}}>📄</div>
+                  <div style={{fontSize: '48px', marginBottom: '16px', display: 'flex', justifyContent: 'center'}}>
+                    <FileTextIcon size={48} color="var(--icon-muted)" />
+                  </div>
                   <div>Todavía no hay facturas. Sube o reenvía desde tu correo.</div>
                 </div>
               ) : (
@@ -472,12 +479,18 @@ export default function Page() {
             {/* Fiscal Summary */}
             <div className="grid grid-cols-3 gap-4">
               <div className="card">
-                <h4 style={{margin: '0 0 8px 0', color: 'var(--success)'}}>✅ Gastos Deducibles</h4>
+                <h4 style={{margin: '0 0 8px 0', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                  <CheckIcon size={16} />
+                  Gastos Deducibles
+                </h4>
                 <div className="text-xl font-bold">{formatCurrency(totalDeductible)}</div>
                 <div className="text-sm text-gray">{deductibleExpenses.length} facturas</div>
               </div>
               <div className="card">
-                <h4 style={{margin: '0 0 8px 0', color: 'var(--warning)'}}>⚠️ No Deducibles</h4>
+                <h4 style={{margin: '0 0 8px 0', color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: '8px'}}>
+                  <AlertTriangleIcon size={16} />
+                  No Deducibles
+                </h4>
                 <div className="text-xl font-bold">{formatCurrency(totalNonDeductible)}</div>
                 <div className="text-sm text-gray">{nonDeductibleExpenses.length} facturas</div>
               </div>
@@ -501,8 +514,10 @@ export default function Page() {
                 <button 
                   className="btn btn-secondary"
                   data-action="export:pdf-fiscal"
+                  style={{display: 'flex', alignItems: 'center', gap: '6px'}}
                 >
-                  📄 Informe PDF Fiscal
+                  <DownloadIcon size={14} />
+                  Informe PDF Fiscal
                 </button>
               </div>
             </div>
