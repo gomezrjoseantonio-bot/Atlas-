@@ -22,6 +22,13 @@ export default function MyApp({ Component, pageProps }) {
     }
     return false;
   });
+  const [demoMode, setDemoMode] = useState(() => {
+    // Initialize Demo mode from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('atlas.demo') === 'true';
+    }
+    return false;
+  });
 
   useEffect(() => {
     // Subscribe to store changes
@@ -78,6 +85,13 @@ export default function MyApp({ Component, pageProps }) {
     }
   }, [qaMode]);
 
+  // Persist Demo mode in localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('atlas.demo', demoMode.toString());
+    }
+  }, [demoMode]);
+
   const handleLoadSeed = (seedType) => {
     store.loadSeed(seedType);
   };
@@ -131,6 +145,36 @@ export default function MyApp({ Component, pageProps }) {
     window.showToast && window.showToast(`Tema cambiado a ${newTheme === 'theme-personal' ? 'Pulse (Turquesa)' : 'Horizon (Navy)'}`, 'info');
   };
 
+  // QA Minimal Menu Handlers (Brief v2)
+  const handleToggleDemo = () => {
+    setDemoMode(!demoMode);
+    window.showToast && window.showToast(`Modo Demo ${!demoMode ? 'activado' : 'desactivado'}`, 'info');
+  };
+
+  const handleSeedMinimal = () => {
+    if (demoMode) {
+      store.loadSeed('A'); // Minimal demo seed
+      window.showToast && window.showToast('Demo mínima cargada', 'success');
+    }
+  };
+
+  const handleSeedComplete = () => {
+    if (demoMode) {
+      store.loadSeed('B'); // Complete demo seed
+      window.showToast && window.showToast('Demo completa cargada', 'success');
+    }
+  };
+
+  const handleVaciarData = () => {
+    const confirmation = prompt('Para vaciar todos los datos, escriba: VACIAR');
+    if (confirmation === 'VACIAR') {
+      store.setState(store.getInitialState());
+      window.showToast && window.showToast('Datos vaciados', 'success');
+    } else if (confirmation !== null) {
+      window.showToast && window.showToast('Confirmación incorrecta. Datos no vaciados.', 'warning');
+    }
+  };
+
   const diagnostics = (qaMode || storeState.qaMode) ? store.generateDiagnostics() : null;
 
   return (
@@ -149,30 +193,19 @@ export default function MyApp({ Component, pageProps }) {
         onCopyDiagnostics={() => store.getDiagnosticsText()}
         onExitQA={handleExitQA}
         diagnostics={diagnostics}
+        demoMode={demoMode}
+        onToggleDemo={handleToggleDemo}
+        onSeedMinimal={handleSeedMinimal}
+        onSeedComplete={handleSeedComplete}
+        onVaciarData={handleVaciarData}
+        onToggleTheme={handleToggleTheme}
       />
       
       <BrandValidator qaMode={qaMode || storeState.qaMode} />
       
-      <QAPanel 
-        qaMode={qaMode || storeState.qaMode}
-        qaEvents={storeState.qaEvents}
-        activeSeed={storeState.activeSeed}
-        lastSeedReset={storeState.lastSeedReset}
-        onLoadSeed={handleLoadSeed}
-        onResetDemo={handleResetDemo}
-        onReportIssue={handleReportIssue}
-        onCreateUpcomingMovements={handleCreateUpcomingMovements}
-        onCreateOverdueMovements={handleCreateOverdueMovements}
-        onGenerateInvoicesWithoutDocs={handleGenerateInvoicesWithoutDocs}
-        onSimulateLowBalance={handleSimulateLowBalance}
-        onExecuteRulesEngine={handleExecuteRulesEngine}
-        onToggleTheme={handleToggleTheme}
-      />
+      {/* QAPanel removed in Brief v2 - using minimal menu in QABar instead */}
 
-      <QAPill 
-        qaMode={qaMode || storeState.qaMode}
-        onTogglePanel={handleTogglePill}
-      />
+      {/* QAPill removed in Brief v2 - using minimal menu in QABar instead */}
 
       {/* Main app content - adjust for QA bar */}
       <div style={{ marginTop: (qaMode || storeState.qaMode) ? '32px' : '0' }}>

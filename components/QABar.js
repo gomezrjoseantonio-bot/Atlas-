@@ -1,8 +1,21 @@
-// QA Bar - Top thin bar visible only in QA Mode
+// QA Bar - Minimal QA menu (Brief v2) - without sidebars/overlays
 import { useState } from 'react';
 
-export default function QABar({ qaMode, activeSeed, onCopyDiagnostics, onExitQA, diagnostics }) {
+export default function QABar({ 
+  qaMode, 
+  activeSeed, 
+  onCopyDiagnostics, 
+  onExitQA, 
+  diagnostics,
+  demoMode,
+  onToggleDemo,
+  onSeedMinimal,
+  onSeedComplete,
+  onVaciarData,
+  onToggleTheme
+}) {
   const [copied, setCopied] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   if (!qaMode) return null;
 
@@ -44,20 +57,173 @@ export default function QABar({ qaMode, activeSeed, onCopyDiagnostics, onExitQA,
       borderBottom: '1px solid rgba(0,0,0,0.1)'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <span style={{ 
-          backgroundColor: 'rgba(255,255,255,0.2)', 
-          padding: '2px 8px', 
-          borderRadius: '4px',
-          fontWeight: 'bold'
-        }}>
-          MODO QA
-        </span>
-        <span>v{diagnostics?.version || '0.1.3'}</span>
-        <span>#{diagnostics?.commit || 'dev'}</span>
-        <span>Seed: {activeSeed || 'default'}</span>
-        <span style={{ color: 'rgba(255,255,255,0.8)' }}>
-          Brand check: OK
-        </span>
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              color: 'white',
+              padding: '2px 8px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            QA {showMenu ? '▼' : '▶'}
+          </button>
+          
+          {/* Minimal QA Menu - no sidebar/overlay */}
+          {showMenu && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              backgroundColor: 'white',
+              border: '1px solid var(--border)',
+              borderRadius: '4px',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              minWidth: '240px',
+              zIndex: 1001,
+              marginTop: '4px'
+            }}>
+              <div style={{ padding: '8px 0' }}>
+                {/* Demo Toggle */}
+                <button
+                  onClick={onToggleDemo}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '6px 12px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: 'var(--text)',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                  onMouseOver={(e) => e.target.style.backgroundColor = 'var(--bg)'}
+                  onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                >
+                  <span>Modo Demo</span>
+                  <span style={{
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    fontSize: '10px',
+                    backgroundColor: demoMode ? 'var(--success)' : 'var(--border)',
+                    color: demoMode ? 'white' : 'var(--text-2)'
+                  }}>
+                    {demoMode ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+
+                <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '4px 0' }} />
+
+                {/* Seed Options - only if Demo=ON */}
+                {demoMode && (
+                  <>
+                    <button
+                      onClick={onSeedMinimal}
+                      style={{
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '6px 12px',
+                        border: 'none',
+                        backgroundColor: 'transparent',
+                        color: 'var(--text)',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                      onMouseOver={(e) => e.target.style.backgroundColor = 'var(--bg)'}
+                      onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                    >
+                      🌱 Sembrar demo mínima
+                    </button>
+                    <button
+                      onClick={onSeedComplete}
+                      style={{
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '6px 12px',
+                        border: 'none',
+                        backgroundColor: 'transparent',
+                        color: 'var(--text)',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                      onMouseOver={(e) => e.target.style.backgroundColor = 'var(--bg)'}
+                      onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                    >
+                      🌿 Sembrar demo completa
+                    </button>
+                    <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '4px 0' }} />
+                  </>
+                )}
+
+                {/* Empty Data */}
+                <button
+                  onClick={onVaciarData}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '6px 12px',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    color: 'var(--danger)',
+                    fontSize: '12px',
+                    cursor: 'pointer'
+                  }}
+                  onMouseOver={(e) => e.target.style.backgroundColor = 'var(--bg)'}
+                  onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                >
+                  🗑️ Vaciar datos (VACIAR)
+                </button>
+
+                {/* Theme Toggle - optional by flag */}
+                {onToggleTheme && (
+                  <>
+                    <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '4px 0' }} />
+                    <button
+                      onClick={onToggleTheme}
+                      style={{
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '6px 12px',
+                        border: 'none',
+                        backgroundColor: 'transparent',
+                        color: 'var(--text)',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                      onMouseOver={(e) => e.target.style.backgroundColor = 'var(--bg)'}
+                      onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                    >
+                      🎨 Cambiar tema
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {demoMode && (
+          <span style={{
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            fontSize: '10px',
+            fontWeight: 'bold'
+          }}>
+            DEMO
+          </span>
+        )}
       </div>
       
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

@@ -3392,9 +3392,9 @@ if (typeof window !== 'undefined') {
     store.initializeQAMode();
   }, 100); // Small delay to allow DOM to be ready
 } else {
-  // If window is not available (SSR), load demo data for server rendering
-  console.log('Window not available, loading demo data for SSR');
-  store.resetDemo();
+  // If window is not available (SSR), start with empty state (Brief v2 requirement)
+  console.log('Window not available, starting with empty state for SSR');
+  // No auto-seeding - starts in REAL empty mode
 }
 
 export default store;

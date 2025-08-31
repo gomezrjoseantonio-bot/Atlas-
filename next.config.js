@@ -29,6 +29,15 @@ const nextConfig = {
   },
   // Allow loading workers and WASM files
   assetPrefix: process.env.NODE_ENV === 'production' ? '' : '',
+  async redirects() {
+    return [
+      {
+        source: '/documentos',
+        destination: '/inmuebles/gastos',
+        permanent: true, // 301 redirect
+      },
+    ];
+  },
   async headers() {
     return [
       {
