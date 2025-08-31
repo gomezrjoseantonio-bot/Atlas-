@@ -7,21 +7,28 @@ export default function Page() {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedMovement, setSelectedMovement] = useState(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [alertFilter, setAlertFilter] = useState('all');
+  
   const [storeState, setStoreState] = useState(() => {
     // Initialize with store state immediately
-    let currentState = store.getState();
-    const hasData = currentState.accounts?.length > 0 || 
-                   currentState.properties?.length > 0 || 
-                   currentState.documents?.length > 0;
-    
-    if (!hasData) {
-      console.log('Tesoreria init: No data detected, forcing demo data');
-      store.resetDemo();
-      currentState = store.getState();
-    }
-    
-    return currentState;
+    return store.getState();
   });
+
+  // Check URL parameters for filter presets
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const filter = urlParams.get('filter');
+      
+      if (filter === 'low_balance') {
+        setAlertFilter('low_balance');
+      } else if (filter === 'review') {
+        setAlertFilter('review');
+      } else if (filter === 'critical') {
+        setAlertFilter('critical');
+      }
+    }
+  }, []);
 
   // Subscribe to store changes
   useEffect(() => {
@@ -48,8 +55,25 @@ export default function Page() {
     return healthMap[health] || healthMap.good;
   };
 
+  const safeNumber = (value, fallback = 0) => {
+    return (value === null || value === undefined || isNaN(value)) ? fallback : value;
+  };
+
+  const formatCurrency = (amount) => {
+    const safe = safeNumber(amount);
+    if (safe === 0 && (amount === null || amount === undefined || isNaN(amount))) {
+      return '—';
+    }
+    return `€${safe.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
+  };
+
   const getBalanceVariation = (today, previous) => {
-    const variation = ((today - previous) / previous) * 100;
+    const safeTdoay = safeNumber(today);
+    const safePrevious = safeNumber(previous, 1); // Avoid division by zero
+    
+    if (safePrevious === 0) return { percentage: '0.0', isPositive: true };
+    
+    const variation = ((safeTdoay - safePrevious) / safePrevious) * 100;
     return {
       percentage: Math.abs(variation).toFixed(1),
       isPositive: variation >= 0
@@ -57,8 +81,42 @@ export default function Page() {
   };
 
   const getProgressPercentage = (current, target) => {
-    return Math.min((current / target) * 100, 100);
+    const safeCurrent = safeNumber(current);
+    const safeTarget = safeNumber(target, 1); // Avoid division by zero
+    return Math.min((safeCurrent / safeTarget) * 100, 100);
   };
+
+  // Calculate total balances with safe math
+  const totalBalance = accounts.reduce((sum, acc) => sum + safeNumber(acc.balanceToday), 0);
+  const availableAccounts = accounts.filter(acc => acc.balanceToday !== null && acc.balanceToday !== undefined && !isNaN(acc.balanceToday));
+  const hasPartialData = availableAccounts.length > 0 && availableAccounts.length < accounts.length;
+
+  // Filter alerts based on current filter
+  const getFilteredAlerts = () => {
+    const activeAlerts = alerts.filter(alert => !alert.dismissed);
+    
+    switch(alertFilter) {
+      case 'low_balance':
+        return activeAlerts.filter(alert => alert.type === 'low_balance');
+      case 'review':
+        return activeAlerts.filter(alert => alert.type === 'review_required');
+      case 'critical':
+        return activeAlerts.filter(alert => alert.severity === 'critical');
+      case 'next_7_days':
+        return activeAlerts.filter(alert => {
+          if (!alert.dueDate) return false;
+          const dueDate = new Date(alert.dueDate);
+          const today = new Date();
+          const diffTime = dueDate - today;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays <= 7 && diffDays >= 0;
+        });
+      default:
+        return activeAlerts;
+    }
+  };
+
+  const filteredAlerts = getFilteredAlerts();
 
   const getStatusChipClass = (status) => {
     switch (status) {
@@ -138,7 +196,7 @@ export default function Page() {
                   <div>
                     <div className="text-sm text-gray">Saldo Hoy</div>
                     <div className="font-semibold" style={{fontSize: '18px'}}>
-                      €{account.balanceToday.toLocaleString('es-ES', {minimumFractionDigits: 2})}
+                      {formatCurrency(account.balanceToday)}
                     </div>
                   </div>
                   <div>
@@ -157,8 +215,11 @@ export default function Page() {
 
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray">Objetivo: €{account.targetBalance.toLocaleString('es-ES')}</span>
+                    <span className="text-sm text-gray">Objetivo: {formatCurrency(account.targetBalance)}</span>
                     <span className="text-sm font-medium">{progressPercentage.toFixed(0)}%</span>
+                    {hasPartialData && (
+                      <span className="text-xs text-gray" title="Saldo parcial - datos no disponibles para todas las cuentas">⚠️</span>
+                    )}
                   </div>
                   <div className="progress-bar">
                     <div 
@@ -256,9 +317,16 @@ export default function Page() {
         <div className="flex items-center justify-between mb-4">
           <h3 style={{margin: '0'}}>Centro de Alertas</h3>
           <div className="flex items-center gap-2">
-            <select className="form-control" style={{minWidth: '150px'}}>
+            <select 
+              className="form-control" 
+              style={{minWidth: '150px'}}
+              value={alertFilter}
+              onChange={(e) => setAlertFilter(e.target.value)}
+            >
               <option value="all">Todas</option>
               <option value="critical">Críticas</option>
+              <option value="low_balance">Saldo bajo</option>
+              <option value="review">Revisión requerida</option>
               <option value="next_7_days">Próximos 7 días</option>
             </select>
             <button 
@@ -270,9 +338,9 @@ export default function Page() {
           </div>
         </div>
         
-        {alerts && alerts.length > 0 ? (
+        {filteredAlerts && filteredAlerts.length > 0 ? (
           <div className="grid gap-3">
-            {alerts.filter(alert => !alert.dismissed).map(alert => {
+            {filteredAlerts.map(alert => {
               const getSeverityIcon = (severity) => {
                 switch(severity) {
                   case 'critical': return '🚨';

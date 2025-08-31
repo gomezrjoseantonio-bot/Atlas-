@@ -5,18 +5,7 @@ import { mockData } from '../data/mockData';
 export default function TreasuryRulesPage() {
   const [storeState, setStoreState] = useState(() => {
     // Initialize with store state immediately
-    let currentState = store.getState();
-    const hasData = currentState.accounts?.length > 0 || 
-                   currentState.properties?.length > 0 || 
-                   currentState.documents?.length > 0;
-    
-    if (!hasData) {
-      console.log('Component init: No data detected, forcing demo data');
-      store.resetDemo();
-      currentState = store.getState();
-    }
-    
-    return currentState;
+    return store.getState();
   });const [showAddRuleModal, setShowAddRuleModal] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
   const [newRule, setNewRule] = useState({

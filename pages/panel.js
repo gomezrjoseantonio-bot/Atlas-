@@ -1,24 +1,24 @@
 import { useState, useEffect } from 'react';
 import store from '../store/index';
-import { getTotalPortfolioValue, getTotalMonthlyRent, getOccupancyRate } from '../data/mockData';
+import { getTotalPortfolioValue, getTotalMonthlyRent, getOccupancyRate, getTotalMonthlyExpenses } from '../data/mockData';
+import Modal from '../components/Modal';
 
 export default function Page() {
-  const [personalMode, setPersonalMode] = useState(false);
+  const [personalMode, setPersonalMode] = useState(() => {
+    // Load from localStorage if available
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('atlas.personalMode') === 'true';
+    }
+    return false;
+  });
+  
   const [storeState, setStoreState] = useState(() => {
     // Initialize with store state immediately
-    let currentState = store.getState();
-    const hasData = currentState.accounts?.length > 0 || 
-                   currentState.properties?.length > 0 || 
-                   currentState.documents?.length > 0;
-    
-    if (!hasData) {
-      console.log('Panel init: No data detected, forcing demo data');
-      store.resetDemo();
-      currentState = store.getState();
-    }
-    
-    return currentState;
+    return store.getState();
   });
+  
+  const [showPendingModal, setShowPendingModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Subscribe to store changes
   useEffect(() => {
@@ -28,11 +28,20 @@ export default function Page() {
     };
   }, []);
 
+  // Persist personal mode preference
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('atlas.personalMode', personalMode.toString());
+    }
+  }, [personalMode]);
+
   const missingInvoices = storeState?.missingInvoices || [];
   const accounts = storeState?.accounts || [];
   const documents = storeState?.documents || [];
   const properties = storeState?.properties || [];
   const inboxEntries = storeState?.inboxEntries || [];
+  const movements = storeState?.movements || [];
+  const alerts = storeState?.alerts || [];
   
   // Calculate live data
   const unprocessedInboxEntries = inboxEntries.filter(entry => 
@@ -53,18 +62,75 @@ export default function Page() {
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
-      return '€0,00';
+      return '—';
     }
     return `€${amount.toLocaleString('es-ES', {minimumFractionDigits: 2})}`;
   };
 
-  // Calculate consolidated KPIs when PERSONAL is ON
-  const totalAccountBalance = accounts.reduce((sum, acc) => sum + (acc.balanceToday || 0), 0);
-  const totalPatrimony = getTotalPortfolioValue() + totalAccountBalance;
-  const monthlyPropertyIncome = getTotalMonthlyRent();
-  const monthlyPersonalIncome = personalFinances.monthlyNetSalary;
-  const totalMonthlyIncome = monthlyPropertyIncome + (personalMode ? monthlyPersonalIncome : 0);
-  const totalMonthlyExpenses = 445 + (personalMode ? personalFinances.monthlyExpenses : 0); // Mock property expenses
+  const safeNumber = (value, fallback = 0) => {
+    return (value === null || value === undefined || isNaN(value)) ? fallback : value;
+  };
+
+  // Calculate consolidated KPIs
+  const totalAccountBalance = accounts.reduce((sum, acc) => sum + safeNumber(acc.balanceToday), 0);
+  const portfolioValue = safeNumber(getTotalPortfolioValue());
+  const totalPatrimony = portfolioValue + totalAccountBalance;
+  
+  const monthlyPropertyIncome = safeNumber(getTotalMonthlyRent());
+  const monthlyPersonalIncome = personalMode ? personalFinances.monthlyNetSalary : 0;
+  const totalMonthlyIncome = monthlyPropertyIncome + monthlyPersonalIncome;
+  
+  const monthlyPropertyExpenses = safeNumber(getTotalMonthlyExpenses());
+  const monthlyPersonalExpenses = personalMode ? personalFinances.monthlyExpenses : 0;
+  const totalMonthlyExpenses = monthlyPropertyExpenses + monthlyPersonalExpenses;
+  
+  // Calculate monthly flow
+  const monthlyFlow = totalMonthlyIncome - totalMonthlyExpenses;
+  const flowIsPositive = monthlyFlow >= 0;
+  
+  // Active alerts by severity
+  const activeAlerts = alerts.filter(alert => !alert.dismissed);
+  const lowBalanceAlerts = activeAlerts.filter(alert => alert.type === 'low_balance');
+  const missingInvoiceAlerts = activeAlerts.filter(alert => alert.type === 'missing_invoice');
+  const reviewAlerts = activeAlerts.filter(alert => alert.type === 'review_required');
+  
+  // Recent movements (last 4)
+  const recentMovements = movements
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 4);
+
+  // Mock 90-day chart data (placeholder)
+  const last90Days = Array.from({length: 90}, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (89 - i));
+    return {
+      date: date.toISOString().split('T')[0],
+      income: Math.random() * 200 + 50,
+      expenses: Math.random() * 150 + 30
+    };
+  });
+
+  const handleQuickAction = (action) => {
+    setIsLoading(true);
+    // Simulate async action
+    setTimeout(() => {
+      switch(action) {
+        case 'income':
+          window.showToast && window.showToast('Registro de ingreso iniciado', 'info');
+          break;
+        case 'expense':
+          window.showToast && window.showToast('Registro de gasto iniciado', 'info');
+          break;
+        case 'connect':
+          window.showToast && window.showToast('Conexión bancaria en proceso', 'info');
+          break;
+        case 'report':
+          window.showToast && window.showToast('Generando informe PDF...', 'info');
+          break;
+      }
+      setIsLoading(false);
+    }, 500);
+  };
 
   return (<>
     <header className="header">
@@ -93,12 +159,22 @@ export default function Page() {
           >
             🔄 Demo
           </button>
-          <span>🔍</span>
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              if (window.showToast) {
+                window.showToast('Búsqueda próximamente disponible', 'info');
+              }
+            }}
+            style={{marginRight: '12px', background: 'none', border: 'none', fontSize: '18px'}}
+          >
+            🔍
+          </button>
           <a href="/tesoreria" className="notification-badge">
             <span>🔔</span>
-            {storeState.alerts && storeState.alerts.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length > 0 && (
+            {activeAlerts.filter(alert => alert.severity === 'critical' || alert.severity === 'high').length > 0 && (
               <span className="badge">
-                {storeState.alerts.filter(alert => !alert.dismissed && (alert.severity === 'critical' || alert.severity === 'high')).length}
+                {activeAlerts.filter(alert => alert.severity === 'critical' || alert.severity === 'high').length}
               </span>
             )}
           </a>
@@ -108,8 +184,9 @@ export default function Page() {
     </header>
 
     <main className="container">
+      {/* Header with PERSONAL Switch */}
       <div className="flex items-center justify-between mb-4">
-        <h2 style={{color:'var(--navy)', margin:0}}>Panel</h2>
+        <h2 style={{color:'var(--navy)', margin:0}}>Vista Consolidada</h2>
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">PERSONAL</span>
           <label className="toggle">
@@ -123,97 +200,352 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Consolidated Ribbon - Only when PERSONAL is ON */}
-      {personalMode && (
-        <div className="card mb-4" style={{background: 'linear-gradient(90deg, var(--teal) 0%, var(--navy) 100%)', color: '#fff'}}>
-          <h3 style={{margin: '0 0 16px 0', fontSize: '16px'}}>Vista Consolidada</h3>
-          <div className="grid-3 gap-4">
-            <div>
-              <div className="text-sm" style={{opacity: 0.8}}>Patrimonio Total</div>
-              <div className="font-semibold" style={{fontSize: '20px'}}>{formatCurrency(totalPatrimony)}</div>
-            </div>
-            <div>
-              <div className="text-sm" style={{opacity: 0.8}}>Ingresos Mes</div>
-              <div className="font-semibold" style={{fontSize: '20px'}}>{formatCurrency(totalMonthlyIncome)}</div>
-            </div>
-            <div>
-              <div className="text-sm" style={{opacity: 0.8}}>Gastos Mes</div>
-              <div className="font-semibold" style={{fontSize: '20px'}}>{formatCurrency(totalMonthlyExpenses)}</div>
+      {/* Hero Section with KPIs */}
+      <div className="card mb-4" style={{background: 'linear-gradient(90deg, var(--teal) 0%, var(--navy) 100%)', color: '#fff'}}>
+        <div className="grid-3 gap-4 mb-4">
+          <div>
+            <div className="text-sm" style={{opacity: 0.8}}>Patrimonio Total</div>
+            <div className="font-semibold" style={{fontSize: '24px'}}>{formatCurrency(totalPatrimony)}</div>
+          </div>
+          <div>
+            <div className="text-sm" style={{opacity: 0.8}}>Ingresos Mes</div>
+            <div className="font-semibold" style={{fontSize: '24px'}}>{formatCurrency(totalMonthlyIncome)}</div>
+          </div>
+          <div>
+            <div className="text-sm" style={{opacity: 0.8}}>Gastos Mes</div>
+            <div className="font-semibold" style={{fontSize: '24px'}}>{formatCurrency(totalMonthlyExpenses)}</div>
+          </div>
+        </div>
+        
+        {/* Flow Bar */}
+        <div className="mb-4">
+          <div className="text-sm mb-2" style={{opacity: 0.8}}>
+            {personalMode ? 'Incluye personales' : 'Excluye personales'} · Flujo del mes
+          </div>
+          <div style={{
+            height: '8px',
+            background: 'rgba(255,255,255,0.2)',
+            borderRadius: '4px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              height: '100%',
+              width: '100%',
+              background: flowIsPositive ? '#10B981' : '#EF4444',
+              borderRadius: '4px',
+              position: 'relative'
+            }}>
+              <span style={{
+                position: 'absolute',
+                right: '8px',
+                top: '-20px',
+                fontSize: '12px',
+                fontWeight: '600'
+              }}>
+                {flowIsPositive ? '+' : ''}{formatCurrency(monthlyFlow)}
+              </span>
             </div>
           </div>
         </div>
-      )}
+        
+        {/* CTA */}
+        <div className="flex justify-end">
+          <button 
+            className="btn btn-secondary"
+            style={{backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', border: 'none'}}
+            onClick={() => setShowPendingModal(true)}
+          >
+            Resolver pendientes
+          </button>
+        </div>
+      </div>
 
-      {/* Banner Notification - Pending Invoices */}
+      {/* Unified Alerts Ribbon */}
       <div className="card mb-4" style={{borderColor: 'var(--warning)', background: '#FFFBEB'}}>
         <div className="flex items-center justify-between">
-          <div>
-            <span className="font-medium" style={{color: 'var(--warning)'}}>{totalMissingInvoices} gastos sin factura</span>
-            <span className="text-gray"> · Recupera deducciones (5 min)</span>
+          <div className="flex items-center gap-3">
+            {lowBalanceAlerts.length > 0 && (
+              <span 
+                className="chip warning clickable"
+                onClick={() => window.location.href = '/tesoreria?filter=low_balance'}
+                style={{cursor: 'pointer'}}
+              >
+                Saldo bajo ({lowBalanceAlerts.length})
+              </span>
+            )}
+            {totalMissingInvoices > 0 && (
+              <span 
+                className="chip warning clickable"
+                onClick={() => window.location.href = '/documentos?filter=missing'}
+                style={{cursor: 'pointer'}}
+              >
+                Gastos sin factura ({totalMissingInvoices})
+              </span>
+            )}
+            {reviewAlerts.length > 0 && (
+              <span 
+                className="chip attention clickable"
+                onClick={() => window.location.href = '/tesoreria?filter=review'}
+                style={{cursor: 'pointer'}}
+              >
+                Revisión de tipo ({reviewAlerts.length})
+              </span>
+            )}
+            {!lowBalanceAlerts.length && !totalMissingInvoices && !reviewAlerts.length && (
+              <span className="chip success">Todo en orden</span>
+            )}
           </div>
-          <a href="/documentos" className="btn btn-primary btn-sm">Resolver</a>
+          <a href="/tesoreria" className="btn btn-primary btn-sm">Ver todas</a>
         </div>
       </div>
 
-      {/* KPI Mini - Deductible perdido */}
-      <div className="card mb-4" style={{borderColor: 'var(--error)', background: '#FEF2F2'}}>
-        <div>
-          <span className="font-medium" style={{color: 'var(--error)'}}>Deducible perdido ahora mismo: </span>
-          <span className="font-semibold" style={{color: 'var(--error)'}}>
-            {formatCurrency(pendingDocuments.reduce((sum, doc) => sum + (doc.amount || 0), 0))}
-          </span>
-        </div>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid gap-4">
+      {/* Two-Column Summary Cards */}
+      <div className="grid gap-4 mb-4">
         {/* ATLAS Section */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h3 style={{margin: 0, color: 'var(--navy)'}}>ATLAS · Inmuebles</h3>
             <span className="chip success">OK</span>
           </div>
-          <div className="grid gap-4">
+          <div className="grid gap-4 mb-4">
             <div>
-              <div className="text-sm text-gray">Inmuebles en cartera</div>
+              <div className="text-sm text-gray">Inmuebles</div>
               <div className="font-semibold" style={{fontSize: '18px'}}>{properties.length} propiedades</div>
             </div>
             <div>
-              <div className="text-sm text-gray">Ocupación media</div>
+              <div className="text-sm text-gray">Ocupación</div>
               <div className="font-semibold" style={{fontSize: '18px'}}>{getOccupancyRate().toFixed(1)}%</div>
             </div>
             <div>
-              <div className="text-sm text-gray">Rentabilidad bruta</div>
+              <div className="text-sm text-gray">Rentabilidad</div>
               <div className="font-semibold" style={{fontSize: '18px'}}>6.8%</div>
             </div>
           </div>
+          <a href="/inmuebles" className="btn btn-outline btn-sm">Ir a Inmuebles</a>
         </div>
 
-        {personalMode && (
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
-              <h3 style={{margin: 0, color: 'var(--teal)'}}>PERSONAL · Finanzas</h3>
-              <span className="chip success">OK</span>
-            </div>
-            <div className="grid gap-4">
-              <div>
-                <div className="text-sm text-gray">Nómina neta mensual</div>
-                <div className="font-semibold" style={{fontSize: '18px'}}>{formatCurrency(personalFinances.monthlyNetSalary)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray">Gastos personales</div>
-                <div className="font-semibold" style={{fontSize: '18px'}}>{formatCurrency(personalFinances.monthlyExpenses)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray">Ahorro mensual</div>
-                <div className="font-semibold" style={{fontSize: '18px'}}>
-                  {formatCurrency(personalFinances.monthlyNetSalary - personalFinances.monthlyExpenses)}
+        {/* PERSONAL Section - Always visible but conditional content */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 style={{margin: 0, color: personalMode ? 'var(--teal)' : 'var(--gray)'}}>
+              PERSONAL · Finanzas
+            </h3>
+            <span className={`chip ${personalMode ? 'success' : 'disabled'}`}>
+              {personalMode ? 'OK' : 'OFF'}
+            </span>
+          </div>
+          {personalMode ? (
+            <>
+              <div className="grid gap-4 mb-4">
+                <div>
+                  <div className="text-sm text-gray">Nómina</div>
+                  <div className="font-semibold" style={{fontSize: '18px'}}>
+                    {formatCurrency(personalFinances.monthlyNetSalary)}
+                  </div>
                 </div>
+                <div>
+                  <div className="text-sm text-gray">Gastos personales</div>
+                  <div className="font-semibold" style={{fontSize: '18px'}}>
+                    {formatCurrency(personalFinances.monthlyExpenses)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray">Ahorro</div>
+                  <div className="font-semibold" style={{fontSize: '18px'}}>
+                    {formatCurrency(personalFinances.monthlyNetSalary - personalFinances.monthlyExpenses)}
+                  </div>
+                </div>
+              </div>
+              <button 
+                className="btn btn-outline btn-sm"
+                onClick={() => window.showToast && window.showToast('Edición de finanzas personales próximamente', 'info')}
+              >
+                Editar personales
+              </button>
+            </>
+          ) : (
+            <div className="text-center py-8 text-gray">
+              <div className="mb-2">💰</div>
+              <div className="text-sm">Activar modo PERSONAL para ver finanzas consolidadas</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Pulse Chart */}
+      <div className="card mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 style={{margin: 0, color: 'var(--navy)'}}>Pulso 90 días</h3>
+          <span className="text-sm text-gray">Ingresos vs Egresos</span>
+        </div>
+        {last90Days.length > 0 ? (
+          <div style={{
+            height: '200px',
+            background: 'linear-gradient(to bottom, rgba(20, 184, 166, 0.1) 0%, rgba(20, 184, 166, 0.05) 50%, rgba(239, 68, 68, 0.05) 50%, rgba(239, 68, 68, 0.1) 100%)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1px dashed var(--border)'
+          }}>
+            <div className="text-center text-gray">
+              <div style={{fontSize: '24px', marginBottom: '8px'}}>📊</div>
+              <div className="text-sm">Gráfico de flujos (placeholder)</div>
+              <div className="text-xs" style={{opacity: 0.7}}>
+                Últimos 90 días de movimientos
               </div>
             </div>
           </div>
+        ) : (
+          <div className="text-center py-8 text-gray">
+            <div className="mb-2">📈</div>
+            <div className="text-sm">Sin datos suficientes para mostrar tendencias</div>
+          </div>
         )}
       </div>
+
+      {/* Recent Movements */}
+      <div className="card mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 style={{margin: 0, color: 'var(--navy)'}}>Movimientos recientes</h3>
+          <a href="/tesoreria" className="text-sm" style={{color: 'var(--teal)'}}>Ver todos</a>
+        </div>
+        {recentMovements.length > 0 ? (
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Descripción</th>
+                  <th>Cuenta</th>
+                  <th>Importe</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentMovements.map((movement, index) => {
+                  const account = accounts.find(acc => acc.id === movement.accountId);
+                  return (
+                    <tr key={movement.id || index}>
+                      <td>{new Date(movement.date).toLocaleDateString('es-ES')}</td>
+                      <td>
+                        <div>{movement.description || movement.concept}</div>
+                        {movement.missingDocument && (
+                          <a 
+                            href="/documentos" 
+                            className="text-xs" 
+                            style={{color: 'var(--warning)'}}
+                          >
+                            Asignar doc
+                          </a>
+                        )}
+                      </td>
+                      <td>{account?.name || '—'}</td>
+                      <td style={{
+                        color: movement.amount >= 0 ? 'var(--success)' : 'var(--error)',
+                        fontWeight: '600'
+                      }}>
+                        {formatCurrency(movement.amount)}
+                      </td>
+                      <td>
+                        <span className={`chip ${
+                          movement.status === 'Procesado' ? 'success' :
+                          movement.status === 'Pendiente' ? 'warning' :
+                          movement.status === 'Error' ? 'error' : 'info'
+                        }`}>
+                          {movement.status || 'Procesado'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray">
+            <div className="mb-2">💸</div>
+            <div className="text-sm">No hay movimientos recientes</div>
+          </div>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="card">
+        <h3 style={{margin: '0 0 16px 0', color: 'var(--navy)'}}>Acciones rápidas</h3>
+        <div className="grid-4 gap-2">
+          <button 
+            className="btn btn-outline"
+            onClick={() => handleQuickAction('income')}
+            disabled={isLoading}
+          >
+            + Registrar ingreso
+          </button>
+          <button 
+            className="btn btn-outline"
+            onClick={() => handleQuickAction('expense')}
+            disabled={isLoading}
+          >
+            + Registrar gasto
+          </button>
+          <button 
+            className="btn btn-outline"
+            onClick={() => handleQuickAction('connect')}
+            disabled={isLoading}
+          >
+            Conectar cuenta
+          </button>
+          <button 
+            className="btn btn-outline"
+            onClick={() => handleQuickAction('report')}
+            disabled={isLoading}
+          >
+            Generar informe PDF
+          </button>
+        </div>
+      </div>
     </main>
+
+    {/* Pending Actions Modal */}
+    {showPendingModal && (
+      <Modal onClose={() => setShowPendingModal(false)}>
+        <h3 style={{margin: '0 0 16px 0', color: 'var(--navy)'}}>Pendientes del mes</h3>
+        <div className="space-y-3">
+          {lowBalanceAlerts.map((alert, index) => (
+            <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+              <div>
+                <div className="font-medium text-red-800">Saldo bajo</div>
+                <div className="text-sm text-red-600">{alert.message}</div>
+              </div>
+              <a href="/tesoreria" className="btn btn-sm btn-primary">Ver</a>
+            </div>
+          ))}
+          {totalMissingInvoices > 0 && (
+            <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+              <div>
+                <div className="font-medium text-yellow-800">Gastos sin factura</div>
+                <div className="text-sm text-yellow-600">{totalMissingInvoices} documentos pendientes</div>
+              </div>
+              <a href="/documentos" className="btn btn-sm btn-primary">Resolver</a>
+            </div>
+          )}
+          {reviewAlerts.map((alert, index) => (
+            <div key={index} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+              <div>
+                <div className="font-medium text-orange-800">Revisión requerida</div>
+                <div className="text-sm text-orange-600">{alert.message}</div>
+              </div>
+              <a href="/tesoreria" className="btn btn-sm btn-primary">Revisar</a>
+            </div>
+          ))}
+          {!lowBalanceAlerts.length && !totalMissingInvoices && !reviewAlerts.length && (
+            <div className="text-center py-8 text-gray">
+              <div className="mb-2">✅</div>
+              <div>No hay pendientes este mes</div>
+            </div>
+          )}
+        </div>
+      </Modal>
+    )}
   </>);
 }

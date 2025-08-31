@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import store from '../store/index';
 import { getTotalPortfolioValue, getTotalMonthlyRent, getPortfolioRentability, getOccupancyRate } from '../data/mockData';
+import NewPropertyWizard from '../components/NewPropertyWizard';
+import PropertyDetailModal from '../components/PropertyDetailModal';
 
 export default function Page() {
   const [selectedProperty, setSelectedProperty] = useState(null);
@@ -9,19 +11,11 @@ export default function Page() {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [filterYear, setFilterYear] = useState('2024');
   const [filterMonth, setFilterMonth] = useState('all');
+  const [showNewPropertyWizard, setShowNewPropertyWizard] = useState(false);
+  const [selectedPropertyDetail, setSelectedPropertyDetail] = useState(null);
   const [storeState, setStoreState] = useState(() => {
-    // Initialize with store state immediately
+    // Initialize with store state immediately - don't automatically reset to demo
     let currentState = store.getState();
-    const hasData = currentState.accounts?.length > 0 || 
-                   currentState.properties?.length > 0 || 
-                   currentState.documents?.length > 0;
-    
-    if (!hasData) {
-      console.log('Component init: No data detected, forcing demo data');
-      store.resetDemo();
-      currentState = store.getState();
-    }
-    
     return currentState;
   });
 
@@ -166,11 +160,32 @@ export default function Page() {
 
       {/* Properties Portfolio */}
       <div className="card mb-4">
-        <h3 style={{margin: '0 0 16px 0'}}>Cartera de Inmuebles</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 style={{margin: 0}}>Cartera de Inmuebles</h3>
+          <button 
+            className="btn btn-primary"
+            onClick={() => setShowNewPropertyWizard(true)}
+          >
+            + Nuevo inmueble
+          </button>
+        </div>
         
         {viewMode === 'grid' ? (
           <div className="grid gap-4">
-            {properties.map(property => (
+            {properties.length === 0 ? (
+              <div className="card text-center py-8">
+                <div className="mb-4">🏠</div>
+                <h3 style={{margin: '0 0 8px 0'}}>No tienes inmuebles registrados</h3>
+                <p className="text-gray mb-4">Crea tu primer inmueble para empezar a gestionar tu cartera</p>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => setShowNewPropertyWizard(true)}
+                >
+                  + Crear primer inmueble
+                </button>
+              </div>
+            ) : (
+              properties.map(property => (
               <div key={property.id} className="card" style={{background: '#F9FAFB'}}>
                 <div className="flex items-start justify-between mb-3">
                   <div>
@@ -182,6 +197,24 @@ export default function Page() {
                       {property.status}
                     </span>
                   </div>
+                </div>
+
+                {/* H9A: New property features chips */}
+                <div className="flex items-center gap-2 mb-3">
+                  {property.estructura_definida && (
+                    <span className="chip success" style={{fontSize: '11px'}}>
+                      Estructura creada ({property.numRooms || property.totalUnits} hab.)
+                    </span>
+                  )}
+                  {property.acquisitionCosts ? (
+                    <span className="chip success" style={{fontSize: '11px'}}>
+                      Coste adquisición registrado
+                    </span>
+                  ) : (
+                    <span className="chip warning" style={{fontSize: '11px'}}>
+                      Coste pendiente
+                    </span>
+                  )}
                 </div>
 
                 {/* HITO 7: Multi-unit switch */}
@@ -256,13 +289,12 @@ export default function Page() {
 
                 <button 
                   className="btn btn-secondary btn-sm"
-                  data-action="property:view-detail"
-                  data-id={property.id}
+                  onClick={() => setSelectedPropertyDetail(property)}
                 >
                   Ver detalle
                 </button>
               </div>
-            ))}
+            )))}
           </div>
         ) : (
           <div className="table-responsive">
@@ -280,7 +312,22 @@ export default function Page() {
                 </tr>
               </thead>
               <tbody>
-                {properties.map(property => (
+                {properties.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="text-center py-8">
+                      <div className="mb-4">🏠</div>
+                      <h3 style={{margin: '0 0 8px 0'}}>No tienes inmuebles registrados</h3>
+                      <p className="text-gray mb-4">Crea tu primer inmueble para empezar a gestionar tu cartera</p>
+                      <button 
+                        className="btn btn-primary"
+                        onClick={() => setShowNewPropertyWizard(true)}
+                      >
+                        + Crear primer inmueble
+                      </button>
+                    </td>
+                  </tr>
+                ) : (
+                  properties.map(property => (
                   <tr key={property.id}>
                     <td>
                       <div className="font-semibold">{property.address}</div>
@@ -317,8 +364,7 @@ export default function Page() {
                       <div className="flex gap-2">
                         <button 
                           className="btn btn-secondary btn-sm"
-                          data-action="property:view-detail"
-                          data-id={property.id}
+                          onClick={() => setSelectedPropertyDetail(property)}
                         >
                           Ver detalle
                         </button>
@@ -332,7 +378,7 @@ export default function Page() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )))}
               </tbody>
             </table>
           </div>
@@ -564,6 +610,26 @@ export default function Page() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* New Property Wizard */}
+      {showNewPropertyWizard && (
+        <NewPropertyWizard 
+          onClose={() => setShowNewPropertyWizard(false)}
+          onSuccess={(newProperty) => {
+            setShowNewPropertyWizard(false);
+            // Property will be automatically added to store by the wizard
+            // TODO: Optionally show success message
+          }}
+        />
+      )}
+
+      {/* Property Detail Modal - H9A */}
+      {selectedPropertyDetail && (
+        <PropertyDetailModal 
+          property={selectedPropertyDetail}
+          onClose={() => setSelectedPropertyDetail(null)}
+        />
       )}
     </main>
   </>);

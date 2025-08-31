@@ -6,8 +6,87 @@ import { mockData } from '../data/mockData.js';
 class AtlasStore {
   constructor() {
     this.storageKey = 'atlas-store';
+    this.qaModeKey = 'atlas.qaMode';
+    this.activeSeedKey = 'atlas.activeSeed';
     this.state = this.getInitialState();
     this.subscribers = [];
+    
+    // Initialize QA mode from various sources
+    this.initializeQAMode();
+  }
+
+  // Initialize QA mode from localStorage, URL params, and Netlify preview detection
+  initializeQAMode() {
+    if (typeof window === 'undefined') return;
+    
+    let qaMode = false;
+    let activeSeed = null;
+    
+    // 1. Check URL parameters first (highest priority)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('qa')) {
+      qaMode = urlParams.get('qa') === '1';
+      localStorage.setItem(this.qaModeKey, qaMode.toString());
+      console.log(`QA Mode set via URL: ${qaMode}`);
+    }
+    // 2. Check localStorage
+    else {
+      const stored = localStorage.getItem(this.qaModeKey);
+      if (stored !== null) {
+        qaMode = stored === 'true';
+      }
+      // 3. Check if this is a Netlify preview deployment (auto-enable QA)
+      else if (window.location.hostname.includes('--') && window.location.hostname.includes('.netlify.app')) {
+        qaMode = true;
+        localStorage.setItem(this.qaModeKey, 'true');
+        console.log('Auto-enabled QA mode for Netlify preview');
+      }
+    }
+    
+    // Get active seed from localStorage
+    const storedSeed = localStorage.getItem(this.activeSeedKey);
+    if (storedSeed) {
+      activeSeed = storedSeed;
+    }
+    
+    // Update state immediately
+    this.state.qaMode = qaMode;
+    this.state.activeSeed = activeSeed;
+    
+    // Add global keyboard shortcut (Ctrl/Cmd + Alt + Q)
+    if (qaMode) {
+      this.addKeyboardShortcuts();
+    }
+  }
+
+  // Add keyboard shortcuts for QA
+  addKeyboardShortcuts() {
+    if (typeof window === 'undefined') return;
+    
+    const handleKeyboard = (e) => {
+      // Ctrl/Cmd + Alt + Q to toggle QA panel
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'q') {
+        e.preventDefault();
+        this.toggleQAPanel();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyboard);
+    this.keyboardHandler = handleKeyboard;
+  }
+
+  // Remove keyboard shortcuts
+  removeKeyboardShortcuts() {
+    if (typeof window !== 'undefined' && this.keyboardHandler) {
+      document.removeEventListener('keydown', this.keyboardHandler);
+      this.keyboardHandler = null;
+    }
+  }
+
+  // Toggle QA panel visibility (will be implemented in _app.js)
+  toggleQAPanel() {
+    const event = new CustomEvent('atlas:toggleQAPanel');
+    document.dispatchEvent(event);
   }
 
   getInitialState() {
@@ -28,6 +107,10 @@ class AtlasStore {
       predictedItems: [],
       rulesEngineEnabled: true,
       lastRulesRun: null,
+      // QA Toolkit
+      qaMode: false,
+      activeSeed: null,
+      qaEvents: [],
       // HITO 7: Multi-unit and allocation system
       units: [], // Units belonging to multi-unit properties
       unitContracts: [], // Contracts per unit
@@ -41,6 +124,50 @@ class AtlasStore {
         { id: 'operational_fixed', name: 'Explotación – Fijos', defaultTreatment: 'deductible', defaultAllocation: 'total' },
         { id: 'operational_variable', name: 'Explotación – Variables (Suministros)', defaultTreatment: 'deductible', defaultAllocation: 'occupied' },
         { id: 'other_owner', name: 'Otros / Propietario', defaultTreatment: 'no_deductible', defaultAllocation: 'no_divide' }
+      ],
+      // H9B: CAPEX Management System
+      capexProjects: [], // CAPEX projects for properties
+      capexItems: [], // Individual CAPEX items linked to projects and documents
+      fiscalConfig: {
+        rcAnnualLimit: 1000, // R/C annual limit per property (€)
+        rcCarryoverYears: 4, // Years to carry over unused R/C limit
+        furnitureDepreciationYears: 10, // Furniture depreciation period
+        improvementCapitalizationThreshold: 600 // Minimum for capitalizable improvements
+      },
+      fiscalTreatments: [
+        { 
+          id: 'rc_maintenance', 
+          name: 'Reparación/Conservación (R/C)', 
+          description: 'Deducible hasta límite anual, arrastre 4 años',
+          type: 'deductible_limited',
+          annualLimit: true,
+          carryover: true
+        },
+        { 
+          id: 'improvement_capitalizable', 
+          name: 'Mejora capitalizable', 
+          description: 'Se capitaliza al edificio, no deducible',
+          type: 'capitalizable',
+          annualLimit: false,
+          carryover: false
+        },
+        { 
+          id: 'furniture_depreciable', 
+          name: 'Mobiliario amortizable', 
+          description: 'Amortizable en 10 años',
+          type: 'depreciable',
+          annualLimit: false,
+          carryover: false,
+          depreciationYears: 10
+        },
+        { 
+          id: 'operational_expense', 
+          name: 'Gasto operacional', 
+          description: 'Deducible íntegramente',
+          type: 'deductible',
+          annualLimit: false,
+          carryover: false
+        }
       ],
       lastUpdate: new Date().toISOString()
     };
@@ -87,25 +214,41 @@ class AtlasStore {
       
       const stored = localStorage.getItem(this.storageKey);
       if (stored) {
+        console.log('Loading data from localStorage');
         const parsedData = JSON.parse(stored);
         this.state = { ...this.getInitialState(), ...parsedData };
         
-        // Ensure we have some data - if arrays are empty, reload demo data
-        const hasData = this.state.accounts?.length > 0 || 
-                       this.state.properties?.length > 0 || 
-                       this.state.documents?.length > 0;
+        // Restore lastActivityTime from stored data
+        this.lastActivityTime = this.state.lastActivityTime || null;
         
-        if (!hasData) {
-          console.log('Stored data is empty, loading demo data');
-          this.resetDemo();
+        console.log(`Loaded store with ${this.state.properties?.length || 0} properties`);
+        
+        // Check if this looks like genuine user data
+        const hasUserProperties = this.state.properties?.length > 0;
+        const hasActivity = this.state.lastActivityTime != null;
+        
+        // If we have user properties or activity markers, respect the stored data
+        if (hasUserProperties || hasActivity) {
+          console.log('User data detected, preserving stored properties');
+          this.notifySubscribers();
           return;
         }
-      } else {
-        console.log('No stored data found, loading demo data');
-        this.resetDemo(); // Load demo data if nothing in storage
-        return;
+        
+        // If no user content but we have some demo data structure, keep it
+        const hasAnyData = this.state.accounts?.length > 0 || 
+                         this.state.documents?.length > 0;
+        
+        if (hasAnyData) {
+          console.log('Keeping existing demo data structure');
+          this.notifySubscribers();
+          return;
+        }
       }
-      this.notifySubscribers();
+      
+      // Only load demo data if no localStorage data exists at all
+      console.log('No stored data found, loading demo data');
+      this.resetDemo();
+      
     } catch (error) {
       console.warn('Failed to load from localStorage, using demo data:', error);
       this.resetDemo();
@@ -124,43 +267,15 @@ class AtlasStore {
     }
   }
 
-  // Reset to demo data
+  // Reset to demo data (uses currently selected seed)
   resetDemo() {
-    this.state = {
-      accounts: [...mockData.accounts],
-      properties: [...mockData.properties],
-      loans: [...mockData.loans],
-      documents: [...mockData.documents],
-      inboxEntries: [...mockData.inboxEntries],
-      movements: [...mockData.movements],
-      alerts: [...(mockData.alerts || [])],
-      missingInvoices: [...mockData.missingInvoices],
-      users: [...mockData.users],
-      treasuryRules: [...mockData.treasuryRules],
-      scheduledPayments: [...mockData.scheduledPayments],
-      providerRules: [...mockData.providerRules],
-      sweepConfig: {...mockData.sweepConfig},
-      predictedItems: [...mockData.predictedItems],
-      rulesEngineEnabled: true,
-      lastRulesRun: null,
-      // HITO 7: Multi-unit data
-      units: [...(mockData.units || [])],
-      unitContracts: [...(mockData.unitContracts || [])],
-      allocationPreferences: {...(mockData.allocationPreferences || {})},
-      expenseFamilies: [
-        { id: 'acquisition', name: 'Adquisición', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
-        { id: 'improvement', name: 'Mejora / CAPEX', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
-        { id: 'maintenance', name: 'Mantenimiento / Reparación', defaultTreatment: 'deductible', defaultAllocation: 'specific' },
-        { id: 'financing_interest', name: 'Financiación – Intereses', defaultTreatment: 'deductible', defaultAllocation: 'units' },
-        { id: 'financing_fees', name: 'Financiación – Comisiones/Formalización', defaultTreatment: 'capitalizable', defaultAllocation: 'units' },
-        { id: 'operational_fixed', name: 'Explotación – Fijos', defaultTreatment: 'deductible', defaultAllocation: 'total' },
-        { id: 'operational_variable', name: 'Explotación – Variables (Suministros)', defaultTreatment: 'deductible', defaultAllocation: 'occupied' },
-        { id: 'other_owner', name: 'Otros / Propietario', defaultTreatment: 'no_deductible', defaultAllocation: 'no_divide' }
-      ],
-      lastUpdate: new Date().toISOString()
-    };
-    this.save();
-    this.notifySubscribers();
+    // Get current seed or default to 'A'
+    const currentSeed = this.state.activeSeed || 'A';
+    
+    console.log(`Resetting demo data with Seed ${currentSeed}...`);
+    
+    // Load the selected seed instead of default mockData
+    this.loadSeed(currentSeed);
   }
 
   // Helper methods for specific operations
@@ -173,6 +288,61 @@ class AtlasStore {
         : account
     );
     this.setState({ accounts });
+  }
+
+  // Property operations
+  addProperty(property) {
+    const properties = [...this.state.properties, { 
+      ...property, 
+      id: property.id || Date.now(),
+      createdDate: new Date().toISOString() 
+    }];
+    
+    // Mark recent activity to prevent demo reset
+    this.markRecentActivity();
+    
+    // Update state with new properties
+    this.setState({ properties });
+    
+    console.log('Property added successfully:', property.alias);
+    console.log('Total properties now:', properties.length);
+  }
+  
+  // Track recent activity to prevent demo reset interference
+  markRecentActivity() {
+    const now = Date.now();
+    this.lastActivityTime = now;
+    
+    // Update state with activity marker
+    this.state = { 
+      ...this.state, 
+      lastActivityTime: now,
+      lastUpdate: new Date().toISOString() 
+    };
+    
+    // Save immediately to localStorage
+    this.save();
+    
+    console.log('Activity marked at:', new Date(now).toISOString());
+  }
+  
+  hasRecentActivity() {
+    if (!this.lastActivityTime) return false;
+    const timeSinceActivity = Date.now() - this.lastActivityTime;
+    // Consider activity recent if within last 5 minutes
+    return timeSinceActivity < 5 * 60 * 1000;
+  }
+
+  updateProperty(id, updates) {
+    const properties = this.state.properties.map(property => 
+      property.id === id ? { ...property, ...updates } : property
+    );
+    this.setState({ properties });
+  }
+
+  deleteProperty(id) {
+    const properties = this.state.properties.filter(property => property.id !== id);
+    this.setState({ properties });
   }
 
   // Document operations
@@ -235,6 +405,84 @@ class AtlasStore {
 
   clearInbox() {
     this.setState({ inboxEntries: [] });
+  }
+
+  // H10: Send inbox entry to invoices with OCR processing
+  sendInboxEntryToInvoices(entryId) {
+    const entry = this.state.inboxEntries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    // Convert inbox entry to document
+    const document = {
+      provider: entry.provider !== 'Pendiente OCR' ? entry.provider : 'Proveedor simulado',
+      concept: entry.concept || 'Concepto detectado por OCR',
+      amount: entry.amount || 150.00,
+      status: 'Validada',
+      category: 'Servicios',
+      propertyId: null,
+      isDeductible: true,
+      hasOcr: true,
+      ocrText: entry.ocrText || null,
+      ocrConfidence: entry.ocrConfidence || null,
+      ocrLang: entry.ocrLang || null,
+      pagesOcr: entry.pagesOcr || null
+    };
+
+    // Add to documents
+    this.addDocument(document);
+
+    // Remove from inbox
+    const inboxEntries = this.state.inboxEntries.filter(e => e.id !== entryId);
+    this.setState({ inboxEntries });
+  }
+
+  // H10: Update inbox entry with OCR results
+  updateInboxEntryOCR(entryId, ocrResults) {
+    const inboxEntries = this.state.inboxEntries.map(entry => {
+      if (entry.id === entryId) {
+        return {
+          ...entry,
+          status: 'OCR listo',
+          ocrText: ocrResults.text,
+          ocrConfidence: ocrResults.confidence,
+          ocrLang: ocrResults.language,
+          pagesOcr: ocrResults.pagesOcr,
+          // Pre-fill extracted data
+          provider: ocrResults.extractedData.provider || entry.provider,
+          concept: ocrResults.extractedData.concept || entry.concept,
+          amount: ocrResults.extractedData.total || entry.amount,
+          hasOcr: true
+        };
+      }
+      return entry;
+    });
+    this.setState({ inboxEntries });
+  }
+
+  // H10: Set OCR processing status
+  setInboxEntryOCRStatus(entryId, status, errorMessage = null) {
+    const inboxEntries = this.state.inboxEntries.map(entry => {
+      if (entry.id === entryId) {
+        return {
+          ...entry,
+          status: status,
+          ocrError: errorMessage
+        };
+      }
+      return entry;
+    });
+    this.setState({ inboxEntries });
+  }
+
+  // H10: Process multiple documents with OCR
+  async processDocumentsWithOCR(entryIds) {
+    // This will be called from the UI to trigger OCR processing
+    entryIds.forEach(id => {
+      this.setInboxEntryOCRStatus(id, 'OCR en curso');
+    });
+
+    // Return the IDs for the UI to handle actual OCR processing
+    return entryIds;
   }
 
   // Movement operations
@@ -897,35 +1145,1209 @@ class AtlasStore {
     };
     this.setState({ allocationPreferences });
   }
+
+  // QA Toolkit Methods
+  
+  // Toggle QA Mode with proper persistence
+  toggleQAMode() {
+    const qaMode = !this.state.qaMode;
+    
+    // Save to localStorage immediately
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.qaModeKey, qaMode.toString());
+    }
+    
+    // Update state
+    this.setState({ 
+      qaMode,
+      qaEvents: [...(this.state.qaEvents || []), {
+        type: qaMode ? 'qa_mode_enabled' : 'qa_mode_disabled',
+        timestamp: new Date().toISOString(),
+        module: 'QA'
+      }]
+    });
+    
+    // Add/remove keyboard shortcuts
+    if (qaMode) {
+      this.addKeyboardShortcuts();
+    } else {
+      this.removeKeyboardShortcuts();
+    }
+    
+    // Show toast notification
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast(
+        qaMode ? 'Modo QA activado' : 'Modo QA desactivado', 
+        qaMode ? 'success' : 'info'
+      );
+    }
+  }
+
+  // Load specific seed data with proper persistence
+  loadSeed(seedType) {
+    const seeds = this.getSeeds();
+    const seed = seeds[seedType];
+    
+    if (!seed) {
+      console.error(`Seed ${seedType} not found`);
+      if (typeof window !== 'undefined' && window.showToast) {
+        window.showToast(`Seed ${seedType} no encontrado`, 'error');
+      }
+      return;
+    }
+
+    console.log(`Loading Seed ${seedType}...`);
+    
+    // Preserve QA settings
+    const qaMode = this.state.qaMode;
+    const qaEvents = [...(this.state.qaEvents || []), {
+      type: 'seed_loaded',
+      seedType,
+      timestamp: new Date().toISOString(),
+      module: 'QA'
+    }];
+
+    // Replace entire state with seed data
+    this.state = {
+      ...seed,
+      qaMode,
+      activeSeed: seedType,
+      qaEvents,
+      lastSeedReset: new Date().toISOString(),
+      lastUpdate: new Date().toISOString()
+    };
+    
+    // Save active seed to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.activeSeedKey, seedType);
+    }
+    
+    // Save and notify
+    this.save();
+    this.notifySubscribers();
+    
+    // Show success toast
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast(`Seed ${seedType} cargado`, 'success');
+    }
+    
+    console.log(`✅ Seed ${seedType} loaded successfully`);
+  }
+
+  // Get all available seeds
+  getSeeds() {
+    return {
+      A: this.getSeedA(),
+      B: this.getSeedB(), 
+      C: this.getSeedC()
+    };
+  }
+
+  // Seed A (Simple): 1 property, 2 accounts, 1 loan, 4 invoices
+  getSeedA() {
+    return {
+      accounts: [
+        {
+          id: 1,
+          name: 'Cuenta Principal',
+          bank: 'BBVA',
+          iban: 'ES21 0182 1111 ****',
+          balanceToday: 15000,
+          balanceT7: 15200,
+          balanceT30: 14800,
+          targetBalance: 15000,
+          health: 'good',
+          hidden: false
+        },
+        {
+          id: 2,
+          name: 'Cuenta Gastos',
+          bank: 'Santander',
+          iban: 'ES45 0049 2222 ****',
+          balanceToday: 8500,
+          balanceT7: 8200,
+          balanceT30: 8000,
+          targetBalance: 8000,
+          health: 'excellent',
+          hidden: false
+        }
+      ],
+      properties: [
+        {
+          id: 1,
+          address: 'Calle Ejemplo 123, 2ºA',
+          city: 'Madrid',
+          type: 'Piso',
+          purchaseDate: '2020-01-15',
+          purchasePrice: 180000,
+          currentValue: 195000,
+          monthlyRent: 1200,
+          monthlyExpenses: 200,
+          netProfit: 1000,
+          rentability: 6.7,
+          occupancy: 100,
+          tenant: 'Ana García',
+          contractStart: '2023-01-01',
+          contractEnd: '2024-12-31',
+          status: 'Ocupado',
+          multiUnit: false
+        }
+      ],
+      loans: [
+        {
+          id: 1,
+          propertyId: 1,
+          bank: 'BBVA',
+          product: 'Hipoteca estándar',
+          originalAmount: 140000,
+          pendingCapital: 120000,
+          interestRate: 2.5,
+          interestType: 'variable',
+          monthlyPayment: 650,
+          remainingMonths: 180,
+          startDate: '2020-01-15',
+          endDate: '2035-01-15'
+        }
+      ],
+      documents: [
+        {
+          id: 1,
+          uploadDate: '2024-01-10',
+          provider: 'Endesa',
+          amount: 85,
+          description: 'Factura electricidad',
+          concept: 'Factura electricidad',
+          category: 'Suministros',
+          type: 'Factura',
+          status: 'Asignada a CAPEX',
+          recurrence: 'monthly',
+          propertyId: 1,
+          fiscalTreatment: 'operational_expense',
+          capexProjectId: 1
+        },
+        {
+          id: 2,
+          uploadDate: '2024-01-12',
+          provider: 'Comunidad',
+          amount: 120,
+          description: 'Gastos comunidad',
+          category: 'Fijos',
+          type: 'Factura',
+          status: 'Pendiente',
+          recurrence: 'monthly'
+        },
+        {
+          id: 3,
+          uploadDate: '2024-01-15',
+          provider: 'Canal Isabel II',
+          amount: 45,
+          description: 'Factura agua',
+          category: 'Suministros',
+          type: 'Factura',
+          status: 'Pendiente',
+          recurrence: 'monthly'
+        },
+        {
+          id: 4,
+          uploadDate: '2024-01-20',
+          provider: 'Mapfre',
+          amount: 35,
+          description: 'Seguro hogar',
+          category: 'Seguros',
+          type: 'Factura',
+          status: 'Pendiente',
+          recurrence: 'monthly'
+        }
+      ],
+      movements: [],
+      alerts: [],
+      inboxEntries: [],
+      missingInvoices: [],
+      users: mockData.users,
+      treasuryRules: mockData.treasuryRules,
+      scheduledPayments: [],
+      providerRules: mockData.providerRules,
+      sweepConfig: mockData.sweepConfig,
+      predictedItems: [],
+      rulesEngineEnabled: true,
+      lastRulesRun: null,
+      units: [],
+      unitContracts: [],
+      allocationPreferences: {},
+      expenseFamilies: [
+        { id: 'acquisition', name: 'Adquisición', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
+        { id: 'improvement', name: 'Mejora / CAPEX', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
+        { id: 'maintenance', name: 'Mantenimiento / Reparación', defaultTreatment: 'deductible', defaultAllocation: 'specific' },
+        { id: 'financing_interest', name: 'Financiación – Intereses', defaultTreatment: 'deductible', defaultAllocation: 'units' },
+        { id: 'financing_fees', name: 'Financiación – Comisiones/Formalización', defaultTreatment: 'capitalizable', defaultAllocation: 'units' },
+        { id: 'operational_fixed', name: 'Explotación – Fijos', defaultTreatment: 'deductible', defaultAllocation: 'total' },
+        { id: 'operational_variable', name: 'Explotación – Variables (Suministros)', defaultTreatment: 'deductible', defaultAllocation: 'occupied' },
+        { id: 'other_owner', name: 'Otros / Propietario', defaultTreatment: 'no_deductible', defaultAllocation: 'no_divide' }
+      ],
+      // H9B: CAPEX data for demonstration
+      capexProjects: [
+        {
+          id: 1,
+          name: 'Reforma cocina 2024',
+          description: 'Renovación completa de la cocina del inmueble',
+          propertyId: 1,
+          propertyName: 'Calle Ejemplo 123, 2ºA',
+          totalBudget: 8000,
+          spentAmount: 3500,
+          documentCount: 3,
+          status: 'active',
+          category: 'improvement',
+          fiscalTreatment: 'improvement_capitalizable',
+          createdDate: '2024-01-01T00:00:00.000Z'
+        }
+      ],
+      capexItems: [
+        {
+          id: 1,
+          projectId: 1,
+          documentId: 1,
+          lineItemId: null,
+          assignedDate: '2024-01-10T00:00:00.000Z'
+        }
+      ],
+      fiscalConfig: {
+        rcAnnualLimit: 1000,
+        rcCarryoverYears: 4,
+        furnitureDepreciationYears: 10,
+        improvementCapitalizationThreshold: 600
+      },
+      fiscalTreatments: [
+        { 
+          id: 'rc_maintenance', 
+          name: 'Reparación/Conservación (R/C)', 
+          description: 'Deducible hasta límite anual, arrastre 4 años',
+          type: 'deductible_limited',
+          annualLimit: true,
+          carryover: true
+        },
+        { 
+          id: 'improvement_capitalizable', 
+          name: 'Mejora capitalizable', 
+          description: 'Se capitaliza al edificio, no deducible',
+          type: 'capitalizable',
+          annualLimit: false,
+          carryover: false
+        },
+        { 
+          id: 'furniture_depreciable', 
+          name: 'Mobiliario amortizable', 
+          description: 'Amortizable en 10 años',
+          type: 'depreciable',
+          annualLimit: false,
+          carryover: false,
+          depreciationYears: 10
+        },
+        { 
+          id: 'operational_expense', 
+          name: 'Gasto operacional', 
+          description: 'Deducible íntegramente',
+          type: 'deductible',
+          annualLimit: false,
+          carryover: false
+        }
+      ]
+    };
+  }
+
+  // Seed B (Multi-unit): 1 property with 5 rooms
+  getSeedB() {
+    return {
+      accounts: [
+        {
+          id: 1,
+          name: 'Cuenta Principal',
+          bank: 'BBVA',
+          iban: 'ES21 0182 1111 ****',
+          balanceToday: 25000,
+          balanceT7: 24800,
+          balanceT30: 25200,
+          targetBalance: 25000,
+          health: 'excellent',
+          hidden: false
+        },
+        {
+          id: 2,
+          name: 'Cuenta Gastos',
+          bank: 'Santander',
+          iban: 'ES45 0049 2222 ****',
+          balanceToday: 12000,
+          balanceT7: 11800,
+          balanceT30: 12200,
+          targetBalance: 12000,
+          health: 'good',
+          hidden: false
+        }
+      ],
+      properties: [
+        {
+          id: 1,
+          address: 'Calle Multi 456, Piso Compartido',
+          city: 'Madrid',
+          type: 'Piso compartido',
+          purchaseDate: '2021-06-01',
+          purchasePrice: 250000,
+          currentValue: 270000,
+          monthlyRent: 1910,
+          monthlyExpenses: 400,
+          netProfit: 1510,
+          rentability: 7.2,
+          occupancy: 80,
+          tenant: 'Varios inquilinos',
+          contractStart: '2024-01-01',
+          contractEnd: '2024-12-31',
+          status: 'Parcialmente ocupado',
+          multiUnit: true,
+          totalUnits: 5,
+          occupiedUnits: 4
+        }
+      ],
+      units: [
+        { id: 1, propertyId: 1, name: 'H1', sqm: 8, monthlyRent: 320, status: 'Ocupada' },
+        { id: 2, propertyId: 1, name: 'H2', sqm: 9, monthlyRent: 350, status: 'Ocupada' },
+        { id: 3, propertyId: 1, name: 'H3', sqm: 12, monthlyRent: 400, status: 'Ocupada' },
+        { id: 4, propertyId: 1, name: 'H4', sqm: 12, monthlyRent: 400, status: 'Ocupada' },
+        { id: 5, propertyId: 1, name: 'H5', sqm: 15, monthlyRent: 440, status: 'Libre' }
+      ],
+      unitContracts: [
+        {
+          id: 1,
+          unitId: 1,
+          type: 'Alquiler',
+          tenant: 'Pedro Martín',
+          startDate: '2024-01-01',
+          endDate: '2024-12-31',
+          monthlyAmount: 320,
+          status: 'Activo'
+        },
+        {
+          id: 2,
+          unitId: 2,
+          type: 'Alquiler',
+          tenant: 'Laura Sánchez',
+          startDate: '2024-01-01',
+          endDate: '2024-12-31',
+          monthlyAmount: 350,
+          status: 'Activo'
+        },
+        {
+          id: 3,
+          unitId: 3,
+          type: 'Alquiler',
+          tenant: 'Miguel Ruiz',
+          startDate: '2024-01-15',
+          endDate: '2024-12-31',
+          monthlyAmount: 400,
+          status: 'Activo'
+        },
+        {
+          id: 4,
+          unitId: 4,
+          type: 'Alquiler',
+          tenant: 'Sofia López',
+          startDate: '2024-01-01',
+          endDate: '2024-12-31',
+          monthlyAmount: 400,
+          status: 'Activo'
+        }
+      ],
+      loans: [],
+      documents: [
+        {
+          id: 1,
+          uploadDate: '2024-01-10',
+          provider: 'Endesa',
+          amount: 120,
+          description: 'Factura electricidad',
+          category: 'Suministros',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'occupied'
+        },
+        {
+          id: 2,
+          uploadDate: '2024-01-10',
+          provider: 'Canal Isabel II',
+          amount: 60,
+          description: 'Factura agua',
+          category: 'Suministros',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'occupied'
+        },
+        {
+          id: 3,
+          uploadDate: '2024-01-10',
+          provider: 'Movistar',
+          amount: 40,
+          description: 'Internet fibra',
+          category: 'Suministros',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'occupied'
+        },
+        {
+          id: 4,
+          uploadDate: '2024-01-15',
+          provider: 'Comunidad',
+          amount: 80,
+          description: 'Gastos comunidad',
+          category: 'Fijos',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'total'
+        },
+        {
+          id: 5,
+          uploadDate: '2024-01-15',
+          provider: 'Ayuntamiento',
+          amount: 150,
+          description: 'IBI',
+          category: 'Fijos',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'total'
+        },
+        {
+          id: 6,
+          uploadDate: '2024-01-20',
+          provider: 'Cerrajería López',
+          amount: 45,
+          description: 'Cambio cerradura H3',
+          category: 'Mantenimiento',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'specific',
+          specificUnit: 'H3'
+        },
+        {
+          id: 7,
+          uploadDate: '2024-01-25',
+          provider: 'Ventanas Pro',
+          amount: 1500,
+          description: 'Cambio ventanas',
+          category: 'CAPEX',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'sqm'
+        },
+        {
+          id: 8,
+          uploadDate: '2024-01-30',
+          provider: 'BBVA',
+          amount: 210,
+          description: 'Intereses hipoteca',
+          category: 'Financiación',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'units'
+        },
+        {
+          id: 9,
+          uploadDate: '2024-01-30',
+          provider: 'Gestora ABC',
+          amount: 300,
+          description: 'Comisión gestión',
+          category: 'Gestión',
+          type: 'Factura',
+          status: 'Pendiente',
+          allocationMethod: 'units'
+        }
+      ],
+      movements: [],
+      alerts: [],
+      inboxEntries: [],
+      missingInvoices: [],
+      users: mockData.users,
+      treasuryRules: mockData.treasuryRules,
+      scheduledPayments: [],
+      providerRules: mockData.providerRules,
+      sweepConfig: mockData.sweepConfig,
+      predictedItems: [],
+      rulesEngineEnabled: true,
+      lastRulesRun: null,
+      allocationPreferences: {
+        'Endesa_Suministros': { method: 'occupied', lastUsed: '2024-01-10' },
+        'Canal_Suministros': { method: 'occupied', lastUsed: '2024-01-10' },
+        'Movistar_Suministros': { method: 'occupied', lastUsed: '2024-01-10' },
+        'Comunidad_Fijos': { method: 'total', lastUsed: '2024-01-15' }
+      },
+      expenseFamilies: [
+        { id: 'acquisition', name: 'Adquisición', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
+        { id: 'improvement', name: 'Mejora / CAPEX', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
+        { id: 'maintenance', name: 'Mantenimiento / Reparación', defaultTreatment: 'deductible', defaultAllocation: 'specific' },
+        { id: 'financing_interest', name: 'Financiación – Intereses', defaultTreatment: 'deductible', defaultAllocation: 'units' },
+        { id: 'financing_fees', name: 'Financiación – Comisiones/Formalización', defaultTreatment: 'capitalizable', defaultAllocation: 'units' },
+        { id: 'operational_fixed', name: 'Explotación – Fijos', defaultTreatment: 'deductible', defaultAllocation: 'total' },
+        { id: 'operational_variable', name: 'Explotación – Variables (Suministros)', defaultTreatment: 'deductible', defaultAllocation: 'occupied' },
+        { id: 'other_owner', name: 'Otros / Propietario', defaultTreatment: 'no_deductible', defaultAllocation: 'no_divide' }
+      ]
+    };
+  }
+
+  // Seed C (Edge cases): overlapping contracts, custom percentages
+  getSeedC() {
+    return {
+      accounts: [
+        {
+          id: 1,
+          name: 'Cuenta Principal',
+          bank: 'BBVA',
+          iban: 'ES21 0182 1111 ****',
+          balanceToday: 18000,
+          balanceT7: 17500,
+          balanceT30: 18200,
+          targetBalance: 18000,
+          health: 'good',
+          hidden: false
+        }
+      ],
+      properties: [
+        {
+          id: 1,
+          address: 'Calle Bordes 789, Casos Límite',
+          city: 'Barcelona',
+          type: 'Piso',
+          purchaseDate: '2022-03-01',
+          purchasePrice: 200000,
+          currentValue: 215000,
+          monthlyRent: 1100,
+          monthlyExpenses: 250,
+          netProfit: 850,
+          rentability: 6.2,
+          occupancy: 100,
+          tenant: 'Contrato Complejo',
+          contractStart: '2024-01-15',
+          contractEnd: '2024-12-31',
+          status: 'Ocupado',
+          multiUnit: true,
+          totalUnits: 2,
+          occupiedUnits: 2,
+          sqm: null // Property without square meters
+        }
+      ],
+      units: [
+        { id: 1, propertyId: 1, name: 'Zona A', sqm: null, monthlyRent: 550, status: 'Ocupada' },
+        { id: 2, propertyId: 1, name: 'Zona B', sqm: null, monthlyRent: 550, status: 'Ocupada' }
+      ],
+      unitContracts: [
+        {
+          id: 1,
+          unitId: 1,
+          type: 'Piso completo',
+          tenant: 'Juan Pérez',
+          startDate: '2024-01-15',
+          endDate: '2024-01-30',
+          monthlyAmount: 1100,
+          status: 'Solapado',
+          overlapping: true
+        },
+        {
+          id: 2,
+          unitId: 2,
+          type: 'Piso completo',
+          tenant: 'María González',
+          startDate: '2024-01-15',
+          endDate: '2024-01-30',
+          monthlyAmount: 1100,
+          status: 'Solapado',
+          overlapping: true
+        }
+      ],
+      loans: [],
+      documents: [
+        {
+          id: 1,
+          uploadDate: '2024-01-10',
+          provider: 'Iberdrola',
+          amount: 95,
+          description: 'Electricidad sin reparto',
+          category: 'Suministros',
+          type: 'Factura',
+          status: 'Sin reparto',
+          allocationMethod: null
+        },
+        {
+          id: 2,
+          uploadDate: '2024-01-15',
+          provider: 'Reparaciones XYZ',
+          amount: 200,
+          description: 'Personalizado 70/30',
+          category: 'Mantenimiento',
+          type: 'Factura',
+          status: 'Personalizado',
+          allocationMethod: 'custom',
+          customAllocation: [
+            { unitId: 1, percentage: 70 },
+            { unitId: 2, percentage: 30 }
+          ]
+        }
+      ],
+      movements: [],
+      alerts: [
+        {
+          id: 1,
+          type: 'warning',
+          title: 'Contratos solapados',
+          description: 'Hay contratos que se solapan 15 días',
+          severity: 'high',
+          date: '2024-01-15',
+          dismissed: false
+        }
+      ],
+      inboxEntries: [],
+      missingInvoices: [],
+      users: mockData.users,
+      treasuryRules: mockData.treasuryRules,
+      scheduledPayments: [],
+      providerRules: mockData.providerRules,
+      sweepConfig: mockData.sweepConfig,
+      predictedItems: [],
+      rulesEngineEnabled: true,
+      lastRulesRun: null,
+      allocationPreferences: {},
+      expenseFamilies: [
+        { id: 'acquisition', name: 'Adquisición', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
+        { id: 'improvement', name: 'Mejora / CAPEX', defaultTreatment: 'capitalizable', defaultAllocation: 'sqm' },
+        { id: 'maintenance', name: 'Mantenimiento / Reparación', defaultTreatment: 'deductible', defaultAllocation: 'specific' },
+        { id: 'financing_interest', name: 'Financiación – Intereses', defaultTreatment: 'deductible', defaultAllocation: 'units' },
+        { id: 'financing_fees', name: 'Financiación – Comisiones/Formalización', defaultTreatment: 'capitalizable', defaultAllocation: 'units' },
+        { id: 'operational_fixed', name: 'Explotación – Fijos', defaultTreatment: 'deductible', defaultAllocation: 'total' },
+        { id: 'operational_variable', name: 'Explotación – Variables (Suministros)', defaultTreatment: 'deductible', defaultAllocation: 'occupied' },
+        { id: 'other_owner', name: 'Otros / Propietario', defaultTreatment: 'no_deductible', defaultAllocation: 'no_divide' }
+      ]
+    };
+  }
+
+  // Add QA event
+  addQAEvent(event) {
+    const qaEvents = [...(this.state.qaEvents || []), {
+      ...event,
+      timestamp: new Date().toISOString()
+    }];
+    this.setState({ qaEvents });
+  }
+
+  // Generate diagnostics info
+  generateDiagnostics() {
+    const state = this.state;
+    const route = typeof window !== 'undefined' ? window.location.pathname : '/';
+    const version = '0.1.3'; // From package.json
+    const commitShort = 'dev-' + Date.now().toString().slice(-6);
+    
+    return {
+      route,
+      version,
+      commit: commitShort,
+      seed: state.activeSeed || 'default',
+      qaMode: state.qaMode,
+      timestamp: new Date().toISOString(),
+      flags: {
+        rulesEngine: state.rulesEngineEnabled,
+        multiUnit: state.properties?.some(p => p.multiUnit) || false
+      }
+    };
+  }
+
+  // Copy diagnostics to clipboard (will be handled in UI)
+  getDiagnosticsText() {
+    const diag = this.generateDiagnostics();
+    return `ATLAS Diagnostics
+Route: ${diag.route}
+Version: ${diag.version}
+Commit: ${diag.commit}
+Seed: ${diag.seed}
+QA Mode: ${diag.qaMode ? 'ON' : 'OFF'}
+Rules Engine: ${diag.flags.rulesEngine ? 'ON' : 'OFF'}
+Multi-unit: ${diag.flags.multiUnit ? 'YES' : 'NO'}
+Timestamp: ${diag.timestamp}`;
+  }
+
+  // QA Quick Actions
+  
+  // Create upcoming movements (next 7 days)
+  createUpcomingMovements() {
+    const movements = [];
+    const today = new Date();
+    
+    for (let i = 1; i <= 10; i++) {
+      const futureDate = new Date(today);
+      futureDate.setDate(today.getDate() + i);
+      
+      movements.push({
+        id: Date.now() + i,
+        date: futureDate.toISOString().split('T')[0],
+        description: `Movimiento futuro ${i}`,
+        amount: Math.floor(Math.random() * 500) + 50,
+        account: 'Cuenta Principal',
+        category: 'Programado',
+        status: 'Pendiente'
+      });
+    }
+    
+    const updatedMovements = [...this.state.movements, ...movements];
+    this.setState({ movements: updatedMovements });
+    this.addQAEvent({ type: 'upcoming_movements_created', count: 10, module: 'Tesorería' });
+    
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast('10 movimientos próximos creados', 'success');
+    }
+  }
+
+  // Create overdue movements (last 10 days)
+  createOverdueMovements() {
+    const movements = [];
+    const today = new Date();
+    
+    for (let i = 1; i <= 10; i++) {
+      const pastDate = new Date(today);
+      pastDate.setDate(today.getDate() - i);
+      
+      movements.push({
+        id: Date.now() + i + 1000,
+        date: pastDate.toISOString().split('T')[0],
+        description: `Movimiento atrasado ${i}`,
+        amount: -(Math.floor(Math.random() * 300) + 25),
+        account: 'Cuenta Principal',
+        category: 'Atrasado',
+        status: 'Excepción'
+      });
+    }
+    
+    const updatedMovements = [...this.state.movements, ...movements];
+    this.setState({ movements: updatedMovements });
+    this.addQAEvent({ type: 'overdue_movements_created', count: 10, module: 'Tesorería' });
+    
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast('10 movimientos atrasados creados', 'success');
+    }
+  }
+
+  // Generate invoices without documents
+  generateInvoicesWithoutDocuments() {
+    const invoices = [
+      {
+        id: Date.now() + 1,
+        uploadDate: new Date().toISOString(),
+        provider: 'Proveedor Sin Doc 1',
+        amount: 125.50,
+        description: 'Factura sin documento detectada',
+        category: 'Sin categoría',
+        type: 'Factura',
+        status: 'Sin documento',
+        hasDocument: false
+      },
+      {
+        id: Date.now() + 2,
+        uploadDate: new Date().toISOString(),
+        provider: 'Proveedor Sin Doc 2',
+        amount: 89.25,
+        description: 'Gasto sin justificante',
+        category: 'Sin categoría',
+        type: 'Factura',
+        status: 'Sin documento',
+        hasDocument: false
+      },
+      {
+        id: Date.now() + 3,
+        uploadDate: new Date().toISOString(),
+        provider: 'Proveedor Sin Doc 3',
+        amount: 234.75,
+        description: 'Factura extraviada',
+        category: 'Sin categoría',
+        type: 'Factura',
+        status: 'Sin documento',
+        hasDocument: false
+      }
+    ];
+    
+    const updatedDocuments = [...this.state.documents, ...invoices];
+    const updatedInbox = [...this.state.inboxEntries, ...invoices.map(inv => ({
+      ...inv,
+      type: 'pending_document',
+      urgent: true
+    }))];
+    
+    this.setState({ 
+      documents: updatedDocuments,
+      inboxEntries: updatedInbox
+    });
+    this.addQAEvent({ type: 'invoices_without_docs_created', count: 3, module: 'Documentos' });
+    
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast('3 facturas sin documento generadas', 'success');
+    }
+  }
+
+  // Simulate low balance in an account
+  simulateLowBalance() {
+    const accounts = this.state.accounts.map(account => {
+      if (account.id === 1) { // Main account
+        return {
+          ...account,
+          balanceToday: account.targetBalance - 1000, // Set below target
+          health: 'warning'
+        };
+      }
+      return account;
+    });
+    
+    // Add low balance alert
+    this.addAlert({
+      type: 'low_balance',
+      severity: 'high',
+      title: 'Saldo bajo detectado',
+      description: 'La cuenta principal está por debajo del objetivo',
+      accountId: 1,
+      actions: ['transfer_money', 'adjust_target', 'dismiss']
+    });
+    
+    this.setState({ accounts });
+    this.addQAEvent({ type: 'low_balance_simulated', module: 'Tesorería' });
+    
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast('Saldo bajo simulado en cuenta principal', 'warning');
+    }
+  }
+
+  // Execute rules engine with feedback
+  executeRulesEngine() {
+    console.log('🔄 Ejecutando motor de reglas desde QA...');
+    const changes = this.runRulesEngine();
+    
+    this.addQAEvent({ 
+      type: 'rules_engine_executed', 
+      changesCount: changes.length,
+      module: 'Config'
+    });
+    
+    if (typeof window !== 'undefined' && window.showToast) {
+      window.showToast(
+        `Motor de reglas ejecutado: ${changes.length} cambios aplicados`, 
+        'success'
+      );
+    }
+    
+    return changes;
+  }
+
+  // H9B: CAPEX Management Methods
+  
+  // Create a new CAPEX project
+  addCapexProject(project) {
+    const capexProjects = [...this.state.capexProjects, {
+      ...project,
+      id: Date.now(),
+      createdDate: new Date().toISOString(),
+      status: 'active', // active, completed, cancelled
+      totalBudget: project.totalBudget || 0,
+      spentAmount: 0,
+      documentCount: 0
+    }];
+    this.setState({ capexProjects });
+    return capexProjects[capexProjects.length - 1];
+  }
+
+  // Update CAPEX project
+  updateCapexProject(projectId, updates) {
+    const capexProjects = this.state.capexProjects.map(project => 
+      project.id === projectId ? { ...project, ...updates } : project
+    );
+    this.setState({ capexProjects });
+  }
+
+  // Add document breakdown with line items
+  addDocumentBreakdown(documentId, lineItems) {
+    // Update the document with line items
+    const documents = this.state.documents.map(doc => {
+      if (doc.id === documentId) {
+        return {
+          ...doc,
+          hasBreakdown: true,
+          lineItems: lineItems.map(item => ({
+            ...item,
+            id: Date.now() + Math.random(),
+            documentId: documentId
+          }))
+        };
+      }
+      return doc;
+    });
+    
+    this.setState({ documents });
+  }
+
+  // Assign document or line item to CAPEX project
+  assignToCapexProject(projectId, documentId, lineItemId = null) {
+    const capexItems = [...this.state.capexItems, {
+      id: Date.now(),
+      projectId: projectId,
+      documentId: documentId,
+      lineItemId: lineItemId,
+      assignedDate: new Date().toISOString()
+    }];
+    
+    // Update document status
+    const documents = this.state.documents.map(doc => {
+      if (doc.id === documentId) {
+        return {
+          ...doc,
+          capexProjectId: projectId,
+          status: 'Asignada a CAPEX'
+        };
+      }
+      return doc;
+    });
+    
+    // Update project totals
+    this.recalculateCapexProjectTotals(projectId);
+    
+    this.setState({ capexItems, documents });
+  }
+
+  // Recalculate CAPEX project totals
+  recalculateCapexProjectTotals(projectId) {
+    const projectItems = this.state.capexItems.filter(item => item.projectId === projectId);
+    let totalSpent = 0;
+    let documentCount = 0;
+    
+    projectItems.forEach(item => {
+      const document = this.state.documents.find(doc => doc.id === item.documentId);
+      if (document) {
+        if (item.lineItemId) {
+          // If it's a line item, find the specific line
+          const lineItem = document.lineItems?.find(line => line.id === item.lineItemId);
+          if (lineItem) {
+            totalSpent += lineItem.amount || 0;
+          }
+        } else {
+          // If it's the entire document
+          totalSpent += document.amount || 0;
+          documentCount++;
+        }
+      }
+    });
+    
+    // Update project
+    const capexProjects = this.state.capexProjects.map(project => {
+      if (project.id === projectId) {
+        return {
+          ...project,
+          spentAmount: totalSpent,
+          documentCount: documentCount
+        };
+      }
+      return project;
+    });
+    
+    this.setState({ capexProjects });
+  }
+
+  // Get CAPEX summary for a property
+  getCapexSummaryForProperty(propertyId) {
+    const propertyProjects = this.state.capexProjects.filter(project => project.propertyId === propertyId);
+    const currentYear = new Date().getFullYear();
+    
+    const summary = {
+      totalCapex: 0,
+      currentYearCapex: 0,
+      pendingCapex: 0,
+      projectCount: propertyProjects.length,
+      activeProjects: 0,
+      rcUsed: 0,
+      rcAvailable: this.state.fiscalConfig.rcAnnualLimit
+    };
+    
+    propertyProjects.forEach(project => {
+      summary.totalCapex += project.spentAmount || 0;
+      
+      if (project.status === 'active') {
+        summary.activeProjects++;
+        summary.pendingCapex += (project.totalBudget || 0) - (project.spentAmount || 0);
+      }
+      
+      // Calculate current year spending
+      const projectYear = new Date(project.createdDate).getFullYear();
+      if (projectYear === currentYear) {
+        summary.currentYearCapex += project.spentAmount || 0;
+      }
+    });
+    
+    // Calculate R/C usage for current year
+    const currentYearRCItems = this.state.capexItems.filter(item => {
+      const document = this.state.documents.find(doc => doc.id === item.documentId);
+      if (!document) return false;
+      
+      const fiscalTreatment = document.fiscalTreatment || 'rc_maintenance';
+      const itemYear = new Date(document.uploadDate || document.date).getFullYear();
+      
+      return fiscalTreatment === 'rc_maintenance' && itemYear === currentYear;
+    });
+    
+    currentYearRCItems.forEach(item => {
+      const document = this.state.documents.find(doc => doc.id === item.documentId);
+      if (document) {
+        if (item.lineItemId) {
+          const lineItem = document.lineItems?.find(line => line.id === item.lineItemId);
+          if (lineItem) {
+            summary.rcUsed += lineItem.amount || 0;
+          }
+        } else {
+          summary.rcUsed += document.amount || 0;
+        }
+      }
+    });
+    
+    summary.rcAvailable = Math.max(0, this.state.fiscalConfig.rcAnnualLimit - summary.rcUsed);
+    
+    return summary;
+  }
+
+  // Get fiscal summary for CAPEX
+  getCapexFiscalSummary(propertyId, year = null) {
+    const targetYear = year || new Date().getFullYear();
+    const propertyProjects = this.state.capexProjects.filter(project => project.propertyId === propertyId);
+    
+    const summary = {
+      year: targetYear,
+      rcMaintenance: { used: 0, limit: this.state.fiscalConfig.rcAnnualLimit, available: 0 },
+      improvements: { total: 0, capitalized: 0 },
+      furniture: { total: 0, annualDepreciation: 0 },
+      operational: { total: 0, deducted: 0 }
+    };
+    
+    // Collect all items for the property in the target year
+    const yearItems = this.state.capexItems.filter(item => {
+      const document = this.state.documents.find(doc => doc.id === item.documentId);
+      if (!document) return false;
+      
+      const itemYear = new Date(document.uploadDate || document.date).getFullYear();
+      return itemYear === targetYear && 
+             propertyProjects.some(project => project.id === item.projectId);
+    });
+    
+    yearItems.forEach(item => {
+      const document = this.state.documents.find(doc => doc.id === item.documentId);
+      if (!document) return;
+      
+      let amount = 0;
+      if (item.lineItemId) {
+        const lineItem = document.lineItems?.find(line => line.id === item.lineItemId);
+        amount = lineItem?.amount || 0;
+      } else {
+        amount = document.amount || 0;
+      }
+      
+      const fiscalTreatment = document.fiscalTreatment || 'rc_maintenance';
+      
+      switch (fiscalTreatment) {
+        case 'rc_maintenance':
+          summary.rcMaintenance.used += amount;
+          break;
+        case 'improvement_capitalizable':
+          summary.improvements.total += amount;
+          summary.improvements.capitalized += amount;
+          break;
+        case 'furniture_depreciable':
+          summary.furniture.total += amount;
+          summary.furniture.annualDepreciation += amount / this.state.fiscalConfig.furnitureDepreciationYears;
+          break;
+        case 'operational_expense':
+          summary.operational.total += amount;
+          summary.operational.deducted += amount;
+          break;
+      }
+    });
+    
+    summary.rcMaintenance.available = Math.max(0, summary.rcMaintenance.limit - summary.rcMaintenance.used);
+    
+    return summary;
+  }
+
+  // Detect duplicate documents
+  detectDuplicateDocuments(newDocument) {
+    const duplicates = this.state.documents.filter(doc => {
+      // Check amount similarity (±1€)
+      const amountDiff = Math.abs((doc.amount || 0) - (newDocument.amount || 0));
+      if (amountDiff > 1) return false;
+      
+      // Check date similarity (±7 days)
+      const docDate = new Date(doc.uploadDate || doc.date);
+      const newDocDate = new Date(newDocument.uploadDate || newDocument.date);
+      const daysDiff = Math.abs(docDate - newDocDate) / (1000 * 60 * 60 * 24);
+      if (daysDiff > 7) return false;
+      
+      return true;
+    });
+    
+    return duplicates;
+  }
+
+  // Add manual CAPEX expense
+  addManualCapexExpense(expense) {
+    const document = {
+      ...expense,
+      id: Date.now(),
+      uploadDate: new Date().toISOString(),
+      type: 'Manual',
+      status: 'Validada',
+      source: 'manual_capex'
+    };
+    
+    const documents = [...this.state.documents, document];
+    this.setState({ documents });
+    
+    // If assigned to project, create the assignment
+    if (expense.capexProjectId) {
+      this.assignToCapexProject(expense.capexProjectId, document.id);
+    }
+    
+    return document;
+  }
+
+  // Close CAPEX year (fiscal closure)
+  closeCapexYear(year, propertyId) {
+    const summary = this.getCapexFiscalSummary(propertyId, year);
+    
+    // Create a closure record
+    const capexClosures = this.state.capexClosures || [];
+    const closure = {
+      id: Date.now(),
+      year: year,
+      propertyId: propertyId,
+      closureDate: new Date().toISOString(),
+      fiscalSummary: summary,
+      status: 'closed'
+    };
+    
+    capexClosures.push(closure);
+    this.setState({ capexClosures });
+    
+    return closure;
+  }
 }
 
 // Create singleton instance
 const store = new AtlasStore();
 
-// Always ensure we have demo data immediately, regardless of environment
-console.log('Initializing store with demo data');
-store.resetDemo();
-
 // Initialize store on first import
 if (typeof window !== 'undefined') {
-  // In browser environment, try to load from localStorage but keep demo as fallback
+  // In browser environment, try to load from localStorage first
   setTimeout(() => {
+    console.log('Initializing store from localStorage...');
     store.load();
     
-    // Double-check that store has data after loading - if not, force demo data
-    const state = store.getState();
-    const hasData = state.accounts?.length > 0 || 
-                   state.properties?.length > 0 || 
-                   state.documents?.length > 0;
-    
-    if (!hasData) {
-      console.log('Store still empty after load, forcing demo data');
-      store.resetDemo();
-    }
+    // Initialize QA mode after data is loaded
+    store.initializeQAMode();
   }, 100); // Small delay to allow DOM to be ready
 } else {
-  // If window is not available (SSR), we already have demo data loaded
-  console.log('Window not available, demo data already loaded for SSR');
+  // If window is not available (SSR), load demo data for server rendering
+  console.log('Window not available, loading demo data for SSR');
+  store.resetDemo();
 }
 
 export default store;
